@@ -1,0 +1,26 @@
+@using EatWeb.Models.Enums
+@model string
+
+@{
+    var badgeClass = Model switch
+    {
+        EstadoPedido.Pendiente => "bg-warning text-dark",
+        EstadoPedido.EnPreparacion => "bg-info text-dark",
+        EstadoPedido.Listo => "bg-success",
+        EstadoPedido.Entregado => "bg-secondary",
+        EstadoPedido.Cancelado => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    var texto = Model switch
+    {
+        EstadoPedido.Pendiente => "Pendiente",
+        EstadoPedido.EnPreparacion => "En Preparación",
+        EstadoPedido.Listo => "Listo",
+        EstadoPedido.Entregado => "Entregado",
+        EstadoPedido.Cancelado => "Cancelado",
+        _ => Model
+    };
+}
+
+<span class="badge @badgeClass">@texto</span>

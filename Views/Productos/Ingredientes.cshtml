@@ -1,0 +1,123 @@
+@using EatWeb.Models.Enums
+
+@{
+    ViewData["Title"] = "Ingredientes del Producto";
+    var productoId = (int)ViewBag.ProductoId;
+    var productoNombre = (string)ViewBag.ProductoNombre;
+    var ingredientesAsignados = (List<ProductoIngredienteViewModel>)ViewBag.IngredientesAsignados;
+    var ingredientesDisponibles = (List<Ingrediente>)ViewBag.IngredientesDisponibles;
+}
+
+<h2>@productoNombre - Ingredientes</h2>
+
+<div class="row">
+    <div class="col-md-6">
+        <h5>Ingredientes Asignados</h5>
+        @if (ingredientesAsignados.Any())
+        {
+            <table class="table table-sm table-striped">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Tipo</th>
+                        <th>Precio Extra</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var ing in ingredientesAsignados)
+                    {
+                        <tr>
+                            <td>@ing.NombreIngrediente</td>
+                            <td>
+                                <span class="badge @(ing.Tipo == TipoIngrediente.Incluido ? "bg-info" : "bg-warning")">
+                                    @ing.Tipo
+                                </span>
+                            </td>
+                            <td>
+                                @if (ing.Tipo == TipoIngrediente.Incluido)
+                                {
+                                    <span>Incluido</span>
+                                }
+                                else
+                                {
+                                    <span>$@ing.PrecioExtra.ToString("F2")</span>
+                                }
+                            </td>
+                            <td>
+                                <form asp-action="RemoverIngrediente" asp-route-productoId="@productoId" asp-route-ingredienteId="@ing.IngredienteId" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Remover este ingrediente?')">Remover</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p class="alert alert-info">Sin ingredientes asignados</p>
+        }
+    </div>
+
+    <div class="col-md-6">
+        <h5>Asignar Ingrediente</h5>
+        @if (ingredientesDisponibles.Any())
+        {
+            <form asp-action="AñadirIngrediente" method="post">
+                <input type="hidden" name="productoId" value="@productoId" />
+
+                <div class="mb-3">
+                    <label for="ingredienteId" class="form-label">Ingrediente</label>
+                    <select name="ingredienteId" class="form-select" required>
+                        <option value="">Seleccionar...</option>
+                        @foreach (var ing in ingredientesDisponibles)
+                        {
+                            @if (!ingredientesAsignados.Any(ia => ia.IngredienteId == ing.Id))
+                            {
+                                <option value="@ing.Id">@ing.Nombre</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="tipo" class="form-label">Tipo</label>
+                    <select name="tipo" class="form-select" id="tipoSelect" required onchange="togglePrecio()">
+                        <option value="">Seleccionar...</option>
+                        <option value="@TipoIngrediente.Incluido">@TipoIngrediente.Incluido (sin costo)</option>
+                        <option value="@TipoIngrediente.Extra">@TipoIngrediente.Extra (con costo)</option>
+                    </select>
+                </div>
+
+                <div class="mb-3" id="precioExtraDiv">
+                    <label for="precioExtra" class="form-label">Precio Extra</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" name="precioExtra" step="0.01" min="0" class="form-control" />
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Asignar</button>
+            </form>
+        }
+        else
+        {
+            <p class="alert alert-warning">No hay ingredientes disponibles</p>
+        }
+    </div>
+</div>
+
+<div class="mt-3">
+    <a asp-action="Index" class="btn btn-secondary">Volver a Productos</a>
+</div>
+
+<script>
+    function togglePrecio() {
+        const tipo = document.getElementById('tipoSelect').value;
+        const precioDiv = document.getElementById('precioExtraDiv');
+        precioDiv.style.display = tipo === '@TipoIngrediente.Incluido' ? 'none' : 'block';
+    }
+    // Inicializar al cargar
+    togglePrecio();
+</script>

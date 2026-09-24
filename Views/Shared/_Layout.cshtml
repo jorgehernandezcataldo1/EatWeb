@@ -1,0 +1,103 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - EatWeb</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">EatWeb</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-auto">
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            @if (User.IsInRole(Roles.Admin))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Admin" asp-action="Index">Dashboard</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Mesas" asp-action="Administrar">Mesas</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Pedidos" asp-action="Index">Pedidos</a>
+                                </li>
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle" href="#" id="catalogoDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Catálogo</a>
+                                    <ul class="dropdown-menu" aria-labelledby="catalogoDropdown">
+                                        <li><a class="dropdown-item" asp-controller="Categorias" asp-action="Index">Categorías</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Productos" asp-action="Index">Productos</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Ingredientes" asp-action="Index">Ingredientes</a></li>
+                                    </ul>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Garzones" asp-action="Index">Garzones</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Sesiones" asp-action="Index">Historial</a>
+                                </li>
+                            }
+                            else if (User.IsInRole(Roles.Garzon))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Mesas" asp-action="Index">Mesas</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Pedidos" asp-action="Index">Pedidos</a>
+                                </li>
+                            }
+                            <li class="nav-item">
+                                <form class="d-inline" asp-controller="Account" asp-action="Logout" method="post">
+                                    <button type="submit" class="nav-link btn btn-link">Logout</button>
+                                </form>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    @if (TempData["Ok"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show m-3" role="alert">
+            @TempData["Ok"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show m-3" role="alert">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="container mt-4">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted mt-5 py-3">
+        <div class="container text-center">
+            &copy; 2026 - EatWeb Sistema de Gestión de Restaurantes
+        </div>
+    </footer>
+
+    <input type="hidden" id="__RequestVerificationToken" name="__RequestVerificationToken" value="@Html.AntiForgeryToken()" />
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

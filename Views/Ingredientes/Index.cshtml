@@ -1,0 +1,50 @@
+@model List<IngredienteViewModel>
+
+@{
+    ViewData["Title"] = "Ingredientes";
+}
+
+<div class="row mb-3">
+    <div class="col">
+        <h2>Ingredientes</h2>
+    </div>
+    <div class="col text-end">
+        <a asp-action="Crear" class="btn btn-primary">+ Nuevo Ingrediente</a>
+    </div>
+</div>
+
+<table class="table table-striped table-hover">
+    <thead class="table-dark">
+        <tr>
+            <th>Nombre</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var ingrediente in Model.OrderBy(i => i.Nombre))
+        {
+            <tr>
+                <td>@ingrediente.Nombre</td>
+                <td>
+                    <span class="badge @(ingrediente.Activo ? "bg-success" : "bg-danger")">
+                        @(ingrediente.Activo ? "Activo" : "Inactivo")
+                    </span>
+                </td>
+                <td>
+                    <a asp-action="Editar" asp-route-id="@ingrediente.Id" class="btn btn-sm btn-warning">Editar</a>
+                    <form asp-action="Activar" asp-route-id="@ingrediente.Id" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-sm @(ingrediente.Activo ? "btn-danger" : "btn-success")">
+                            @(ingrediente.Activo ? "Desactivar" : "Activar")
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (Model.Count == 0)
+{
+    <div class="alert alert-info">No hay ingredientes.</div>
+}

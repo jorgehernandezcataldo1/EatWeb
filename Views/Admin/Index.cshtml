@@ -1,0 +1,63 @@
+@{
+    ViewData["Title"] = "Dashboard";
+    dynamic stats = ViewBag.Stats;
+}
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h5 class="card-title">Productos</h5>
+                <p class="card-text display-4">@stats.TotalProductos</p>
+            </div>
+            <a asp-controller="Productos" asp-action="Index" class="card-footer text-white text-decoration-none">Ver todos →</a>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5 class="card-title">Mesas</h5>
+                <p class="card-text display-4">@stats.TotalMesas</p>
+            </div>
+            <a asp-controller="Mesas" asp-action="Administrar" class="card-footer text-white text-decoration-none">Administrar →</a>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h5 class="card-title">Pedidos Hoy</h5>
+                <p class="card-text display-4">@stats.TotalPedidosHoy</p>
+            </div>
+            <a asp-controller="Pedidos" asp-action="Index" class="card-footer text-white text-decoration-none">Ver todos →</a>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-danger">
+            <div class="card-body">
+                <h5 class="card-title">Pendientes</h5>
+                <p class="card-text display-4">@stats.PedidosPendientes</p>
+            </div>
+            <a asp-controller="Pedidos" asp-action="Index" class="card-footer text-white text-decoration-none">Atender →</a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col">
+        <div class="card">
+            <div class="card-header">
+                <h5>Accesos Rápidos</h5>
+            </div>
+            <div class="card-body">
+                <div class="btn-group-vertical w-100" role="group">
+                    <a asp-controller="Categorias" asp-action="Index" class="btn btn-outline-primary text-start">📁 Gestionar Categorías</a>
+                    <a asp-controller="Ingredientes" asp-action="Index" class="btn btn-outline-primary text-start">🥕 Gestionar Ingredientes</a>
+                    <a asp-controller="Productos" asp-action="Index" class="btn btn-outline-primary text-start">🍔 Gestionar Productos</a>
+                    <a asp-controller="Mesas" asp-action="Administrar" class="btn btn-outline-success text-start">🪑 Gestionar Mesas</a>
+                    <a asp-controller="Garzones" asp-action="Index" class="btn btn-outline-info text-start">👨 Gestionar Garzones</a>
+                    <a asp-controller="Pedidos" asp-action="Index" class="btn btn-outline-warning text-start">📋 Ver Pedidos</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,30 @@
+@using EatWeb.Models.Enums
+@model string
+
+@{
+    var badgeClass = Model switch
+    {
+        EstadoMesaVisual.FueraDeServicio => "bg-danger",
+        EstadoMesaVisual.Disponible => "bg-success",
+        EstadoMesaVisual.CuentaSolicitada => "bg-warning text-dark",
+        EstadoMesaVisual.PedidoNuevo => "bg-info text-dark",
+        EstadoMesaVisual.ListoParaEntregar => "bg-success",
+        EstadoMesaVisual.EnPreparacion => "bg-info text-dark",
+        EstadoMesaVisual.Ocupada => "bg-secondary",
+        _ => "bg-secondary"
+    };
+
+    var texto = Model switch
+    {
+        EstadoMesaVisual.FueraDeServicio => "Fuera de Servicio",
+        EstadoMesaVisual.Disponible => "Disponible",
+        EstadoMesaVisual.CuentaSolicitada => "Cuenta Solicitada",
+        EstadoMesaVisual.PedidoNuevo => "Pedido Nuevo",
+        EstadoMesaVisual.ListoParaEntregar => "Listo p/ Entregar",
+        EstadoMesaVisual.EnPreparacion => "En Preparación",
+        EstadoMesaVisual.Ocupada => "Ocupada",
+        _ => Model
+    };
+}
+
+<span class="badge @badgeClass">@texto</span>
