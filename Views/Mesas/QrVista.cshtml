@@ -1,0 +1,21 @@
+﻿@model MesaQrViewModel
+
+@{
+    ViewData["Title"] = $"QR Mesa {Model.Numero}";
+}
+
+<div class="text-center">
+    <h2>Mesa @Model.Numero</h2>
+    <img src="@Url.Action("Qr", new { id = Model.Id })" alt="QR Mesa @Model.Numero"
+         class="img-fluid" style="max-width: 320px;" />
+    <p class="mt-2"><small class="text-muted">@Model.Url</small></p>
+
+    <div class="d-print-none">
+        <button type="button" class="btn btn-primary" onclick="window.print()">Imprimir</button>
+        <form asp-action="RegenerarQr" asp-route-id="@Model.Id" method="post" class="d-inline"
+              onsubmit="return confirm('El QR impreso dejará de funcionar. ¿Continuar?')">
+            <button type="submit" class="btn btn-outline-danger">Regenerar QR</button>
+        </form>
+        <a asp-action="Administrar" class="btn btn-secondary">Volver</a>
+    </div>
+</div>

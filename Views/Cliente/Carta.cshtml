@@ -1,0 +1,58 @@
+﻿@model CartaViewModel
+
+@{
+    ViewData["Title"] = "Carta";
+    var clp = new CultureInfo("es-CL");
+}
+
+@if (Model.Categorias.Count == 0)
+{
+    <div class="alert alert-info">La carta aún no tiene productos.</div>
+}
+else
+{
+    @* Barra de categorías: se desliza horizontalmente en el teléfono *@
+    <nav class="d-flex flex-nowrap overflow-auto gap-2 py-2 mb-3 sticky-top bg-white border-bottom">
+        @foreach (var cat in Model.Categorias)
+        {
+            <a href="#cat-@cat.Id" class="btn btn-sm btn-outline-secondary text-nowrap">@cat.Nombre</a>
+        }
+    </nav>
+
+    @foreach (var cat in Model.Categorias)
+    {
+        <section id="cat-@cat.Id" class="mb-4" style="scroll-margin-top: 4rem;">
+            <h4 class="mb-3">@cat.Nombre</h4>
+
+            <div class="row g-3">
+                @foreach (var p in cat.Productos)
+                {
+                    <div class="col-12 col-md-6">
+                        <div class="card h-100 @(p.Disponible ? "" : "opacity-50")">
+                            <div class="card-body d-flex gap-3">
+                                @if (!string.IsNullOrWhiteSpace(p.ImagenUrl))
+                                {
+                                    <img src="@p.ImagenUrl" alt="@p.Nombre" loading="lazy"
+                                         class="rounded flex-shrink-0"
+                                         style="width: 80px; height: 80px; object-fit: cover;" />
+                                }
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">@p.Nombre</h6>
+                                    @if (!string.IsNullOrWhiteSpace(p.Descripcion))
+                                    {
+                                        <p class="small text-muted mb-1">@p.Descripcion</p>
+                                    }
+                                    <strong>@p.Precio.ToString("C0", clp)</strong>
+                                    @if (!p.Disponible)
+                                    {
+                                        <span class="badge bg-secondary ms-2">Agotado</span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+}

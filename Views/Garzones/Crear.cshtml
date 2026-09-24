@@ -1,0 +1,46 @@
+﻿@model GarzonViewModel
+
+@{
+    ViewData["Title"] = "Crear Garzón";
+}
+
+<h2>Crear Garzón</h2>
+
+<form asp-action="Crear" method="post" class="row g-3 col-md-6">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <div class="col-12">
+        <label asp-for="NombreCompleto" class="form-label">Nombre completo</label>
+        <input asp-for="NombreCompleto" class="form-control" />
+        <span asp-validation-for="NombreCompleto" class="text-danger"></span>
+    </div>
+
+    <div class="col-12">
+        <label asp-for="Email" class="form-label">Email (será su usuario)</label>
+        <input asp-for="Email" type="email" class="form-control" autocomplete="off" />
+        <span asp-validation-for="Email" class="text-danger"></span>
+    </div>
+
+    <div class="col-12">
+        <label asp-for="Password" class="form-label">Contraseña</label>
+        <input asp-for="Password" class="form-control" autocomplete="new-password" />
+        <div class="form-text">Mínimo 8 caracteres, con mayúscula, minúscula, número y símbolo.</div>
+        <span asp-validation-for="Password" class="text-danger"></span>
+    </div>
+
+    <div class="col-12 form-check">
+        <input asp-for="Activo" type="checkbox" class="form-check-input" />
+        <label asp-for="Activo" class="form-check-label">Activo</label>
+    </div>
+
+    <div class="col-12">
+        <button type="submit" class="btn btn-primary">Crear</button>
+        <a asp-action="Index" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

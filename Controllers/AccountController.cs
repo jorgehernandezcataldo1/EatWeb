@@ -47,23 +47,15 @@ public class AccountController : Controller
             return View();
         }
 
-        var result = await _signInManager.PasswordSignInAsync(user.UserName, password, isPersistent: false, lockoutOnFailure: false);
+        var result = await _signInManager.PasswordSignInAsync(
+    user.UserName!, password, isPersistent: false, lockoutOnFailure: false);
 
         if (result.Succeeded)
         {
-            // Agregar claim con el RestauranteId
-            var claims = new List<Claim>
-            {
-                new Claim("RestauranteId", user.RestauranteId.ToString())
-            };
-
-            await _signInManager.SignInWithClaimsAsync(user, isPersistent: false, claims);
-
-            // Redirigir según rol
             var roles = await _userManager.GetRolesAsync(user);
             if (roles.Contains(Roles.Admin))
                 return RedirectToAction("Index", "Admin");
-            else if (roles.Contains(Roles.Garzon))
+            if (roles.Contains(Roles.Garzon))
                 return RedirectToAction("Index", "Mesas");
 
             return RedirectToLocal(returnUrl);

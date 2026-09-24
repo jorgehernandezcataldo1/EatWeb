@@ -1,0 +1,54 @@
+﻿@model List<MesaViewModel>
+
+@{
+    ViewData["Title"] = "Mesas";
+    var clp = new CultureInfo("es-CL");
+}
+
+<div class="row mb-3">
+    <div class="col"><h2>Mesas</h2></div>
+    <div class="col text-end">
+        <a asp-action="Crear" class="btn btn-primary">+ Nueva Mesa</a>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Mesa</th>
+                <th>Estado</th>
+                <th>Garzón</th>
+                <th>Comensales</th>
+                <th>Acumulado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var mesa in Model)
+            {
+                <tr>
+                    <td><strong>Mesa @mesa.Numero</strong></td>
+                    <td><partial name="_EstadoMesaBadge" model="mesa.Estado" /></td>
+                    <td>@(mesa.GarzonNombre ?? "Sin asignar")</td>
+                    <td>@mesa.Comensales</td>
+                    <td>@mesa.TotalAcumulado.ToString("C0", clp)</td>
+                    <td>
+                        <a asp-action="Editar" asp-route-id="@mesa.Id" class="btn btn-sm btn-warning">Editar</a>
+                        <a asp-action="QrVista" asp-route-id="@mesa.Id" class="btn btn-sm btn-info">QR</a>
+                        <form asp-action="Activar" asp-route-id="@mesa.Id" method="post" class="d-inline">
+                            <button type="submit" class="btn btn-sm @(mesa.Activa ? "btn-danger" : "btn-success")">
+                                @(mesa.Activa ? "Desactivar" : "Activar")
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (Model.Count == 0)
+{
+    <div class="alert alert-info">No hay mesas. Crea la primera.</div>
+}

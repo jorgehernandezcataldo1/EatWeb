@@ -3,6 +3,7 @@ using EatWeb.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using EatWeb.Services;
 
 namespace EatWeb.Controllers;
 
@@ -27,6 +28,8 @@ public class AdminController : Controller
     public async Task<IActionResult> Index()
     {
         var restauranteId = GetRestauranteId();
+        var inicioHoy = ZonaHorariaService.InicioDelDiaUtc();
+
 
         var stats = new
         {
@@ -37,7 +40,7 @@ public class AdminController : Controller
                 .Where(m => m.RestauranteId == restauranteId)
                 .CountAsync(),
             TotalPedidosHoy = await _context.Pedidos
-                .Where(p => p.MesaSesion!.Mesa!.RestauranteId == restauranteId && p.FechaCreacion.Date == DateTime.Now.Date)
+                .Where(p => p.MesaSesion!.Mesa!.RestauranteId == restauranteId && p.FechaCreacion >= inicioHoy)
                 .CountAsync(),
             PedidosPendientes = await _context.Pedidos
                 .Where(p => p.MesaSesion!.Mesa!.RestauranteId == restauranteId && p.Estado == "Pendiente")

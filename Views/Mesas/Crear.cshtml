@@ -1,0 +1,42 @@
+﻿@model MesaFormViewModel
+
+@{
+    ViewData["Title"] = "Crear Mesa";
+}
+
+<h2>Crear Nueva Mesa</h2>
+
+<form asp-action="Crear" method="post" class="row g-3 col-md-6">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <div class="col-12">
+        <label asp-for="Numero" class="form-label">Número de mesa</label>
+        <input asp-for="Numero" type="number" min="1" class="form-control" />
+        <span asp-validation-for="Numero" class="text-danger"></span>
+    </div>
+
+    <div class="col-12">
+        <label asp-for="GarzonId" class="form-label">Garzón asignado</label>
+        <select asp-for="GarzonId" asp-items="ViewBag.Garzones" class="form-select">
+            <option value="">Sin asignar</option>
+        </select>
+        <span asp-validation-for="GarzonId" class="text-danger"></span>
+    </div>
+
+    <div class="col-12 form-check">
+        <input asp-for="Activa" type="checkbox" class="form-check-input" />
+        <label asp-for="Activa" class="form-check-label">Activa</label>
+        <span asp-validation-for="Activa" class="text-danger d-block"></span>
+    </div>
+
+    <div class="col-12">
+        <button type="submit" class="btn btn-primary">Crear</button>
+        <a asp-action="Administrar" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

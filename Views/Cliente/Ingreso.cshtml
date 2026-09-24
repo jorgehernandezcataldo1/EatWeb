@@ -1,0 +1,33 @@
+﻿@model IngresoViewModel
+
+@{
+    ViewData["Title"] = $"Mesa {Model.MesaNumero}";
+    ViewData["RestauranteNombre"] = Model.RestauranteNombre; // lo muestra el layout
+}
+
+<div class="row justify-content-center mt-4">
+    <div class="col-12 col-sm-8 col-md-5">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h4 class="text-center">Bienvenido a @Model.RestauranteNombre</h4>
+                <p class="text-center text-muted">Estás en la <strong>Mesa @Model.MesaNumero</strong></p>
+
+                @* Sin action: envía al mismo /m/{codigo}. asp-antiforgery agrega el token. *@
+                <form method="post" asp-antiforgery="true">
+                    <div class="mb-3">
+                        <label asp-for="Nombre" class="form-label">¿Cómo te llamas?</label>
+                        <input asp-for="Nombre" class="form-control form-control-lg"
+                               maxlength="40" required autofocus autocomplete="given-name" />
+                        <span asp-validation-for="Nombre" class="text-danger"></span>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100">Entrar a la carta</button>
+                </form>
+
+                <p class="small text-muted mt-3 mb-0">
+                    Tu nombre lo verá el restaurante y quienes estén en tu mesa.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

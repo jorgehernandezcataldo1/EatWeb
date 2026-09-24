@@ -11,10 +11,10 @@ public class ContextoComensal
     public int SesionId { get; set; }
     public int MesaId { get; set; }
     public int MesaNumero { get; set; }
+    public int RestauranteId { get; set; }   
     public string RestauranteNombre { get; set; } = string.Empty;
     public bool CuentaSolicitada { get; set; }
 }
-
 public class SesionService
 {
     private readonly ApplicationDbContext _context;
@@ -53,7 +53,11 @@ public class SesionService
         }
         catch (DbUpdateException)
         {
-            // Otra solicitud creó la sesión simultáneamente, releer
+            // Otra solicitud creó la sesión simultáneamente.
+            // Sacamos NUESTRA sesión fallida del ChangeTracker; si no, el próximo
+            // SaveChanges intentaría insertarla de nuevo y volvería a fallar.
+            _context.Entry(sesion).State = EntityState.Detached;
+
             var sesionExistente = await _context.MesaSesiones
                 .FirstOrDefaultAsync(s => s.MesaId == mesaId && s.FechaCierre == null);
 
@@ -121,6 +125,7 @@ public class SesionService
             SesionId = sesion.Id,
             MesaId = mesa.Id,
             MesaNumero = mesa.Numero,
+            RestauranteId = mesa.RestauranteId,
             RestauranteNombre = mesa.Restaurante?.Nombre ?? "N/A",
             CuentaSolicitada = sesion.CuentaSolicitadaEn.HasValue
         };
