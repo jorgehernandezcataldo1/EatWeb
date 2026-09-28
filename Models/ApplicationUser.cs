@@ -5,11 +5,18 @@ namespace EatWeb.Models;
 public class ApplicationUser : IdentityUser
 {
     public string NombreCompleto { get; set; } = string.Empty;
-    public bool Activo { get; set; } = true;
-    public int RestauranteId { get; set; }
 
-    // Relaciones
-    public Restaurante? Restaurante { get; set; }
-    public ICollection<Mesa> Mesas { get; set; } = new List<Mesa>();
-    public ICollection<HistorialEstadoPedido> HistorialesEstadoPedido { get; set; } = new List<HistorialEstadoPedido>();
+    public bool Activo { get; set; } = true;
+
+    public ICollection<CadenaMiembro> Cadenas { get; set; }
+        = new List<CadenaMiembro>();
+
+    public ICollection<RestauranteMiembro> Restaurantes { get; set; }
+        = new List<RestauranteMiembro>();
+
+    public ICollection<Mesa> Mesas { get; set; }
+        = new List<Mesa>();
+
+    public ICollection<HistorialEstadoPedido> HistorialesEstadoPedido { get; set; }
+        = new List<HistorialEstadoPedido>();
 }

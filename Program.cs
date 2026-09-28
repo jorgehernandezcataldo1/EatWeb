@@ -48,9 +48,10 @@ builder.Services.AddAntiforgery(options =>
 
 // Session
 builder.Services.AddDistributedMemoryCache();
+
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromHours(4);
+    options.IdleTimeout = TimeSpan.FromHours(8);
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 });
@@ -65,6 +66,8 @@ builder.Services.AddScoped<SesionService>();
 builder.Services.AddScoped<CarritoService>();
 builder.Services.AddScoped<PedidoService>();
 builder.Services.AddScoped<DbSeeder>();
+builder.Services.AddScoped<AccesoRestauranteService>();
+builder.Services.AddScoped<RestauranteContextService>();
 
 var app = builder.Build();
 

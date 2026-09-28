@@ -1,10 +1,10 @@
 using EatWeb.Data;
 using EatWeb.Models;
+using EatWeb.Services;
 using EatWeb.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 
 namespace EatWeb.Controllers;
 
@@ -12,24 +12,32 @@ namespace EatWeb.Controllers;
 public class CategoriasController : Controller
 {
     private readonly ApplicationDbContext _context;
+    private readonly RestauranteContextService _restauranteContext;
 
-    public CategoriasController(ApplicationDbContext context)
+    public CategoriasController(
+        ApplicationDbContext context,
+        RestauranteContextService restauranteContext)
     {
         _context = context;
+        _restauranteContext = restauranteContext;
     }
 
-    private int GetRestauranteId()
+    private async Task<int?> GetRestauranteIdAsync()
     {
-        var claim = User.FindFirst("RestauranteId");
-        return int.Parse(claim?.Value ?? "0");
+        var restaurante = await _restauranteContext.ObtenerActualAsync();
+        return restaurante?.Id;
     }
 
     public async Task<IActionResult> Index()
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = await GetRestauranteIdAsync();
+
+        if (!restauranteId.HasValue)
+            return RedirectToAction("Index", "Admin");
+
         var categorias = await _context.Categorias
             .AsNoTracking()
-            .Where(c => c.RestauranteId == restauranteId)
+            .Where(c => c.RestauranteId == restauranteId.Value)
             .OrderBy(c => c.Orden)
             .Select(c => new CategoriaViewModel
             {
@@ -44,8 +52,13 @@ public class CategoriasController : Controller
     }
 
     [HttpGet]
-    public IActionResult Crear()
+    public async Task<IActionResult> Crear()
     {
+        var restauranteId = await GetRestauranteIdAsync();
+
+        if (!restauranteId.HasValue)
+            return RedirectToAction("Index", "Admin");
+
         return View();
     }
 
@@ -53,78 +66,104 @@ public class CategoriasController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Crear(CategoriaViewModel modelo)
     {
+        var restauranteId = await GetRestauranteIdAsync();
+
+        if (!restauranteId.HasValue)
+            return Forbid();
+
         if (!ModelState.IsValid)
             return View(modelo);
 
-        var restauranteId = GetRestauranteId();
-
-        // Validar duplicado
         var existe = await _context.Categorias
-            .AnyAsync(c => c.RestauranteId == restauranteId && c.Nombre == modelo.Nombre);
+            .AnyAsync(c =>
+                c.RestauranteId == restauranteId.Value &&
+                c.Nombre == modelo.Nombre);
 
         if (existe)
         {
-            ModelState.AddModelError(nameof(modelo.Nombre), "Ya existe una categoría con este nombre");
+            ModelState.AddModelError(
+                nameof(modelo.Nombre),
+                "Ya existe una categoría con este nombre");
+
             return View(modelo);
         }
 
         var categoria = new Categoria
         {
-            RestauranteId = restauranteId,
+            RestauranteId = restauranteId.Value,
             Nombre = modelo.Nombre,
             Orden = modelo.Orden,
             Activa = modelo.Activa
         };
 
         _context.Categorias.Add(categoria);
+
         await _context.SaveChangesAsync();
 
         TempData["Ok"] = "Categoría creada exitosamente";
+
         return RedirectToAction(nameof(Index));
     }
 
     [HttpGet]
     public async Task<IActionResult> Editar(int id)
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = await GetRestauranteIdAsync();
+
+        if (!restauranteId.HasValue)
+            return Forbid();
+
         var categoria = await _context.Categorias
-            .FirstOrDefaultAsync(c => c.Id == id && c.RestauranteId == restauranteId);
+            .FirstOrDefaultAsync(c =>
+                c.Id == id &&
+                c.RestauranteId == restauranteId.Value);
 
         if (categoria == null)
             return NotFound();
 
-        var modelo = new CategoriaViewModel
+        return View(new CategoriaViewModel
         {
             Id = categoria.Id,
             Nombre = categoria.Nombre,
             Orden = categoria.Orden,
             Activa = categoria.Activa
-        };
-
-        return View(modelo);
+        });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Editar(int id, CategoriaViewModel modelo)
+    public async Task<IActionResult> Editar(
+        int id,
+        CategoriaViewModel modelo)
     {
         if (id != modelo.Id || !ModelState.IsValid)
             return View(modelo);
 
-        var restauranteId = GetRestauranteId();
+        var restauranteId = await GetRestauranteIdAsync();
+
+        if (!restauranteId.HasValue)
+            return Forbid();
+
         var categoria = await _context.Categorias
-            .FirstOrDefaultAsync(c => c.Id == id && c.RestauranteId == restauranteId);
+            .FirstOrDefaultAsync(c =>
+                c.Id == id &&
+                c.RestauranteId == restauranteId.Value);
 
         if (categoria == null)
             return NotFound();
 
-        // Validar duplicado (excluyendo la actual)
         var existe = await _context.Categorias
-            .AnyAsync(c => c.RestauranteId == restauranteId && c.Nombre == modelo.Nombre && c.Id != id);
+            .AnyAsync(c =>
+                c.RestauranteId == restauranteId.Value &&
+                c.Nombre == modelo.Nombre &&
+                c.Id != id);
 
         if (existe)
         {
-            ModelState.AddModelError(nameof(modelo.Nombre), "Ya existe otra categoría con este nombre");
+            ModelState.AddModelError(
+                nameof(modelo.Nombre),
+                "Ya existe otra categoría con este nombre");
+
             return View(modelo);
         }
 
@@ -135,6 +174,7 @@ public class CategoriasController : Controller
         await _context.SaveChangesAsync();
 
         TempData["Ok"] = "Categoría actualizada exitosamente";
+
         return RedirectToAction(nameof(Index));
     }
 
@@ -142,15 +182,24 @@ public class CategoriasController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Activar(int id)
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = await GetRestauranteIdAsync();
+
+        if (!restauranteId.HasValue)
+            return Forbid();
+
         var categoria = await _context.Categorias
-            .FirstOrDefaultAsync(c => c.Id == id && c.RestauranteId == restauranteId);
+            .FirstOrDefaultAsync(c =>
+                c.Id == id &&
+                c.RestauranteId == restauranteId.Value);
 
         if (categoria != null)
         {
             categoria.Activa = !categoria.Activa;
+
             await _context.SaveChangesAsync();
-            TempData["Ok"] = $"Categoría {(categoria.Activa ? "activada" : "desactivada")}";
+
+            TempData["Ok"] =
+                $"Categoría {(categoria.Activa ? "activada" : "desactivada")}";
         }
 
         return RedirectToAction(nameof(Index));

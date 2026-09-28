@@ -53,12 +53,18 @@ public class AccountController : Controller
         if (result.Succeeded)
         {
             var roles = await _userManager.GetRolesAsync(user);
-            if (roles.Contains(Roles.Admin))
+
+            if (roles.Contains(Roles.AdminCadena))
                 return RedirectToAction("Index", "Admin");
+
+            if (roles.Contains(Roles.AdminRestaurante))
+                return RedirectToAction("Index", "Admin");
+
             if (roles.Contains(Roles.Garzon))
                 return RedirectToAction("Index", "Mesas");
 
             return RedirectToLocal(returnUrl);
+
         }
 
         ModelState.AddModelError(string.Empty, "Intento de inicio de sesión inválido");

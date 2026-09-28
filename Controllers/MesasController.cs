@@ -239,12 +239,15 @@ public class MesasController : Controller
         return $"{baseUrl.TrimEnd('/')}/m/{Uri.EscapeDataString(codigo)}";
     }
 
-    private IQueryable<ApplicationUser> GarzonesActivos(int restauranteId) =>
-        _context.Users.Where(u =>
-            u.RestauranteId == restauranteId &&
-            u.Activo &&
-            _context.UserRoles.Any(ur => ur.UserId == u.Id &&
-                _context.Roles.Any(r => r.Id == ur.RoleId && r.Name == Roles.Garzon)));
+    private IQueryable<ApplicationUser> GarzonesActivos(int restauranteId)
+    {
+        return _context.RestaurantesMiembros
+            .Where(rm =>
+                rm.RestauranteId == restauranteId &&
+                rm.Rol == RolRestaurante.Garzon &&
+                rm.Usuario.Activo)
+            .Select(rm => rm.Usuario);
+    }
 
     private async Task<bool> GarzonEsValidoAsync(string? garzonId, int restauranteId)
     {

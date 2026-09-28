@@ -14,15 +14,25 @@ public class PedidosController : Controller
 {
     private readonly ApplicationDbContext _context;
     private readonly PedidoService _pedidoService;
+    private readonly RestauranteContextService _restauranteContext;
 
-    public PedidosController(ApplicationDbContext context, PedidoService pedidoService)
+    public PedidosController(
+        ApplicationDbContext context,
+        PedidoService pedidoService,
+        RestauranteContextService restauranteContext)
     {
         _context = context;
         _pedidoService = pedidoService;
+        _restauranteContext = restauranteContext;
     }
 
-    private int GetRestauranteId() =>
-        int.Parse(User.FindFirst("RestauranteId")?.Value ?? "0");
+
+    private async Task<int?> GetRestauranteIdAsync()
+    {
+        var restaurante = await _restauranteContext.ObtenerActualAsync();
+        return restaurante?.Id;
+    }
+
 
     private string? GetUserId() =>
         User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -30,14 +40,18 @@ public class PedidosController : Controller
     [HttpGet]
     public async Task<IActionResult> Index()
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = await GetRestauranteIdAsync();
+
+        if (!restauranteId.HasValue)
+            return Forbid();
+
         var userId = GetUserId();
 
         var sesiones = await _context.MesaSesiones
             .AsNoTracking()
             .Where(s =>
                 s.FechaCierre == null &&
-                s.Mesa!.RestauranteId == restauranteId &&
+                s.Mesa!.RestauranteId == restauranteId.Value &&
                 (User.IsInRole("Admin") || s.Mesa.GarzonId == userId))
             .Include(s => s.Mesa)
             .Include(s => s.Comensales)
@@ -55,6 +69,7 @@ public class PedidosController : Controller
                 MesaId = s.MesaId,
                 MesaNumero = s.Mesa!.Numero,
                 CuentaSolicitada = s.CuentaSolicitadaEn.HasValue,
+
                 Pedidos = s.Comensales
                     .SelectMany(c => c.Pedidos.Select(p => new PedidoResumenViewModel
                     {
@@ -63,20 +78,29 @@ public class PedidosController : Controller
                         Estado = p.Estado,
                         Total = p.Total,
                         FechaCreacion = p.FechaCreacion,
+
                         Detalles = p.Detalles.Select(d => new DetallePedidoResumenViewModel
                         {
                             Producto = d.NombreProducto,
                             Cantidad = d.Cantidad,
                             Subtotal = d.Subtotal,
                             Observacion = d.Observacion,
+
                             Personalizaciones = d.Ingredientes
-                                .Select(i => $"{(i.Accion == AccionIngrediente.Quitar ? "Sin" : "Agregar")} {i.NombreIngrediente}" +
-                                             (i.PrecioExtra > 0 ? $" (+{i.PrecioExtra:C0})" : ""))
+                                .Select(i =>
+                                    $"{(i.Accion == AccionIngrediente.Quitar ? "Sin" : "Agregar")} " +
+                                    $"{i.NombreIngrediente}" +
+                                    (i.PrecioExtra > 0
+                                        ? $" (+{i.PrecioExtra:C0})"
+                                        : ""))
                                 .ToList()
+
                         }).ToList()
+
                     }))
                     .OrderByDescending(p => p.FechaCreacion)
                     .ToList()
+
             })
             .Where(m => m.Pedidos.Count > 0 || m.CuentaSolicitada)
             .ToList()
@@ -87,23 +111,33 @@ public class PedidosController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> CambiarEstado(int id, string nuevoEstado)
+    public async Task<IActionResult> CambiarEstado(
+    int id,
+    string nuevoEstado)
     {
         if (!EstadoPedido.Todos().Contains(nuevoEstado))
             return BadRequest();
+
+        var restauranteId = await GetRestauranteIdAsync();
+
+        if (!restauranteId.HasValue)
+            return Forbid();
 
         var pedido = await _context.Pedidos
             .Include(p => p.MesaSesion)
                 .ThenInclude(s => s!.Mesa)
             .FirstOrDefaultAsync(p =>
                 p.Id == id &&
-                p.MesaSesion!.Mesa!.RestauranteId == GetRestauranteId());
+                p.MesaSesion!.Mesa!.RestauranteId == restauranteId.Value);
 
         if (pedido == null)
             return NotFound();
 
-        if (User.IsInRole("Garzon") && pedido.MesaSesion!.Mesa!.GarzonId != GetUserId())
+        if (User.IsInRole("Garzon") &&
+            pedido.MesaSesion!.Mesa!.GarzonId != GetUserId())
+        {
             return Forbid();
+        }
 
         var resultado = await _pedidoService.CambiarEstadoAsync(
             id,
@@ -116,23 +150,29 @@ public class PedidosController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+
     [HttpGet]
     public async Task<IActionResult> Cuenta(int id)
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = await GetRestauranteIdAsync();
+
+        if (!restauranteId.HasValue)
+            return Forbid();
+
         var userId = GetUserId();
 
         var sesion = await _context.MesaSesiones
-            .AsNoTracking()
-            .Include(s => s.Mesa)
-            .Include(s => s.Comensales)
-                .ThenInclude(c => c.Pedidos)
-                    .ThenInclude(p => p.Detalles)
-            .FirstOrDefaultAsync(s =>
-                s.Id == id &&
-                s.FechaCierre == null &&
-                s.Mesa!.RestauranteId == restauranteId &&
-                (User.IsInRole("Admin") || s.Mesa.GarzonId == userId));
+        .AsNoTracking()
+        .Include(s => s.Mesa)
+        .Include(s => s.Comensales)
+            .ThenInclude(c => c.Pedidos)
+                .ThenInclude(p => p.Detalles)
+        .FirstOrDefaultAsync(s =>
+            s.Id == id &&
+            s.FechaCierre == null &&
+            s.Mesa!.RestauranteId == restauranteId.Value &&
+            (User.IsInRole("Admin") || s.Mesa.GarzonId == userId));
+    
 
         if (sesion == null)
             return NotFound();

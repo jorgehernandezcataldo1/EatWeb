@@ -2,7 +2,13 @@ namespace EatWeb.Models;
 
 public static class Roles
 {
-    public const string Admin = nameof(Admin);
-    public const string Garzon = nameof(Garzon);
-    public const string AdminOGarzon = $"{Admin},{Garzon}";
+    public const string AdminCadena = "AdminCadena";
+    public const string AdminRestaurante = "AdminRestaurante";
+    public const string Garzon = "Garzon";
+
+    public const string Admin =
+        AdminCadena + "," + AdminRestaurante;
+
+    public const string AdminOGarzon =
+        AdminCadena + "," + AdminRestaurante + "," + Garzon;
 }

@@ -12,7 +12,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
     }
 
+    public DbSet<Cadena> Cadenas { get; set; } = null!;
     public DbSet<Restaurante> Restaurantes { get; set; } = null!;
+    public DbSet<CadenaMiembro> CadenasMiembros { get; set; } = null!;
+    public DbSet<RestauranteMiembro> RestaurantesMiembros { get; set; } = null!;
     public DbSet<Mesa> Mesas { get; set; } = null!;
     public DbSet<MesaSesion> MesaSesiones { get; set; } = null!;
     public DbSet<Comensal> Comensales { get; set; } = null!;
@@ -35,9 +38,71 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasMaxLength(100)
             .IsRequired();
 
-        modelBuilder.Entity<ApplicationUser>()
-            .Property(u => u.RestauranteId)
+        //Cadena Miembro
+
+        modelBuilder.Entity<CadenaMiembro>()
+            .HasKey(cm => new
+            {
+                cm.CadenaId,
+                cm.UsuarioId
+            });
+
+        modelBuilder.Entity<CadenaMiembro>()
+            .HasOne(cm => cm.Cadena)
+            .WithMany(c => c.Miembros)
+            .HasForeignKey(cm => cm.CadenaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CadenaMiembro>()
+            .HasOne(cm => cm.Usuario)
+            .WithMany(u => u.Cadenas)
+            .HasForeignKey(cm => cm.UsuarioId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CadenaMiembro>()
+            .Property(cm => cm.Rol)
+            .HasConversion<string>()
+            .HasMaxLength(30);
+
+        //Restaurante Miembro
+        modelBuilder.Entity<RestauranteMiembro>()
+            .HasKey(rm => new
+            {
+                rm.RestauranteId,
+                rm.UsuarioId
+            });
+
+        modelBuilder.Entity<RestauranteMiembro>()
+            .HasOne(rm => rm.Restaurante)
+            .WithMany(r => r.Miembros)
+            .HasForeignKey(rm => rm.RestauranteId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<RestauranteMiembro>()
+            .HasOne(rm => rm.Usuario)
+            .WithMany(u => u.Restaurantes)
+            .HasForeignKey(rm => rm.UsuarioId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RestauranteMiembro>()
+            .Property(rm => rm.Rol)
+            .HasConversion<string>()
+            .HasMaxLength(30);
+
+
+
+
+
+        //Cadena
+        modelBuilder.Entity<Cadena>()
+            .Property(c => c.Nombre)
+            .HasMaxLength(120)
             .IsRequired();
+
+        modelBuilder.Entity<Cadena>()
+            .Property(c => c.LogoUrl)
+            .HasMaxLength(300);
+
 
         // Restaurante
         modelBuilder.Entity<Restaurante>()
@@ -48,6 +113,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<Restaurante>()
             .Property(r => r.LogoUrl)
             .HasMaxLength(300);
+
+        modelBuilder.Entity<Restaurante>()
+            .HasOne(r => r.Cadena)
+            .WithMany(c => c.Restaurantes)
+            .HasForeignKey(r => r.CadenaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
 
         // Mesa
         modelBuilder.Entity<Mesa>()

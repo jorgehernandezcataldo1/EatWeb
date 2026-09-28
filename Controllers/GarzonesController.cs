@@ -1,5 +1,6 @@
 ﻿using EatWeb.Data;
 using EatWeb.Models;
+using EatWeb.Models.Enums;
 using EatWeb.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -60,23 +61,39 @@ public class GarzonesController : Controller
             return View(modelo);
         }
 
+        var restauranteId = GetRestauranteId();
+
         var garzon = new ApplicationUser
         {
             UserName = modelo.Email,
             Email = modelo.Email,
             NombreCompleto = modelo.NombreCompleto.Trim(),
-            RestauranteId = GetRestauranteId(),
             Activo = modelo.Activo
         };
 
-        var resultado = await _userManager.CreateAsync(garzon, modelo.Password!);
+        var resultado = await _userManager.CreateAsync(
+            garzon,
+            modelo.Password!);
+
         if (!resultado.Succeeded)
         {
             AgregarErrores(resultado);
             return View(modelo);
         }
 
-        await _userManager.AddToRoleAsync(garzon, Roles.Garzon);
+        await _userManager.AddToRoleAsync(
+            garzon,
+            Roles.Garzon);
+
+        _context.RestaurantesMiembros.Add(
+            new RestauranteMiembro
+            {
+                RestauranteId = restauranteId,
+                UsuarioId = garzon.Id,
+                Rol = RolRestaurante.Garzon
+            });
+
+        await _context.SaveChangesAsync();
 
         TempData["Ok"] = $"Garzón {garzon.NombreCompleto} creado";
         return RedirectToAction(nameof(Index));
@@ -180,20 +197,41 @@ public class GarzonesController : Controller
     }
 
     // ---------- Helpers ----------
-    private IQueryable<ApplicationUser> GarzonesDelRestaurante(int restauranteId) =>
-        _context.Users.Where(u =>
-            u.RestauranteId == restauranteId &&
-            _context.UserRoles.Any(ur => ur.UserId == u.Id &&
-                _context.Roles.Any(r => r.Id == ur.RoleId && r.Name == Roles.Garzon)));
+    private IQueryable<ApplicationUser> GarzonesDelRestaurante(int restauranteId)
+    {
+        return _context.RestaurantesMiembros
+            .Where(rm =>
+                rm.RestauranteId == restauranteId &&
+                rm.Rol == RolRestaurante.Garzon)
+            .Select(rm => rm.Usuario);
+    }
+
 
     /// <summary>Solo devuelve usuarios GARZÓN de MI restaurante (un admin no se edita aquí).</summary>
     private async Task<ApplicationUser?> BuscarGarzonAsync(string id)
     {
+        var restauranteId = GetRestauranteId();
+
         var user = await _userManager.FindByIdAsync(id);
-        if (user == null || user.RestauranteId != GetRestauranteId()) return null;
-        if (!await _userManager.IsInRoleAsync(user, Roles.Garzon)) return null;
+
+        if (user == null)
+            return null;
+
+        if (!await _userManager.IsInRoleAsync(user, Roles.Garzon))
+            return null;
+
+        var pertenece = await _context.RestaurantesMiembros
+            .AnyAsync(rm =>
+                rm.UsuarioId == id &&
+                rm.RestauranteId == restauranteId &&
+                rm.Rol == RolRestaurante.Garzon);
+
+        if (!pertenece)
+            return null;
+
         return user;
     }
+
 
     private void AgregarErrores(IdentityResult resultado)
     {
