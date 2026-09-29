@@ -1,0 +1,126 @@
+﻿@model PedidosIndexViewModel
+@{
+    ViewData["Title"] = "Pedidos";
+    var clp = new System.Globalization.CultureInfo("es-CL");
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Pedidos activos</h2>
+    <small class="text-muted">
+        Actualización automática cada 15s
+        <span class="spinner-border spinner-border-sm ms-2" role="status"></span>
+    </small>
+</div>
+
+@if (!Model.Mesas.Any())
+{
+    <div class="alert alert-info">No hay pedidos activos.</div>
+}
+else
+{
+    @foreach (var m in Model.Mesas)
+    {
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center
+                        @(m.CuentaSolicitada ? "bg-warning" : "bg-light")">
+                <div>
+                    <strong>Mesa @m.MesaNumero</strong>
+                    <span class="ms-2 text-muted">@m.Pedidos.Count pedido(s)</span>
+                </div>
+                @if (m.CuentaSolicitada)
+                {
+                    <span class="badge bg-dark">💰 Cuenta solicitada</span>
+                }
+            </div>
+            <div class="card-body">
+                @foreach (var p in m.Pedidos)
+                {
+                    <div class="border-start border-4 border-info ps-3 mb-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>@p.ComensalNombre</strong>
+                                <small class="text-muted ms-2">
+                                    Pedido #@p.Id – @p.FechaCreacion.ToLocalTime().ToString("HH:mm")
+                                </small>
+                            </div>
+                            <partial name="_EstadoPedidoBadge" model="p.Estado" />
+                        </div>
+
+                        <ul class="list-unstyled mt-2 mb-2">
+                            @foreach (var d in p.Detalles)
+                            {
+                                <li class="mb-1">
+                                    <strong>@d.Cantidad×</strong> @d.Producto
+                                    @if (d.Personalizaciones.Any())
+                                    {
+                                        <ul class="small text-muted mb-0">
+                                            @foreach (var pers in d.Personalizaciones)
+                                            {
+                                                <li>@pers</li>
+                                            }
+                                        </ul>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(d.Observacion))
+                                    {
+                                        <div class="small fst-italic text-secondary">
+                                            💬 "@d.Observacion"
+                                        </div>
+                                    }
+                                </li>
+                            }
+                        </ul>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="btn-group btn-group-sm">
+                                @if (p.Estado == "Pendiente")
+                                {
+                                    <form asp-action="CambiarEstado" method="post" class="d-inline">
+                                        <input type="hidden" name="id" value="@p.Id" />
+                                        <input type="hidden" name="nuevoEstado" value="EnPreparacion" />
+                                        <button class="btn btn-info">▶ A preparación</button>
+                                    </form>
+                                    <form asp-action="CambiarEstado" method="post" class="d-inline ms-1">
+                                        <input type="hidden" name="id" value="@p.Id" />
+                                        <input type="hidden" name="nuevoEstado" value="Cancelado" />
+                                        <button class="btn btn-outline-danger"
+                                                onclick="return confirm('¿Cancelar este pedido?')">
+                                            ✕ Cancelar
+                                        </button>
+                                    </form>
+                                }
+                                else if (p.Estado == "EnPreparacion")
+                                {
+                                    <form asp-action="CambiarEstado" method="post" class="d-inline">
+                                        <input type="hidden" name="id" value="@p.Id" />
+                                        <input type="hidden" name="nuevoEstado" value="Listo" />
+                                        <button class="btn btn-success">✓ Listo</button>
+                                    </form>
+                                }
+                                else if (p.Estado == "Listo")
+                                {
+                                    <form asp-action="CambiarEstado" method="post" class="d-inline">
+                                        <input type="hidden" name="id" value="@p.Id" />
+                                        <input type="hidden" name="nuevoEstado" value="Entregado" />
+                                        <button class="btn btn-secondary">🍽 Entregado</button>
+                                    </form>
+                                }
+                            </div>
+                            <strong>@p.Total.ToString("C0", clp)</strong>
+                        </div>
+                    </div>
+                }
+
+                <a asp-action="Cuenta" asp-route-id="@m.SesionId"
+                   class="btn btn-outline-primary btn-sm mt-2">
+                    Ver cuenta completa
+                </a>
+            </div>
+        </div>
+    }
+}
+
+@section Scripts {
+    <script>
+        setTimeout(() => location.reload(), 15000);
+    </script>
+}

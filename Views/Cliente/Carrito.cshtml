@@ -1,0 +1,84 @@
+﻿@model CarritoViewModel
+@{
+    ViewData["Title"] = "Carrito";
+    var clp = new System.Globalization.CultureInfo("es-CL");
+}
+
+<h3 class="mb-3">Tu pedido</h3>
+
+@if (Model.Errores.Any())
+{
+    <div class="alert alert-danger">
+        @foreach (var e in Model.Errores)
+        {
+            <div>@e</div>
+        }
+    </div>
+}
+
+@if (Model.Lineas.Count == 0)
+{
+    <div class="alert alert-info">Tu carrito está vacío.</div>
+    <a asp-action="Carta" class="btn btn-primary">Ir a la carta</a>
+}
+else
+{
+    <div class="list-group mb-3">
+        @foreach (var l in Model.Lineas)
+        {
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between">
+                    <strong>@l.NombreProducto</strong>
+                    <span>@l.Subtotal.ToString("C0", clp)</span>
+                </div>
+                @if (l.Personalizaciones.Any())
+                {
+                    <ul class="small text-muted mb-1">
+                        @foreach (var p in l.Personalizaciones)
+                        {
+                            <li>
+                                @p.TipoAccion @p.NombreIngrediente
+                                @if (p.PrecioExtra > 0)
+                                {
+                                    <span>(+@p.PrecioExtra.ToString("C0", clp))</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+                @if (!string.IsNullOrWhiteSpace(l.Observacion))
+                {
+                    <p class="small mb-1"><em>@l.Observacion</em></p>
+                }
+                <div class="d-flex align-items-center gap-2 mt-2">
+                    <form asp-action="CambiarCantidad" method="post" class="d-inline">
+                        <input type="hidden" name="lineaId" value="@l.LineaId" />
+                        <input type="hidden" name="delta" value="-1" />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">−</button>
+                    </form>
+                    <span>@l.Cantidad</span>
+                    <form asp-action="CambiarCantidad" method="post" class="d-inline">
+                        <input type="hidden" name="lineaId" value="@l.LineaId" />
+                        <input type="hidden" name="delta" value="1" />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">+</button>
+                    </form>
+                    <form asp-action="QuitarLinea" method="post" class="d-inline ms-auto">
+                        <input type="hidden" name="lineaId" value="@l.LineaId" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Quitar</button>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+
+    <h4 class="text-end">Total: @Model.Total.ToString("C0", clp)</h4>
+
+    <form asp-action="EnviarPedido" method="post" class="mt-3">
+        <label class="form-label">Observación general (opcional)</label>
+        <input type="text" name="observacionGeneral" class="form-control mb-2"
+               maxlength="300" />
+        <button type="submit" class="btn btn-primary btn-lg w-100">
+            Enviar pedido a cocina
+        </button>
+    </form>
+}

@@ -1,0 +1,36 @@
+﻿@model IEnumerable<dynamic>
+
+@{
+    ViewData["Title"] = "Mis Restaurantes";
+}
+
+<h2 class="mb-4">Mis Restaurantes</h2>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">No tienes restaurantes asignados.</div>
+}
+else
+{
+    <div class="row">
+        @foreach (var r in Model)
+        {
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">@r.Nombre</h5>
+                        <ul class="list-unstyled small text-muted mb-3">
+                            <li>🍔 Productos: <strong>@r.TotalProductos</strong></li>
+                            <li>🪑 Mesas: <strong>@r.TotalMesas</strong></li>
+                            <li>📋 Pedidos totales: <strong>@r.TotalPedidos</strong></li>
+                        </ul>
+                    </div>
+                    <a asp-action="SeleccionarRestaurante" asp-route-id="@r.Id"
+                       class="card-footer btn btn-primary">
+                        Entrar →
+                    </a>
+                </div>
+            </div>
+        }
+    </div>
+}

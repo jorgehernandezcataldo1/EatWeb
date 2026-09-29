@@ -1,0 +1,49 @@
+﻿@model CrearRestauranteViewModel
+@{
+    ViewData["Title"] = "Crear Restaurante";
+}
+
+<h2>Crear Restaurante</h2>
+
+<form asp-action="Crear" method="post" class="row g-3 col-md-8">
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+    <div class="col-12">
+        <label asp-for="Nombre" class="form-label">Nombre del restaurante</label>
+        <input asp-for="Nombre" class="form-control" placeholder="Burger King Santiago" />
+        <span asp-validation-for="Nombre" class="text-danger"></span>
+    </div>
+
+    <hr />
+    <h5>Admin del restaurante</h5>
+
+    <div class="col-md-6">
+        <label asp-for="AdminNombre" class="form-label">Nombre</label>
+        <input asp-for="AdminNombre" class="form-control" />
+        <span asp-validation-for="AdminNombre" class="text-danger"></span>
+    </div>
+
+    <div class="col-md-6">
+        <label asp-for="AdminEmail" class="form-label">Email (será su usuario)</label>
+        <input asp-for="AdminEmail" type="email" class="form-control"
+               placeholder="burgerkingsantiago@gmail.com" />
+        <span asp-validation-for="AdminEmail" class="text-danger"></span>
+    </div>
+
+    <div class="col-md-6">
+        <label asp-for="AdminPassword" class="form-label">Contraseña (si es nuevo)</label>
+        <input asp-for="AdminPassword" class="form-control" />
+        <small class="text-muted">Déjala vacía si el usuario ya existe.</small>
+    </div>
+
+    <div class="col-12">
+        <button type="submit" class="btn btn-primary">Crear</button>
+        <a asp-action="Index" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

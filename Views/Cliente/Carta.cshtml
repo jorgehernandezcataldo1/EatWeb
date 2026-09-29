@@ -28,29 +28,32 @@ else
                 @foreach (var p in cat.Productos)
                 {
                     <div class="col-12 col-md-6">
-                        <div class="card h-100 @(p.Disponible ? "" : "opacity-50")">
-                            <div class="card-body d-flex gap-3">
-                                @if (!string.IsNullOrWhiteSpace(p.ImagenUrl))
-                                {
-                                    <img src="@p.ImagenUrl" alt="@p.Nombre" loading="lazy"
-                                         class="rounded flex-shrink-0"
-                                         style="width: 80px; height: 80px; object-fit: cover;" />
-                                }
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-1">@p.Nombre</h6>
-                                    @if (!string.IsNullOrWhiteSpace(p.Descripcion))
-                                    {
-                                        <p class="small text-muted mb-1">@p.Descripcion</p>
-                                    }
-                                    <strong>@p.Precio.ToString("C0", clp)</strong>
-                                    @if (!p.Disponible)
-                                    {
-                                        <span class="badge bg-secondary ms-2">Agotado</span>
-                                    }
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    <a asp-action="Producto" asp-route-id="@p.Id"
+       class="text-decoration-none text-reset">
+        <div class="card h-100 @(p.Disponible ? "" : "opacity-50")">
+            <div class="card-body d-flex gap-3">
+                @if (!string.IsNullOrWhiteSpace(p.ImagenUrl))
+                {
+                    <img src="@p.ImagenUrl" alt="@p.Nombre" loading="lazy"
+                         class="rounded flex-shrink-0"
+                         style="width: 80px; height: 80px; object-fit: cover;" />
+                }
+                <div class="flex-grow-1">
+                    <h6 class="mb-1">@p.Nombre</h6>
+                    @if (!string.IsNullOrWhiteSpace(p.Descripcion))
+                    {
+                        <p class="small text-muted mb-1">@p.Descripcion</p>
+                    }
+                    <strong>@p.Precio.ToString("C0", clp)</strong>
+                    @if (!p.Disponible)
+                    {
+                        <span class="badge bg-secondary ms-2">Agotado</span>
+                    }
+                </div>
+            </div>
+        </div>
+    </a>
+</div>
                 }
             </div>
         </section>

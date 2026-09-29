@@ -1,0 +1,36 @@
+﻿@model List<RestauranteCadenaViewModel>
+@{
+    ViewData["Title"] = "Mis Restaurantes";
+}
+
+<div class="row mb-3">
+    <div class="col"><h2>Restaurantes de la cadena</h2></div>
+    <div class="col text-end">
+        <a asp-action="Crear" class="btn btn-primary">+ Nuevo Restaurante</a>
+    </div>
+</div>
+
+<div class="row">
+    @foreach (var r in Model)
+    {
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5>@r.Nombre</h5>
+                    <span class="badge @(r.Activo ? "bg-success" : "bg-danger")">
+                        @(r.Activo ? "Activo" : "Inactivo")
+                    </span>
+                    <ul class="list-unstyled small text-muted mt-2 mb-2">
+                        <li>🍔 Productos: @r.TotalProductos</li>
+                        <li>🪑 Mesas: @r.TotalMesas</li>
+                        <li>👤 Admins: @string.Join(", ", r.Admins)</li>
+                    </ul>
+                </div>
+                <a asp-controller="Admin" asp-action="SeleccionarRestaurante"
+                   asp-route-id="@r.Id" class="card-footer btn btn-primary">
+                    Entrar →
+                </a>
+            </div>
+        </div>
+    }
+</div>

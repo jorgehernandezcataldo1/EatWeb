@@ -1,11 +1,12 @@
-using System.Security.Claims;
 using EatWeb.Data;
+using EatWeb.Models;
 using EatWeb.Models.Enums;
 using EatWeb.Services;
 using EatWeb.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace EatWeb.Controllers;
 
@@ -15,15 +16,18 @@ public class PedidosController : Controller
     private readonly ApplicationDbContext _context;
     private readonly PedidoService _pedidoService;
     private readonly RestauranteContextService _restauranteContext;
+    private readonly SesionService _sesionService;
 
     public PedidosController(
         ApplicationDbContext context,
         PedidoService pedidoService,
-        RestauranteContextService restauranteContext)
+        RestauranteContextService restauranteContext,
+        SesionService sesionService)
     {
         _context = context;
         _pedidoService = pedidoService;
         _restauranteContext = restauranteContext;
+        _sesionService = sesionService;
     }
 
 
@@ -147,6 +151,31 @@ public class PedidosController : Controller
         if (!resultado.Ok)
             TempData["Error"] = string.Join(" ", resultado.Errores);
 
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [Authorize(Roles = Roles.AdminOGarzon)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CerrarMesa(int id)
+    {
+        var restauranteId = await GetRestauranteIdAsync();
+        if (!restauranteId.HasValue) return Forbid();
+
+        var sesion = await _context.MesaSesiones
+            .Include(s => s.Mesa)
+            .FirstOrDefaultAsync(s => s.Id == id && s.Mesa!.RestauranteId == restauranteId.Value);
+
+        if (sesion == null) return NotFound();
+
+        var (ok, error) = await _sesionService.CerrarSesionAsync(id, forzar: false, GetUserId());
+        if (!ok)
+        {
+            TempData["Error"] = error;
+            return RedirectToAction(nameof(Cuenta), new { id });
+        }
+
+        TempData["Ok"] = $"Mesa {sesion.Mesa!.Numero} cerrada";
         return RedirectToAction(nameof(Index));
     }
 

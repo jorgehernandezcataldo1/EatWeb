@@ -1,0 +1,55 @@
+﻿@model MiMesaViewModel
+@{
+    ViewData["Title"] = "Mi Mesa";
+    var clp = new System.Globalization.CultureInfo("es-CL");
+}
+
+<h3>Mesa @Model.MesaNumero – @Model.ComensalNombre</h3>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5>Tu consumo</h5>
+        <p class="display-6">@Model.TotalConsumido.ToString("C0", clp)</p>
+
+        @if (Model.CuentaSolicitada)
+        {
+            <div class="alert alert-warning mb-0">Cuenta solicitada ✅</div>
+        }
+        else
+        {
+            <form asp-action="SolicitarCuenta" method="post">
+                <button type="submit" class="btn btn-warning w-100">Pedir la cuenta</button>
+            </form>
+        }
+    </div>
+</div>
+
+<h5>Tus pedidos</h5>
+
+@if (Model.Pedidos.Count == 0)
+{
+    <div class="alert alert-info">Aún no has hecho pedidos.</div>
+    <a asp-action="Carta" class="btn btn-primary">Ir a la carta</a>
+}
+else
+{
+    foreach (var p in Model.Pedidos)
+    {
+        <div class="card mb-2">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <strong>Pedido #@p.Id</strong>
+                    <partial name="_EstadoPedidoBadge" model="p.Estado" />
+                </div>
+                <small class="text-muted">@p.Fecha.ToLocalTime().ToString("HH:mm")</small>
+                <ul class="mb-1 mt-2">
+                    @foreach (var item in p.Items)
+                    {
+                        <li>@item</li>
+                    }
+                </ul>
+                <div class="text-end"><strong>@p.Total.ToString("C0", clp)</strong></div>
+            </div>
+        </div>
+    }
+}

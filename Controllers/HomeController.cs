@@ -21,11 +21,18 @@ namespace EatWeb.Controllers
             if (User.Identity?.IsAuthenticated == true)
             {
                 var user = await _userManager.GetUserAsync(User);
-                var roles = await _userManager.GetRolesAsync(user!);
+                if (user == null)
+                    return RedirectToAction("Login", "Account");
 
-                if (roles.Contains(Roles.Admin))
+                var roles = await _userManager.GetRolesAsync(user);
+
+                if (roles.Contains(Roles.AdminCadena) ||
+                    roles.Contains(Roles.AdminRestaurante))
+                {
                     return RedirectToAction("Index", "Admin");
-                else if (roles.Contains(Roles.Garzon))
+                }
+
+                if (roles.Contains(Roles.Garzon))
                     return RedirectToAction("Index", "Mesas");
             }
 
@@ -35,7 +42,10 @@ namespace EatWeb.Controllers
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {
-            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+            return View(new ErrorViewModel
+            {
+                RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier
+            });
         }
     }
 }

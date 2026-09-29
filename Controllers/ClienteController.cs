@@ -1,4 +1,6 @@
 ﻿using EatWeb.Data;
+using EatWeb.Models;
+using EatWeb.Models.Enums;
 using EatWeb.Services;
 using EatWeb.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -15,11 +17,15 @@ public class ClienteController : Controller
 
     private readonly ApplicationDbContext _context;
     private readonly SesionService _sesionService;
+    private readonly CarritoService _carrito;
+    private readonly PedidoService _pedidoService;
 
-    public ClienteController(ApplicationDbContext context, SesionService sesionService)
+    public ClienteController(ApplicationDbContext context, SesionService sesionService, CarritoService carrito, PedidoService pedidoService)
     {
         _context = context;
         _sesionService = sesionService;
+        _carrito = carrito;
+        _pedidoService = pedidoService;
     }
 
     // Datos mínimos de la mesa escaneada (nada de entidades completas)
@@ -134,6 +140,184 @@ public class ClienteController : Controller
             .ToListAsync();
 
         return View(new CartaViewModel { Categorias = categorias });
+    }
+
+    // ---------- 3b) Detalle del producto ----------
+    [HttpGet]
+    public async Task<IActionResult> Producto(int id)
+    {
+        var ctx = await ObtenerContextoAsync();
+        if (ctx == null) return RedirectToAction(nameof(SinSesion));
+
+        var producto = await _context.Productos
+            .AsNoTracking()
+            .Where(p => p.Id == id && p.RestauranteId == ctx.RestauranteId && p.Activo)
+            .Select(p => new ProductoDetalleViewModel
+            {
+                Id = p.Id,
+                Nombre = p.Nombre,
+                Descripcion = p.Descripcion,
+                Precio = p.Precio,
+                ImagenUrl = p.ImagenUrl,
+                Disponible = p.Disponible,
+                Incluidos = p.Ingredientes
+                    .Where(pi => pi.Tipo == TipoIngrediente.Incluido && pi.Ingrediente!.Activo)
+                    .Select(pi => new IngredienteOpcionViewModel
+                    {
+                        IngredienteId = pi.IngredienteId,
+                        Nombre = pi.Ingrediente!.Nombre
+                    })
+                    .ToList(),
+                Extras = p.Ingredientes
+                    .Where(pi => pi.Tipo == TipoIngrediente.Extra && pi.Ingrediente!.Activo)
+                    .Select(pi => new IngredienteOpcionViewModel
+                    {
+                        IngredienteId = pi.IngredienteId,
+                        Nombre = pi.Ingrediente!.Nombre,
+                        PrecioExtra = pi.PrecioExtra
+                    })
+                    .ToList()
+            })
+            .FirstOrDefaultAsync();
+
+        if (producto == null) return NotFound();
+
+        return View(producto);
+    }
+
+    // ---------- 3c) Agregar al carrito ----------
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AgregarAlCarrito(AgregarCarritoInputViewModel modelo)
+    {
+        var ctx = await ObtenerContextoAsync();
+        if (ctx == null) return RedirectToAction(nameof(SinSesion));
+
+        if (modelo.Cantidad < 1 || modelo.Cantidad > 20)
+        {
+            TempData["Error"] = "Cantidad inválida";
+            return RedirectToAction(nameof(Producto), new { id = modelo.ProductoId });
+        }
+
+        _carrito.Agregar(
+            ctx.ComensalId,
+            modelo.ProductoId,
+            modelo.Cantidad,
+            modelo.IngredientesQuitar ?? new List<int>(),
+            modelo.IngredientesAgregar ?? new List<int>(),
+            modelo.Observacion ?? string.Empty);
+
+        TempData["Ok"] = "Agregado al carrito";
+        return RedirectToAction(nameof(Carta));
+    }
+
+    // ---------- 3d) Ver carrito ----------
+    [HttpGet]
+    public async Task<IActionResult> Carrito()
+    {
+        var ctx = await ObtenerContextoAsync();
+        if (ctx == null) return RedirectToAction(nameof(SinSesion));
+
+        var carrito = _carrito.Obtener(ctx.ComensalId);
+        var calculado = await _pedidoService.CalcularCarritoAsync(carrito);
+
+        return View(new CarritoViewModel
+        {
+            Lineas = calculado.Lineas,
+            Total = calculado.Total,
+            Errores = calculado.Errores
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CambiarCantidad(Guid lineaId, int delta)
+    {
+        var ctx = await ObtenerContextoAsync();
+        if (ctx == null) return RedirectToAction(nameof(SinSesion));
+
+        _carrito.CambiarCantidad(ctx.ComensalId, lineaId, delta);
+        return RedirectToAction(nameof(Carrito));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> QuitarLinea(Guid lineaId)
+    {
+        var ctx = await ObtenerContextoAsync();
+        if (ctx == null) return RedirectToAction(nameof(SinSesion));
+
+        _carrito.Quitar(ctx.ComensalId, lineaId);
+        return RedirectToAction(nameof(Carrito));
+    }
+
+    // ---------- 3e) Enviar pedido ----------
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EnviarPedido(string? observacionGeneral)
+    {
+        var ctx = await ObtenerContextoAsync();
+        if (ctx == null) return RedirectToAction(nameof(SinSesion));
+
+        var carrito = _carrito.Obtener(ctx.ComensalId);
+        var resultado = await _pedidoService.CrearPedidoAsync(
+            ctx.ComensalId, carrito, observacionGeneral);
+
+        if (!resultado.Ok)
+        {
+            TempData["Error"] = string.Join(" ", resultado.Errores);
+            return RedirectToAction(nameof(Carrito));
+        }
+
+        _carrito.Vaciar(ctx.ComensalId);
+        TempData["Ok"] = "Pedido enviado a cocina";
+        return RedirectToAction(nameof(MiMesa));
+    }
+
+    // ---------- 3f) Mi Mesa ----------
+    [HttpGet]
+    public async Task<IActionResult> MiMesa()
+    {
+        var ctx = await ObtenerContextoAsync();
+        if (ctx == null) return RedirectToAction(nameof(SinSesion));
+
+        var pedidos = await _context.Pedidos
+            .AsNoTracking()
+            .Where(p => p.ComensalId == ctx.ComensalId
+                        && p.Estado != EstadoPedido.Cancelado)
+            .OrderByDescending(p => p.FechaCreacion)
+            .Select(p => new MiPedidoViewModel
+            {
+                Id = p.Id,
+                Estado = p.Estado,
+                Total = p.Total,
+                Fecha = p.FechaCreacion,
+                Items = p.Detalles
+                    .Select(d => d.Cantidad + "x " + d.NombreProducto)
+                    .ToList()
+            })
+            .ToListAsync();
+
+        return View(new MiMesaViewModel
+        {
+            MesaNumero = ctx.MesaNumero,
+            ComensalNombre = ctx.Nombre,
+            CuentaSolicitada = ctx.CuentaSolicitada,
+            TotalConsumido = pedidos.Sum(p => p.Total),
+            Pedidos = pedidos
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SolicitarCuenta()
+    {
+        var ctx = await ObtenerContextoAsync();
+        if (ctx == null) return RedirectToAction(nameof(SinSesion));
+
+        await _sesionService.SolicitarCuentaAsync(ctx.SesionId);
+        TempData["Ok"] = "Cuenta solicitada. El garzón te atenderá pronto.";
+        return RedirectToAction(nameof(MiMesa));
     }
 
     // ---------- 4) Sin sesión (terminó la visita o nunca entró) ----------

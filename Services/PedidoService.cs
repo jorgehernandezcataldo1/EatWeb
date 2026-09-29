@@ -8,6 +8,7 @@ namespace EatWeb.Services;
 public class LineaCarritoCalculada
 {
     public Guid LineaId { get; set; }
+    public int ProductoId { get; set; }
     public string NombreProducto { get; set; } = string.Empty;
     public decimal PrecioUnitario { get; set; }
     public int Cantidad { get; set; }
@@ -18,7 +19,8 @@ public class LineaCarritoCalculada
 
 public class PersonalizacionLegible
 {
-    public string TipoAccion { get; set; } = string.Empty; // "Sin ...", "Agregar ..."
+    public int IngredienteId { get; set; }          // NUEVO
+    public string TipoAccion { get; set; } = string.Empty; // "Sin" / "Agregar"
     public string NombreIngrediente { get; set; } = string.Empty;
     public decimal PrecioExtra { get; set; }
 }
@@ -46,9 +48,6 @@ public class PedidoService
         _context = context;
     }
 
-    /// <summary>
-    /// Calcula los precios y detalles del carrito
-    /// </summary>
     public async Task<CarritoCalculado> CalcularCarritoAsync(CarritoSesion carrito)
     {
         var resultado = new CarritoCalculado();
@@ -61,7 +60,6 @@ public class PedidoService
 
         foreach (var linea in carrito.Lineas)
         {
-            // Obtener producto
             var producto = await _context.Productos
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == linea.ProductoId);
@@ -78,79 +76,78 @@ public class PedidoService
                 continue;
             }
 
-            // Obtener ingredientes del producto
             var ingredientesProducto = await _context.ProductoIngredientes
                 .AsNoTracking()
-                .Where(pi => pi.ProductoId == linea.ProductoId)
                 .Include(pi => pi.Ingrediente)
+                .Where(pi => pi.ProductoId == linea.ProductoId)
                 .ToListAsync();
 
-            // Validar "quitar" (deben ser Incluidos)
-            foreach (var idQuitar in linea.IngredientesQuitar)
-            {
-                var ingrediente = ingredientesProducto.FirstOrDefault(pi => pi.IngredienteId == idQuitar);
-                if (ingrediente == null || ingrediente.Tipo != TipoIngrediente.Incluido)
-                {
-                    resultado.Errores.Add($"No se puede quitar el ingrediente {idQuitar} de {producto.Nombre}");
-                    continue;
-                }
-                if (!ingrediente.Ingrediente.Activo)
-                {
-                    resultado.Errores.Add($"Ingrediente no disponible");
-                    continue;
-                }
-            }
-
-            // Validar "agregar" (deben ser Extra)
-            foreach (var idAgregar in linea.IngredientesAgregar)
-            {
-                var ingrediente = ingredientesProducto.FirstOrDefault(pi => pi.IngredienteId == idAgregar);
-                if (ingrediente == null || ingrediente.Tipo != TipoIngrediente.Extra)
-                {
-                    resultado.Errores.Add($"No se puede agregar el ingrediente {idAgregar} a {producto.Nombre}");
-                    continue;
-                }
-                if (!ingrediente.Ingrediente.Activo)
-                {
-                    resultado.Errores.Add($"Ingrediente no disponible");
-                    continue;
-                }
-            }
-
-            // Calcular extras
             var personalizaciones = new List<PersonalizacionLegible>();
             var montoPrecioExtra = 0m;
 
+            // QUITAR: solo válidos si son "Incluido"
             foreach (var idQuitar in linea.IngredientesQuitar)
             {
-                var ingrediente = ingredientesProducto.First(pi => pi.IngredienteId == idQuitar);
+                var pi = ingredientesProducto.FirstOrDefault(x => x.IngredienteId == idQuitar);
+
+                if (pi == null || pi.Tipo != TipoIngrediente.Incluido)
+                {
+                    resultado.Errores.Add(
+                        $"No se puede quitar el ingrediente {idQuitar} de {producto.Nombre}");
+                    continue;
+                }
+
+                if (pi.Ingrediente == null || !pi.Ingrediente.Activo)
+                {
+                    resultado.Errores.Add("Ingrediente no disponible");
+                    continue;
+                }
+
                 personalizaciones.Add(new PersonalizacionLegible
                 {
+                    IngredienteId = pi.IngredienteId,
                     TipoAccion = "Sin",
-                    NombreIngrediente = ingrediente.Ingrediente.Nombre,
+                    NombreIngrediente = pi.Ingrediente.Nombre,
                     PrecioExtra = 0
                 });
             }
 
+            // AGREGAR: solo válidos si son "Extra"
             foreach (var idAgregar in linea.IngredientesAgregar)
             {
-                var ingrediente = ingredientesProducto.First(pi => pi.IngredienteId == idAgregar);
-                montoPrecioExtra += ingrediente.PrecioExtra;
+                var pi = ingredientesProducto.FirstOrDefault(x => x.IngredienteId == idAgregar);
+
+                if (pi == null || pi.Tipo != TipoIngrediente.Extra)
+                {
+                    resultado.Errores.Add(
+                        $"No se puede agregar el ingrediente {idAgregar} a {producto.Nombre}");
+                    continue;
+                }
+
+                if (pi.Ingrediente == null || !pi.Ingrediente.Activo)
+                {
+                    resultado.Errores.Add("Ingrediente no disponible");
+                    continue;
+                }
+
+                montoPrecioExtra += pi.PrecioExtra;
+
                 personalizaciones.Add(new PersonalizacionLegible
                 {
+                    IngredienteId = pi.IngredienteId,
                     TipoAccion = "Agregar",
-                    NombreIngrediente = ingrediente.Ingrediente.Nombre,
-                    PrecioExtra = ingrediente.PrecioExtra
+                    NombreIngrediente = pi.Ingrediente.Nombre,
+                    PrecioExtra = pi.PrecioExtra
                 });
             }
 
-            // Calcular subtotal
             var precioUnitarioConExtras = producto.Precio + montoPrecioExtra;
             var subtotal = precioUnitarioConExtras * linea.Cantidad;
 
             resultado.Lineas.Add(new LineaCarritoCalculada
             {
                 LineaId = linea.LineaId,
+                ProductoId = producto.Id,
                 NombreProducto = producto.Nombre,
                 PrecioUnitario = producto.Precio,
                 Cantidad = linea.Cantidad,
@@ -165,9 +162,6 @@ public class PedidoService
         return resultado;
     }
 
-    /// <summary>
-    /// Crea un pedido con validación completa
-    /// </summary>
     public async Task<ResultadoPedido> CrearPedidoAsync(
         int comensalId,
         CarritoSesion carrito,
@@ -175,10 +169,9 @@ public class PedidoService
     {
         var resultado = new ResultadoPedido();
 
-        // Validar comensal y sesión
         var comensal = await _context.Comensales
             .Include(c => c.MesaSesion)
-            .ThenInclude(s => s!.Mesa)
+                .ThenInclude(s => s!.Mesa)
             .FirstOrDefaultAsync(c => c.Id == comensalId);
 
         if (comensal == null)
@@ -194,8 +187,7 @@ public class PedidoService
             return resultado;
         }
 
-        var mesa = sesion.Mesa;
-        if (!mesa.Activa)
+        if (sesion.Mesa == null || !sesion.Mesa.Activa)
         {
             resultado.Errores.Add("Mesa no disponible");
             return resultado;
@@ -203,7 +195,7 @@ public class PedidoService
 
         if (sesion.CuentaSolicitadaEn.HasValue)
         {
-            resultado.Errores.Add("La cuenta ha sido solicitada");
+            resultado.Errores.Add("La cuenta ya ha sido solicitada");
             return resultado;
         }
 
@@ -213,7 +205,6 @@ public class PedidoService
             return resultado;
         }
 
-        // Validar cantidades
         foreach (var linea in carrito.Lineas)
         {
             if (linea.Cantidad < 1 || linea.Cantidad > 20)
@@ -223,7 +214,6 @@ public class PedidoService
             }
         }
 
-        // Calcular carrito
         var carritoCalculado = await CalcularCarritoAsync(carrito);
         if (carritoCalculado.Errores.Count > 0)
         {
@@ -231,7 +221,7 @@ public class PedidoService
             return resultado;
         }
 
-        // Crear pedido
+        // === Crear pedido ===
         var pedido = new Pedido
         {
             MesaSesionId = sesion.Id,
@@ -243,75 +233,63 @@ public class PedidoService
         };
 
         _context.Pedidos.Add(pedido);
-        await _context.SaveChangesAsync(); // Guardar para obtener el Id
 
-        // Crear detalles
+        // === Crear detalles ===
         foreach (var lineaCalculada in carritoCalculado.Lineas)
         {
-            var linea = carrito.Lineas.First(l => l.LineaId == lineaCalculada.LineaId);
-            var producto = await _context.Productos
-                .AsNoTracking()
-                .FirstAsync(p => p.Id == linea.ProductoId);
+            var lineaOriginal = carrito.Lineas
+                .First(l => l.LineaId == lineaCalculada.LineaId);
 
             var detalle = new DetallePedido
             {
-                PedidoId = pedido.Id,
-                ProductoId = linea.ProductoId,
-                NombreProducto = producto.Nombre,
-                PrecioUnitario = producto.Precio,
-                Cantidad = linea.Cantidad,
-                Observacion = linea.Observacion,
+                ProductoId = lineaCalculada.ProductoId,
+                NombreProducto = lineaCalculada.NombreProducto,
+                PrecioUnitario = lineaCalculada.PrecioUnitario,
+                Cantidad = lineaCalculada.Cantidad,
+                Observacion = lineaCalculada.Observacion,
                 Subtotal = lineaCalculada.Subtotal
             };
 
-            _context.DetallesPedidos.Add(detalle);
-            await _context.SaveChangesAsync(); // Guardar para obtener el Id
-
-            // Crear personalizaciones
             foreach (var pers in lineaCalculada.Personalizaciones)
             {
-                var ingredienteId = await _context.Ingredientes
-                    .AsNoTracking()
-                    .Where(i => i.Nombre == pers.NombreIngrediente)
-                    .Select(i => i.Id)
-                    .FirstAsync();
-
-                var detalleIngrediente = new DetallePedidoIngrediente
+                detalle.Ingredientes.Add(new DetallePedidoIngrediente
                 {
-                    DetallePedidoId = detalle.Id,
-                    IngredienteId = ingredienteId,
+                    IngredienteId = pers.IngredienteId,
                     NombreIngrediente = pers.NombreIngrediente,
-                    Accion = pers.TipoAccion == "Sin" ? AccionIngrediente.Quitar : AccionIngrediente.Agregar,
+                    Accion = pers.TipoAccion == "Sin"
+                        ? AccionIngrediente.Quitar
+                        : AccionIngrediente.Agregar,
                     PrecioExtra = pers.PrecioExtra
-                };
-
-                _context.DetallesIngredientes.Add(detalleIngrediente);
+                });
             }
+
+            pedido.Detalles.Add(detalle);
         }
 
-        // Crear historial
-        var historial = new HistorialEstadoPedido
+        // === Historial ===
+        pedido.Historial.Add(new HistorialEstadoPedido
         {
-            PedidoId = pedido.Id,
             EstadoAnterior = null,
             EstadoNuevo = EstadoPedido.Pendiente,
             Fecha = DateTime.UtcNow,
-            UsuarioId = null // Sistema/Cliente
-        };
+            UsuarioId = null
+        });
 
-        _context.HistorialesEstadoPedido.Add(historial);
-
-        // Guardar TODO
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            resultado.Errores.Add("Error al guardar el pedido: " + ex.Message);
+            return resultado;
+        }
 
         resultado.Ok = true;
         resultado.PedidoId = pedido.Id;
         return resultado;
     }
 
-    /// <summary>
-    /// Cambia el estado de un pedido con validación de transiciones
-    /// </summary>
     public async Task<ResultadoPedido> CambiarEstadoAsync(
         int pedidoId,
         string nuevoEstado,
@@ -328,27 +306,24 @@ public class PedidoService
 
         var estadoActual = pedido.Estado;
 
-        // Validar transición
         if (!EsTransicionValida(estadoActual, nuevoEstado))
         {
-            resultado.Errores.Add($"Transición de {estadoActual} a {nuevoEstado} no permitida");
+            resultado.Errores.Add(
+                $"Transición de {estadoActual} a {nuevoEstado} no permitida");
             return resultado;
         }
 
-        // Cambiar estado
         pedido.Estado = nuevoEstado;
 
-        // Registrar en historial
-        var historial = new HistorialEstadoPedido
+        _context.HistorialesEstadoPedido.Add(new HistorialEstadoPedido
         {
             PedidoId = pedidoId,
             EstadoAnterior = estadoActual,
             EstadoNuevo = nuevoEstado,
             Fecha = DateTime.UtcNow,
             UsuarioId = usuarioId
-        };
+        });
 
-        _context.HistorialesEstadoPedido.Add(historial);
         await _context.SaveChangesAsync();
 
         resultado.Ok = true;
@@ -356,17 +331,22 @@ public class PedidoService
         return resultado;
     }
 
-    /// <summary>
-    /// Valida si una transición de estado es permitida
-    /// </summary>
     private static bool EsTransicionValida(string estadoActual, string nuevoEstado)
     {
         return estadoActual switch
         {
-            var x when x == EstadoPedido.Pendiente => nuevoEstado == EstadoPedido.EnPreparacion || nuevoEstado == EstadoPedido.Cancelado,
-            var x when x == EstadoPedido.EnPreparacion => nuevoEstado == EstadoPedido.Listo || nuevoEstado == EstadoPedido.Cancelado,
-            var x when x == EstadoPedido.Listo => nuevoEstado == EstadoPedido.Entregado,
-            _ => false // Entregado y Cancelado son terminales
+            var x when x == EstadoPedido.Pendiente =>
+                nuevoEstado == EstadoPedido.EnPreparacion ||
+                nuevoEstado == EstadoPedido.Cancelado,
+
+            var x when x == EstadoPedido.EnPreparacion =>
+                nuevoEstado == EstadoPedido.Listo ||
+                nuevoEstado == EstadoPedido.Cancelado,
+
+            var x when x == EstadoPedido.Listo =>
+                nuevoEstado == EstadoPedido.Entregado,
+
+            _ => false
         };
     }
 }

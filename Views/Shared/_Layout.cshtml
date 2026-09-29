@@ -53,6 +53,12 @@
                                     <a class="nav-link" asp-controller="Pedidos" asp-action="Index">Pedidos</a>
                                 </li>
                             }
+                            @if (User.IsInRole(Roles.AdminCadena))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Cadenas" asp-action="Index">Mi Cadena</a>
+                                </li>
+                            }
                             <li class="nav-item">
                                 <form class="d-inline" asp-controller="Account" asp-action="Logout" method="post">
                                     <button type="submit" class="nav-link btn btn-link">Logout</button>
