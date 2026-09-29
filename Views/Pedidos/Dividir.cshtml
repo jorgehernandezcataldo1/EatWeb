@@ -1,0 +1,253 @@
+﻿@model DivisionCuentaViewModel
+@{
+    ViewData["Title"] = $"Dividir cuenta - Mesa {Model.MesaNumero}";
+    var clp = new System.Globalization.CultureInfo("es-CL");
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Dividir cuenta – Mesa @Model.MesaNumero</h2>
+    <a asp-action="Cuenta" asp-route-id="@Model.SesionId"
+       class="btn btn-outline-secondary btn-sm">← Cuenta completa</a>
+</div>
+
+<div class="row">
+    <div class="col-md-7">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Comensales</h5>
+            </div>
+            <ul class="list-group list-group-flush">
+                @foreach (var p in Model.Personas)
+                {
+                    <li class="list-group-item d-flex justify-content-between">
+                        <div>
+                            <strong>@p.Nombre</strong>
+                            <small class="text-muted ms-2">
+                                @p.FechaIngreso.ToLocalTime().ToString("HH:mm")
+                            </small>
+                        </div>
+                        <span>@p.TotalConsumido.ToString("C0", clp)</span>
+                    </li>
+                }
+            </ul>
+            <div class="card-footer">
+                <strong>Total: @Model.Total.ToString("C0", clp)</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Modo de división</h5>
+            </div>
+            <div class="card-body">
+                <div class="btn-group w-100 mb-3" role="group">
+                    <input type="radio" class="btn-check" name="modoRadio"
+                           id="modoIgual" value="Igual" checked
+                           onchange="cambiarModo('Igual')" />
+                    <label class="btn btn-outline-primary" for="modoIgual">
+                        Partes iguales
+                    </label>
+
+                    <input type="radio" class="btn-check" name="modoRadio"
+                           id="modoPorConsumo" value="PorConsumo"
+                           onchange="cambiarModo('PorConsumo')" />
+                    <label class="btn btn-outline-primary" for="modoPorConsumo">
+                        Por consumo
+                    </label>
+
+                    <input type="radio" class="btn-check" name="modoRadio"
+                           id="modoPersonalizado" value="Personalizado"
+                           onchange="cambiarModo('Personalizado')" />
+                    <label class="btn btn-outline-primary" for="modoPersonalizado">
+                        Personalizado
+                    </label>
+                </div>
+
+                <!-- Modo: partes iguales -->
+                <div id="panelIgual">
+                    <label class="form-label">¿Entre cuántas personas?</label>
+                    <input type="number" id="cantidadPartes" class="form-control"
+                           value="@Model.Personas.Count" min="1" max="@Model.Personas.Count"
+                           onchange="calcularIgual()" />
+                    <hr />
+                    <p class="mb-1">Cada uno paga:</p>
+                    <h3 id="montoIgual" class="text-primary"></h3>
+                </div>
+
+                <!-- Modo: por consumo -->
+                <div id="panelPorConsumo" style="display: none;">
+                    <p class="text-muted small">
+                        Cada comensal paga exactamente lo que consumió.
+                    </p>
+                    <ul class="list-group small">
+                        @foreach (var p in Model.Personas)
+                        {
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>@p.Nombre</span>
+                                <strong>@p.TotalConsumido.ToString("C0", clp)</strong>
+                            </li>
+                        }
+                    </ul>
+                </div>
+
+                <!-- Modo: personalizado -->
+                <div id="panelPersonalizado" style="display: none;">
+                    <p class="text-muted small">
+                        Arrastra comensales a un grupo. Los que compartan grupo
+                        dividen su total en partes iguales.
+                    </p>
+                    <div id="gruposContainer"></div>
+                    <button type="button" class="btn btn-sm btn-outline-primary mt-2"
+                            onclick="agregarGrupo()">
+                        + Agregar grupo
+                    </button>
+                </div>
+            </div>
+
+            <div class="card-footer">
+                <form asp-action="CerrarConDivision" method="post" id="formCerrar">
+                    <input type="hidden" name="SesionId" value="@Model.SesionId" />
+                    <input type="hidden" name="Modo" id="inputModo" value="Igual" />
+                    <div id="gruposHidden"></div>
+
+                    <button type="submit" class="btn btn-success w-100"
+                            onclick="return confirm('¿Cobrar y cerrar la mesa?');">
+                        💰 Cobrar y cerrar mesa
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const total = @Model.Total;
+        const personas = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.Personas.Select(p => new { id = p.ComensalId, nombre = p.Nombre, total = p.TotalConsumido })));
+
+        const clp = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
+
+        let grupos = [];
+
+        function cambiarModo(modo) {
+            document.getElementById('inputModo').value = modo;
+            document.getElementById('panelIgual').style.display = modo === 'Igual' ? 'block' : 'none';
+            document.getElementById('panelPorConsumo').style.display = modo === 'PorConsumo' ? 'block' : 'none';
+            document.getElementById('panelPersonalizado').style.display = modo === 'Personalizado' ? 'block' : 'none';
+
+            if (modo === 'Igual') calcularIgual();
+            if (modo === 'Personalizado' && grupos.length === 0) {
+                agregarGrupo('Grupo 1');
+                agregarGrupo('Grupo 2');
+            }
+        }
+
+        function calcularIgual() {
+            const n = parseInt(document.getElementById('cantidadPartes').value) || 1;
+            const base = Math.floor(total / n);
+            const dif = total - (base * n);
+            document.getElementById('montoIgual').textContent = clp.format(base);
+            if (dif > 0) {
+                document.getElementById('montoIgual').textContent +=
+                    ` (uno paga ${clp.format(base + dif)})`;
+            }
+        }
+
+        function agregarGrupo(nombre = null) {
+            const idx = grupos.length;
+            grupos.push({
+                nombre: nombre || `Grupo ${idx + 1}`,
+                comensales: []
+            });
+            renderGrupos();
+        }
+
+        function quitarGrupo(idx) {
+            grupos.splice(idx, 1);
+            renderGrupos();
+        }
+
+        function toggleComensal(gIdx, comensalId) {
+            const grupo = grupos[gIdx];
+            const i = grupo.comensales.indexOf(comensalId);
+            if (i >= 0) grupo.comensales.splice(i, 1);
+            else {
+                // Quitar de otros grupos
+                grupos.forEach((g, gi) => {
+                    if (gi !== gIdx) {
+                        const j = g.comensales.indexOf(comensalId);
+                        if (j >= 0) g.comensales.splice(j, 1);
+                    }
+                });
+                grupo.comensales.push(comensalId);
+            }
+            renderGrupos();
+        }
+
+        function renderGrupos() {
+            const cont = document.getElementById('gruposContainer');
+            cont.innerHTML = '';
+
+            grupos.forEach((g, gi) => {
+                const totalGrupo = g.comensales.reduce((s, id) => {
+                    const p = personas.find(x => x.id === id);
+                    return s + (p ? p.total : 0);
+                }, 0);
+
+                const div = document.createElement('div');
+                div.className = 'card mb-2';
+                div.innerHTML = `
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <input type="text" class="form-control form-control-sm"
+                               style="max-width: 150px;" value="${g.nombre}"
+                               onchange="grupos[${gi}].nombre = this.value" />
+                        <div>
+                            <span class="badge bg-primary">${clp.format(totalGrupo)}</span>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2"
+                                    onclick="quitarGrupo(${gi})">✕</button>
+                        </div>
+                    </div>
+                    <div class="card-body py-2">
+                        ${personas.map(p => `
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox"
+                                       id="g${gi}-c${p.id}"
+                                       ${g.comensales.includes(p.id) ? 'checked' : ''}
+                                       onchange="toggleComensal(${gi}, ${p.id})" />
+                                <label class="form-check-label small" for="g${gi}-c${p.id}">
+                                    ${p.nombre}
+                                </label>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                cont.appendChild(div);
+            });
+
+            // Hidden inputs para POST
+            const hidden = document.getElementById('gruposHidden');
+            hidden.innerHTML = '';
+            grupos.forEach((g, gi) => {
+                g.comensales.forEach((cid, ci) => {
+                    hidden.innerHTML += `
+                        <input type="hidden" name="Grupos[${gi}].Nombre" value="${g.nombre}" />
+                        <input type="hidden" name="Grupos[${gi}].ComensalIds[${ci}]" value="${cid}" />
+                    `;
+                });
+                // Si el grupo no tiene comensales, igual mandamos el nombre
+                if (g.comensales.length === 0) {
+                    hidden.innerHTML += `
+                        <input type="hidden" name="Grupos[${gi}].Nombre" value="${g.nombre}" />
+                    `;
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            calcularIgual();
+        });
+    </script>
+}

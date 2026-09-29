@@ -332,7 +332,6 @@ public class ClienteController : Controller
     }
 
     // ---------- Helpers ----------
-
     /// <summary>Lee la cookie y busca al comensal. NO toca ViewData.</summary>
     private async Task<ContextoComensal?> LeerContextoAsync()
     {

@@ -1,0 +1,129 @@
+﻿@model CuentaViewModel
+@{
+    ViewData["Title"] = $"Cuenta Mesa {Model.MesaNumero}";
+    var clp = new System.Globalization.CultureInfo("es-CL");
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Cuenta Mesa @Model.MesaNumero</h2>
+    <div>
+        @if (Model.CuentaSolicitada)
+        {
+            <span class="badge bg-warning text-dark me-2">💰 Solicitada</span>
+        }
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm">← Volver</a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Detalle por persona -->
+    <div class="col-md-8">
+        @foreach (var persona in Model.Personas)
+        {
+            <div class="card mb-3">
+                <div class="card-header bg-light d-flex justify-content-between">
+                    <div>
+                        <strong>@persona.Nombre</strong>
+                        <small class="text-muted ms-2">
+                            desde @persona.FechaIngreso.ToLocalTime().ToString("HH:mm")
+                        </small>
+                    </div>
+                    <strong>@persona.TotalConsumido.ToString("C0", clp)</strong>
+                </div>
+                <div class="card-body p-0">
+                    @if (!persona.Items.Any())
+                    {
+                        <p class="text-muted p-3 mb-0">Sin consumos</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr class="small text-muted">
+                                    <th>Cant.</th>
+                                    <th>Producto</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in persona.Items)
+                                {
+                                    <tr>
+                                        <td>@item.Cantidad×</td>
+                                        <td>
+                                            @item.Producto
+                                            @if (item.Personalizaciones.Any())
+                                            {
+                                                <ul class="small text-muted mb-0">
+                                                    @foreach (var p in item.Personalizaciones)
+                                                    {
+                                                        <li>@p</li>
+                                                    }
+                                                </ul>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(item.Observacion))
+                                            {
+                                                <div class="small fst-italic text-secondary">
+                                                    💬 @item.Observacion
+                                                </div>
+                                            }
+                                            <partial name="_EstadoPedidoBadge" model="item.EstadoPedido" />
+                                        </td>
+                                        <td class="text-end">@item.Subtotal.ToString("C0", clp)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Resumen -->
+    <div class="col-md-4">
+        <div class="card sticky-top" style="top: 1rem;">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Total de la mesa</h5>
+            </div>
+            <div class="card-body">
+                <h2 class="text-center mb-3">@Model.Total.ToString("C0", clp)</h2>
+
+                <dl class="row small mb-0">
+                    <dt class="col-6">Apertura</dt>
+                    <dd class="col-6 text-end">
+                        @Model.FechaApertura.ToLocalTime().ToString("HH:mm")
+                    </dd>
+
+                    <dt class="col-6">Personas</dt>
+                    <dd class="col-6 text-end">@Model.Personas.Count</dd>
+
+                    @if (Model.Personas.Any())
+                    {
+                        <dt class="col-6">Promedio</dt>
+                        <dd class="col-6 text-end">
+                            @((Model.Total / Model.Personas.Count).ToString("C0", clp))
+                        </dd>
+                    }
+                </dl>
+            </div>
+            <div class="card-footer">
+                <form asp-action="CerrarMesa" asp-route-id="@Model.SesionId"
+                      method="post"
+                      onsubmit="return confirm('¿Cerrar la mesa? La sesión quedará finalizada.');">
+                    <button type="submit" class="btn btn-success w-100">
+                        ✅ Cobrar y cerrar mesa
+                    </button>
+                    <a asp-action="Dividir" asp-route-id="@Model.SesionId"
+                       class="btn btn-outline-primary w-100 mt-2">
+                        💰 Dividir cuenta
+                    </a>
+                </form>
+
+                <a asp-action="Index" class="btn btn-outline-secondary w-100 mt-2">
+                    Seguir atendiendo
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

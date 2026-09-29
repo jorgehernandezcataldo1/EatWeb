@@ -2,7 +2,7 @@
 
 namespace EatWeb.ViewModels;
 
-/// <summary>Pantalla "¿Cómo te llamas?" al escanear el QR.</summary>
+// ============ Ingreso ============
 public class IngresoViewModel
 {
     public int MesaNumero { get; set; }
@@ -10,13 +10,13 @@ public class IngresoViewModel
     public string Nombre { get; set; } = string.Empty;
 }
 
-/// <summary>Mensaje simple para el cliente (mesa inválida, sesión terminada...).</summary>
 public class AvisoClienteViewModel
 {
     public string Titulo { get; set; } = string.Empty;
     public string Mensaje { get; set; } = string.Empty;
 }
 
+// ============ Carta ============
 public class CartaViewModel
 {
     public List<CartaCategoriaViewModel> Categorias { get; set; } = new();
@@ -39,6 +39,7 @@ public class CartaProductoViewModel
     public bool Disponible { get; set; }
 }
 
+// ============ Detalle de producto ============
 public class ProductoDetalleViewModel
 {
     public int Id { get; set; }
@@ -57,6 +58,7 @@ public class IngredienteOpcionViewModel
     public string Nombre { get; set; } = string.Empty;
     public decimal PrecioExtra { get; set; }
 }
+
 public class AgregarCarritoInputViewModel
 {
     public int ProductoId { get; set; }
@@ -66,6 +68,7 @@ public class AgregarCarritoInputViewModel
     public string? Observacion { get; set; }
 }
 
+// ============ Carrito ============
 public class CarritoViewModel
 {
     public List<LineaCarritoCalculada> Lineas { get; set; } = new();
@@ -73,6 +76,7 @@ public class CarritoViewModel
     public List<string> Errores { get; set; } = new();
 }
 
+// ============ Mi Mesa ============
 public class MiMesaViewModel
 {
     public int MesaNumero { get; set; }
@@ -89,4 +93,6 @@ public class MiPedidoViewModel
     public decimal Total { get; set; }
     public DateTime Fecha { get; set; }
     public List<string> Items { get; set; } = new();
+    public List<string> Personalizaciones { get; set; } = new();
+    public string? Observacion { get; set; }
 }

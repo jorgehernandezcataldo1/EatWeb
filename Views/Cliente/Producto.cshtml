@@ -6,11 +6,11 @@
 
 <div class="row justify-content-center">
     <div class="col-12 col-md-8">
-        <div class="card">
+        <div class="card shadow-sm">
             @if (!string.IsNullOrWhiteSpace(Model.ImagenUrl))
             {
                 <img src="@Model.ImagenUrl" class="card-img-top"
-                     style="max-height: 300px; object-fit: cover;" />
+                     style="max-height: 300px; object-fit: cover;" alt="@Model.Nombre" />
             }
             <div class="card-body">
                 <h4>@Model.Nombre</h4>
@@ -18,7 +18,7 @@
                 {
                     <p class="text-muted">@Model.Descripcion</p>
                 }
-                <h5>@Model.Precio.ToString("C0", clp)</h5>
+                <h5 class="text-primary">@Model.Precio.ToString("C0", clp)</h5>
 
                 @if (!Model.Disponible)
                 {
@@ -36,7 +36,8 @@
                             {
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox"
-                                           name="IngredientesQuitar" value="@ing.IngredienteId"
+                                           name="IngredientesQuitar"
+                                           value="@ing.IngredienteId"
                                            id="q-@ing.IngredienteId" />
                                     <label class="form-check-label" for="q-@ing.IngredienteId">
                                         Sin @ing.Nombre
@@ -52,7 +53,8 @@
                             {
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox"
-                                           name="IngredientesAgregar" value="@ing.IngredienteId"
+                                           name="IngredientesAgregar"
+                                           value="@ing.IngredienteId"
                                            id="a-@ing.IngredienteId" />
                                     <label class="form-check-label" for="a-@ing.IngredienteId">
                                         Agregar @ing.Nombre
@@ -68,7 +70,7 @@
                         <div class="mt-3">
                             <label class="form-label">Observación (opcional)</label>
                             <input type="text" name="Observacion" class="form-control"
-                                   maxlength="200" />
+                                   maxlength="200" placeholder="Ej: sin sal, bien cocido..." />
                         </div>
 
                         <div class="mt-3">
@@ -78,12 +80,13 @@
                         </div>
 
                         <button type="submit" class="btn btn-primary btn-lg w-100 mt-3">
-                            Agregar al carrito
+                            🛒 Agregar al carrito
                         </button>
                     </form>
                 }
             </div>
         </div>
+
         <a asp-action="Carta" class="btn btn-link mt-2">← Volver a la carta</a>
     </div>
 </div>

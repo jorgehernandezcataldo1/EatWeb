@@ -5,16 +5,16 @@
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>Pedidos activos</h2>
+    <h2 class="mb-0">Pedidos activos</h2>
     <small class="text-muted">
-        Actualización automática cada 15s
-        <span class="spinner-border spinner-border-sm ms-2" role="status"></span>
+        <span class="spinner-border spinner-border-sm me-1"></span>
+        Se actualiza cada 15s
     </small>
 </div>
 
 @if (!Model.Mesas.Any())
 {
-    <div class="alert alert-info">No hay pedidos activos.</div>
+    <div class="alert alert-info">No hay pedidos activos por ahora.</div>
 }
 else
 {
@@ -22,9 +22,9 @@ else
     {
         <div class="card mb-3 shadow-sm">
             <div class="card-header d-flex justify-content-between align-items-center
-                        @(m.CuentaSolicitada ? "bg-warning" : "bg-light")">
+                        @(m.CuentaSolicitada ? "bg-warning text-dark" : "bg-light")">
                 <div>
-                    <strong>Mesa @m.MesaNumero</strong>
+                    <strong class="fs-5">Mesa @m.MesaNumero</strong>
                     <span class="ms-2 text-muted">@m.Pedidos.Count pedido(s)</span>
                 </div>
                 @if (m.CuentaSolicitada)
@@ -40,7 +40,8 @@ else
                             <div>
                                 <strong>@p.ComensalNombre</strong>
                                 <small class="text-muted ms-2">
-                                    Pedido #@p.Id – @p.FechaCreacion.ToLocalTime().ToString("HH:mm")
+                                    Pedido #@p.Id –
+                                    @p.FechaCreacion.ToLocalTime().ToString("HH:mm")
                                 </small>
                             </div>
                             <partial name="_EstadoPedidoBadge" model="p.Estado" />
@@ -112,7 +113,11 @@ else
 
                 <a asp-action="Cuenta" asp-route-id="@m.SesionId"
                    class="btn btn-outline-primary btn-sm mt-2">
-                    Ver cuenta completa
+                    📄 Ver cuenta completa
+                </a>
+                <a asp-action="Dividir" asp-route-id="@m.SesionId"
+                   class="btn btn-outline-info btn-sm mt-2 ms-2">
+                    💰 Dividir
                 </a>
             </div>
         </div>
