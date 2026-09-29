@@ -1,3 +1,5 @@
+using System.Security.Claims;
+
 namespace EatWeb.Models;
 
 public static class Roles
@@ -11,4 +13,6 @@ public static class Roles
 
     public const string AdminOGarzon =
         AdminCadena + "," + AdminRestaurante + "," + Garzon;
+    public static bool EsAdmin(this ClaimsPrincipal user) =>
+        user.IsInRole(AdminCadena) || user.IsInRole(AdminRestaurante);
 }
