@@ -66,7 +66,6 @@ public class DbSeeder
                 UserName = adminEmail,
                 Email = adminEmail,
                 NombreCompleto = adminNombre,
-                RestauranteId = restaurante.Id,
                 Activo = true
             };
 
@@ -316,7 +315,6 @@ public class DbSeeder
                     UserName = garzonEmail,
                     Email = garzonEmail,
                     NombreCompleto = "Carlos Garzón",
-                    RestauranteId = restaurante.Id,
                     Activo = true
                 };
                 var result = await _userManager.CreateAsync(garzon, "Garzon123!");
