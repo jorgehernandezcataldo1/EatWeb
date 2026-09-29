@@ -1,0 +1,75 @@
+﻿@model CuentaViewModel
+@{
+    ViewData["Title"] = $"Historial Mesa {Model.MesaNumero}";
+    var clp = new System.Globalization.CultureInfo("es-CL");
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Historial – Mesa @Model.MesaNumero</h2>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">← Volver</a>
+</div>
+
+<div class="alert alert-secondary">
+    <strong>Apertura:</strong> @Model.FechaApertura.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        @foreach (var persona in Model.Personas)
+        {
+            <div class="card mb-3">
+                <div class="card-header bg-light d-flex justify-content-between">
+                    <strong>@persona.Nombre</strong>
+                    <strong>@persona.TotalConsumido.ToString("C0", clp)</strong>
+                </div>
+                <div class="card-body p-0">
+                    @if (!persona.Items.Any())
+                    {
+                        <p class="text-muted p-3 mb-0">Sin consumos</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm mb-0">
+                            <tbody>
+                                @foreach (var item in persona.Items)
+                                {
+                                    <tr>
+                                        <td>@item.Cantidad×</td>
+                                        <td>
+                                            @item.Producto
+                                            @if (item.Personalizaciones.Any())
+                                            {
+                                                <ul class="small text-muted mb-0">
+                                                    @foreach (var p in item.Personalizaciones)
+                                                    {
+                                                        <li>@p</li>
+                                                    }
+                                                </ul>
+                                            }
+                                        </td>
+                                        <td class="text-end">@item.Subtotal.ToString("C0", clp)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Total</h5>
+            </div>
+            <div class="card-body">
+                <h2 class="text-center">@Model.Total.ToString("C0", clp)</h2>
+                <dl class="row small mb-0">
+                    <dt class="col-6">Personas</dt>
+                    <dd class="col-6 text-end">@Model.Personas.Count</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>

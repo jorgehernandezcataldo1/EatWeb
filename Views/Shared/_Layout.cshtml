@@ -18,7 +18,7 @@
                     <ul class="navbar-nav ms-auto">
                         @if (User.Identity?.IsAuthenticated == true)
                         {
-                            @if (User.IsInRole(Roles.Admin))
+                            @if (User.IsInRole(Roles.AdminRestaurante))
                             {
                                 <li class="nav-item">
                                     <a class="nav-link" asp-controller="Admin" asp-action="Index">Dashboard</a>

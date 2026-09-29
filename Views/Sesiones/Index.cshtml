@@ -1,0 +1,113 @@
+﻿@model SesionesIndexViewModel
+@{
+    ViewData["Title"] = "Historial de sesiones";
+    var clp = new System.Globalization.CultureInfo("es-CL");
+}
+
+<h2 class="mb-3">Historial de sesiones</h2>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+        <label class="col-form-label">Desde</label>
+    </div>
+    <div class="col-auto">
+        <input type="date" name="desde" class="form-control"
+               value="@Model.Desde.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="col-auto">
+        <label class="col-form-label">Hasta</label>
+    </div>
+    <div class="col-auto">
+        <input type="date" name="hasta" class="form-control"
+               value="@Model.Hasta.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+    </div>
+</form>
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h6>Total del período</h6>
+                <h3 class="mb-0">@Model.TotalPeriodo.ToString("C0", clp)</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h6>Sesiones</h6>
+                <h3 class="mb-0">@Model.CantidadSesiones</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h6>Promedio por sesión</h6>
+                <h3 class="mb-0">
+                    @(Model.CantidadSesiones > 0
+                        ? (Model.TotalPeriodo / Model.CantidadSesiones).ToString("C0", clp)
+                        : "$0")
+                </h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (!Model.Sesiones.Any())
+{
+    <div class="alert alert-info">No hay sesiones en el período seleccionado.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Mesa</th>
+                    <th>Apertura</th>
+                    <th>Cierre</th>
+                    <th>Duración</th>
+                    <th>Personas</th>
+                    <th>Pedidos</th>
+                    <th class="text-end">Total</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in Model.Sesiones)
+                {
+                    var duracion = s.FechaCierre.HasValue
+                        ? s.FechaCierre.Value - s.FechaApertura
+                        : TimeSpan.Zero;
+
+                    <tr>
+                        <td><strong>Mesa @s.MesaNumero</strong></td>
+                        <td>@s.FechaApertura.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                        <td>@(s.FechaCierre?.ToLocalTime().ToString("dd/MM HH:mm") ?? "—")</td>
+                        <td>
+                            @if (duracion.TotalHours >= 1)
+                            {
+                                @($"{(int)duracion.TotalHours}h {duracion.Minutes}m")
+                            }
+                            else
+                            {
+                                @($"{(int)duracion.TotalMinutes}m")
+                            }
+                        </td>
+                        <td>@s.Comensales</td>
+                        <td>@s.TotalPedidos</td>
+                        <td class="text-end"><strong>@s.Total.ToString("C0", clp)</strong></td>
+                        <td>
+                            <a asp-action="Detalle" asp-route-id="@s.Id"
+                               class="btn btn-sm btn-outline-primary">Ver</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
