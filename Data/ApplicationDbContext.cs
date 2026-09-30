@@ -151,7 +151,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<MesaSesion>()
             .HasIndex(s => s.MesaId)
             .IsUnique()
-            .HasFilter("[FechaCierre] IS NULL");
+            .HasFilter("\"FechaCierre\" IS NULL");
+        //.HasFilter("[FechaCierre] IS NULL");
 
         modelBuilder.Entity<MesaSesion>()
             .HasOne(s => s.Mesa)
