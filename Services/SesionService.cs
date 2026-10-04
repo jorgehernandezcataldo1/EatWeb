@@ -1,5 +1,6 @@
 using EatWeb.Data;
 using EatWeb.Models;
+using EatWeb.Models.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace EatWeb.Services;
