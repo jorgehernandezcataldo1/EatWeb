@@ -37,10 +37,16 @@ public class SesionService
         if (sesion != null)
             return sesion;
 
-        // Crear nueva sesión
+        // Crear nueva sesión. La asignación actual de la mesa se conserva como snapshot histórico.
+        var garzonId = await _context.Mesas
+            .Where(m => m.Id == mesaId)
+            .Select(m => m.GarzonId)
+            .FirstOrDefaultAsync();
+
         sesion = new MesaSesion
         {
             MesaId = mesaId,
+            GarzonId = garzonId,
             FechaApertura = DateTime.UtcNow,
             FechaCierre = null,
             CuentaSolicitadaEn = null,
