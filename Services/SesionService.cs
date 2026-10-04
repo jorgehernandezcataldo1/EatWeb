@@ -42,7 +42,8 @@ public class SesionService
             MesaId = mesaId,
             FechaApertura = DateTime.UtcNow,
             FechaCierre = null,
-            CuentaSolicitadaEn = null
+            CuentaSolicitadaEn = null,
+            Estado = EstadoSesion.Abierta
         };
 
         try
@@ -140,6 +141,7 @@ public class SesionService
         if (sesion != null && !sesion.CuentaSolicitadaEn.HasValue)
         {
             sesion.CuentaSolicitadaEn = DateTime.UtcNow;
+            sesion.Estado = EstadoSesion.CuentaSolicitada;
             await _context.SaveChangesAsync();
         }
     }
@@ -153,6 +155,7 @@ public class SesionService
         if (sesion != null)
         {
             sesion.CuentaSolicitadaEn = null;
+            sesion.Estado = EstadoSesion.Abierta;
             await _context.SaveChangesAsync();
         }
     }
@@ -189,11 +192,12 @@ public class SesionService
         {
             foreach (var pedido in pedidosActivos)
             {
+                var estadoAnterior = pedido.Estado;
                 pedido.Estado = Models.Enums.EstadoPedido.Cancelado;
                 _context.HistorialesEstadoPedido.Add(new HistorialEstadoPedido
                 {
                     PedidoId = pedido.Id,
-                    EstadoAnterior = pedido.Estado,
+                    EstadoAnterior = estadoAnterior,
                     EstadoNuevo = Models.Enums.EstadoPedido.Cancelado,
                     Fecha = DateTime.UtcNow,
                     UsuarioId = usuarioId
@@ -203,6 +207,7 @@ public class SesionService
 
         // Cerrar sesión
         sesion.FechaCierre = DateTime.UtcNow;
+        sesion.Estado = EstadoSesion.Cerrada;
         await _context.SaveChangesAsync();
 
         return (true, null);
