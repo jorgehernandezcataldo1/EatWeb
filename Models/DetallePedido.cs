@@ -15,4 +15,5 @@ public class DetallePedido
     public Pedido? Pedido { get; set; }
     public Producto? Producto { get; set; }
     public ICollection<DetallePedidoIngrediente> Ingredientes { get; set; } = new List<DetallePedidoIngrediente>();
+    public ICollection<PagoDetalle> Pagos { get; set; } = new List<PagoDetalle>();
 }
