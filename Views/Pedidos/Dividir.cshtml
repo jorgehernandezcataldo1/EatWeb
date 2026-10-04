@@ -31,7 +31,9 @@
                 }
             </ul>
             <div class="card-footer">
-                <strong>Total: @Model.Total.ToString("C0", clp)</strong>
+                <div><strong>Total: @Model.Total.ToString("C0", clp)</strong></div>
+                <div class="text-success">Pagado: @Model.TotalPagado.ToString("C0", clp)</div>
+                <div class="text-danger">Pendiente: @Model.SaldoPendiente.ToString("C0", clp)</div>
             </div>
         </div>
     </div>
@@ -109,12 +111,42 @@
             <div class="card-footer">
                 <form asp-action="CerrarConDivision" method="post" id="formCerrar">
                     <input type="hidden" name="SesionId" value="@Model.SesionId" />
-                    <input type="hidden" name="Modo" id="inputModo" value="Igual" />
-                    <div id="gruposHidden"></div>
+                    <input type="hidden" name="Modo" id="inputModo" value="Seleccion" />
+                    <input type="hidden" name="IdempotencyKey" value="@Guid.NewGuid().ToString("N")" />
 
+                    <label class="form-label small">Método</label>
+                    <select name="Metodo" class="form-select form-select-sm mb-2">
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                        <option value="Transferencia">Transferencia</option>
+                    </select>
+
+                    <label class="form-label small">Propina</label>
+                    <input type="number" name="Propina" min="0" step="1"
+                           class="form-control form-control-sm mb-3" value="0" />
+
+                    <div class="mb-3">
+                        <strong class="small">Consumos a pagar</strong>
+                        @foreach (var item in Model.Items)
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       name="DetallePedidoIds" value="@item.DetallePedidoId"
+                                       id="detalle-@item.DetallePedidoId" />
+                                <label class="form-check-label small" for="detalle-@item.DetallePedidoId">
+                                    @item.Cantidad× @item.Producto — @item.Subtotal.ToString("C0", clp)
+                                </label>
+                            </div>
+                        }
+                    </div>
+
+                    <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-2"
+                            onclick="seleccionarTodo()">
+                        Seleccionar todo lo pendiente
+                    </button>
                     <button type="submit" class="btn btn-success w-100"
-                            onclick="return confirm('¿Cobrar y cerrar la mesa?');">
-                        💰 Cobrar y cerrar mesa
+                            onclick="return confirm('¿Registrar este pago?');">
+                        💰 Registrar pago
                     </button>
                 </form>
             </div>
@@ -133,7 +165,7 @@
         let grupos = [];
 
         function cambiarModo(modo) {
-            document.getElementById('inputModo').value = modo;
+            // Los modos siguen mostrando la propuesta de división; el cobro se registra por consumos seleccionados.
             document.getElementById('panelIgual').style.display = modo === 'Igual' ? 'block' : 'none';
             document.getElementById('panelPorConsumo').style.display = modo === 'PorConsumo' ? 'block' : 'none';
             document.getElementById('panelPersonalizado').style.display = modo === 'Personalizado' ? 'block' : 'none';
@@ -244,6 +276,10 @@
                     `;
                 }
             });
+        }
+
+        function seleccionarTodo() {
+            document.querySelectorAll('input[name="DetallePedidoIds"]').forEach(x => x.checked = true);
         }
 
         document.addEventListener('DOMContentLoaded', () => {
