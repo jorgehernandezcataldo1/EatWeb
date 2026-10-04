@@ -56,7 +56,7 @@ public class PedidosController : Controller
             .Where(s =>
                 s.FechaCierre == null &&
                 s.Mesa!.RestauranteId == restauranteId.Value &&
-                (User.EsAdmin() || s.Mesa.GarzonId == userId))
+                (User.EsAdmin() || s.GarzonId == userId))
             .Include(s => s.Mesa)
             .Include(s => s.Comensales)
                 .ThenInclude(c => c.Pedidos)
@@ -138,7 +138,7 @@ public class PedidosController : Controller
             return NotFound();
 
         if (User.EsGarzon() &&
-            pedido.MesaSesion!.Mesa!.GarzonId != GetUserId())
+            pedido.MesaSesion!.GarzonId != GetUserId())
         {
             return Forbid();
         }
@@ -172,7 +172,7 @@ public class PedidosController : Controller
                 (User.EsAdmin() ||
                  User.IsInRole(Roles.AdminCadena) ||
                  User.IsInRole(Roles.AdminRestaurante) ||
-                 s.Mesa.GarzonId == userId));
+                 s.GarzonId == userId));
 
         if (sesion == null) return NotFound();
 
@@ -214,7 +214,7 @@ public class PedidosController : Controller
                 (User.EsAdmin() ||
                  User.IsInRole(Roles.AdminCadena) ||
                  User.IsInRole(Roles.AdminRestaurante) ||
-                 s.Mesa.GarzonId == userId));
+                 s.GarzonId == userId));
 
         if (sesion == null) return NotFound();
 
