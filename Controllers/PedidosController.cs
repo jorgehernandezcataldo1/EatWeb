@@ -10,7 +10,7 @@ using System.Security.Claims;
 
 namespace EatWeb.Controllers;
 
-[Authorize(Roles = "Admin,Garzon")]
+[Authorize(Roles = Roles.AdminOGarzon)]
 public class PedidosController : Controller
 {
     private readonly ApplicationDbContext _context;
@@ -56,7 +56,7 @@ public class PedidosController : Controller
             .Where(s =>
                 s.FechaCierre == null &&
                 s.Mesa!.RestauranteId == restauranteId.Value &&
-                (User.IsInRole("Admin") || s.Mesa.GarzonId == userId))
+                (User.EsAdmin() || s.Mesa.GarzonId == userId))
             .Include(s => s.Mesa)
             .Include(s => s.Comensales)
                 .ThenInclude(c => c.Pedidos)
@@ -137,7 +137,7 @@ public class PedidosController : Controller
         if (pedido == null)
             return NotFound();
 
-        if (User.IsInRole("Garzon") &&
+        if (User.EsGarzon() &&
             pedido.MesaSesion!.Mesa!.GarzonId != GetUserId())
         {
             return Forbid();
@@ -169,7 +169,7 @@ public class PedidosController : Controller
                 s.Id == id &&
                 s.FechaCierre == null &&
                 s.Mesa!.RestauranteId == restauranteId.Value &&
-                (User.IsInRole("Admin") ||
+                (User.EsAdmin() ||
                  User.IsInRole(Roles.AdminCadena) ||
                  User.IsInRole(Roles.AdminRestaurante) ||
                  s.Mesa.GarzonId == userId));
@@ -211,7 +211,7 @@ public class PedidosController : Controller
                 s.Id == id &&
                 s.FechaCierre == null &&
                 s.Mesa!.RestauranteId == restauranteId.Value &&
-                (User.IsInRole("Admin") ||
+                (User.EsAdmin() ||
                  User.IsInRole(Roles.AdminCadena) ||
                  User.IsInRole(Roles.AdminRestaurante) ||
                  s.Mesa.GarzonId == userId));
