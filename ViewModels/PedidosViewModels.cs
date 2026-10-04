@@ -73,6 +73,7 @@ public class CuentaPersonaViewModel
 public class CuentaItemViewModel
 {
     public int PedidoId { get; set; }
+    public int DetallePedidoId { get; set; }
     public string Producto { get; set; } = string.Empty;
     public int Cantidad { get; set; }
     public decimal PrecioUnitario { get; set; }
@@ -87,9 +88,12 @@ public class DivisionCuentaViewModel
     public int SesionId { get; set; }
     public int MesaNumero { get; set; }
     public decimal Total { get; set; }
+    public decimal TotalPagado { get; set; }
+    public decimal SaldoPendiente { get; set; }
     public string Modo { get; set; } = "Igual";  // Igual | PorConsumo | Personalizado
     public int CantidadPartes { get; set; }
     public List<CuentaPersonaViewModel> Personas { get; set; } = new();
+    public List<CuentaItemViewModel> Items { get; set; } = new();
 
     // Para "Personalizado": grupo → lista de comensales
     public List<GrupoDivisionViewModel> Grupos { get; set; } = new();
@@ -112,6 +116,11 @@ public class CerrarConDivisionInputViewModel
     public int SesionId { get; set; }
     public string Modo { get; set; } = string.Empty;
     public List<GrupoDivisionInput> Grupos { get; set; } = new();
+    public List<int> DetallePedidoIds { get; set; } = new();
+    public int? ComensalId { get; set; }
+    public string Metodo { get; set; } = "Efectivo";
+    public decimal Propina { get; set; }
+    public string IdempotencyKey { get; set; } = string.Empty;
 }
 
 public class GrupoDivisionInput

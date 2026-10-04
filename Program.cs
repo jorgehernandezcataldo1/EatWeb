@@ -76,6 +76,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<SesionService>();
 builder.Services.AddScoped<CarritoService>();
 builder.Services.AddScoped<PedidoService>();
+builder.Services.AddScoped<CuentaService>();
 builder.Services.AddScoped<DbSeeder>();
 builder.Services.AddScoped<AccesoRestauranteService>();
 builder.Services.AddScoped<RestauranteContextService>();
