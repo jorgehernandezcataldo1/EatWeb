@@ -164,6 +164,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<MesaSesion>()
+            .HasOne(s => s.Garzon)
+            .WithMany(u => u.SesionesAtendidas)
+            .HasForeignKey(s => s.GarzonId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<MesaSesion>()
             .Property(s => s.Estado)
             .HasMaxLength(30)
             .IsRequired();
