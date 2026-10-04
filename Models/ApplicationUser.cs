@@ -17,6 +17,9 @@ public class ApplicationUser : IdentityUser
     public ICollection<Mesa> Mesas { get; set; }
         = new List<Mesa>();
 
+    public ICollection<MesaSesion> SesionesAtendidas { get; set; }
+        = new List<MesaSesion>();
+
     public ICollection<HistorialEstadoPedido> HistorialesEstadoPedido { get; set; }
         = new List<HistorialEstadoPedido>();
 }
