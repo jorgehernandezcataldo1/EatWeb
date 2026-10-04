@@ -48,7 +48,7 @@ public class PedidoService
         _context = context;
     }
 
-    public async Task<CarritoCalculado> CalcularCarritoAsync(CarritoSesion carrito)
+    public async Task<CarritoCalculado> CalcularCarritoAsync(CarritoSesion carrito, int? restauranteId = null)
     {
         var resultado = new CarritoCalculado();
 
@@ -62,7 +62,7 @@ public class PedidoService
         {
             var producto = await _context.Productos
                 .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == linea.ProductoId);
+                .FirstOrDefaultAsync(p => p.Id == linea.ProductoId && (!restauranteId.HasValue || p.RestauranteId == restauranteId.Value));
 
             if (producto == null)
             {
@@ -214,7 +214,7 @@ public class PedidoService
             }
         }
 
-        var carritoCalculado = await CalcularCarritoAsync(carrito);
+        var carritoCalculado = await CalcularCarritoAsync(carrito, sesion.Mesa.RestauranteId);
         if (carritoCalculado.Errores.Count > 0)
         {
             resultado.Errores = carritoCalculado.Errores;
