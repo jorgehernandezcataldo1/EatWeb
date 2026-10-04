@@ -27,6 +27,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<DetallePedido> DetallesPedidos { get; set; } = null!;
     public DbSet<DetallePedidoIngrediente> DetallesIngredientes { get; set; } = null!;
     public DbSet<HistorialEstadoPedido> HistorialesEstadoPedido { get; set; } = null!;
+    public DbSet<Cuenta> Cuentas { get; set; } = null!;
+    public DbSet<Pago> Pagos { get; set; } = null!;
+    public DbSet<PagoDetalle> PagoDetalles { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -158,6 +161,92 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasOne(s => s.Mesa)
             .WithMany(m => m.Sesiones)
             .HasForeignKey(s => s.MesaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<MesaSesion>()
+            .Property(s => s.Estado)
+            .HasMaxLength(30)
+            .IsRequired();
+
+        modelBuilder.Entity<Cuenta>()
+            .HasIndex(c => c.MesaSesionId)
+            .IsUnique();
+
+        modelBuilder.Entity<Cuenta>()
+            .Property(c => c.Estado)
+            .HasMaxLength(30)
+            .IsRequired();
+
+        modelBuilder.Entity<Cuenta>()
+            .HasOne(c => c.MesaSesion)
+            .WithOne(s => s.Cuenta)
+            .HasForeignKey<Cuenta>(c => c.MesaSesionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Pago>()
+            .Property(p => p.Estado)
+            .HasMaxLength(30)
+            .IsRequired();
+
+        modelBuilder.Entity<Pago>()
+            .Property(p => p.Metodo)
+            .HasMaxLength(30)
+            .IsRequired();
+
+        modelBuilder.Entity<Pago>()
+            .Property(p => p.Proveedor)
+            .HasMaxLength(50);
+
+        modelBuilder.Entity<Pago>()
+            .Property(p => p.ReferenciaExterna)
+            .HasMaxLength(150);
+
+        modelBuilder.Entity<Pago>()
+            .Property(p => p.IdempotencyKey)
+            .HasMaxLength(64)
+            .IsRequired();
+
+        modelBuilder.Entity<Pago>()
+            .HasIndex(p => p.IdempotencyKey)
+            .IsUnique();
+
+        modelBuilder.Entity<Pago>()
+            .Property(p => p.Monto)
+            .HasPrecision(18, 0);
+
+        modelBuilder.Entity<Pago>()
+            .Property(p => p.Propina)
+            .HasPrecision(18, 0);
+
+        modelBuilder.Entity<Pago>()
+            .HasOne(p => p.Cuenta)
+            .WithMany(c => c.Pagos)
+            .HasForeignKey(p => p.CuentaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Pago>()
+            .HasOne(p => p.Comensal)
+            .WithMany()
+            .HasForeignKey(p => p.ComensalId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<PagoDetalle>()
+            .Property(pd => pd.MontoAsignado)
+            .HasPrecision(18, 0);
+
+        modelBuilder.Entity<PagoDetalle>()
+            .HasIndex(pd => new { pd.PagoId, pd.DetallePedidoId });
+
+        modelBuilder.Entity<PagoDetalle>()
+            .HasOne(pd => pd.Pago)
+            .WithMany(p => p.Detalles)
+            .HasForeignKey(pd => pd.PagoId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PagoDetalle>()
+            .HasOne(pd => pd.DetallePedido)
+            .WithMany(d => d.Pagos)
+            .HasForeignKey(pd => pd.DetallePedidoId)
             .OnDelete(DeleteBehavior.Restrict);
 
         // Comensal
