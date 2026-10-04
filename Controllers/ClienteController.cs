@@ -219,7 +219,7 @@ public class ClienteController : Controller
         if (ctx == null) return RedirectToAction(nameof(SinSesion));
 
         var carrito = _carrito.Obtener(ctx.ComensalId);
-        var calculado = await _pedidoService.CalcularCarritoAsync(carrito);
+        var calculado = await _pedidoService.CalcularCarritoAsync(carrito, ctx.RestauranteId);
 
         return View(new CarritoViewModel
         {
