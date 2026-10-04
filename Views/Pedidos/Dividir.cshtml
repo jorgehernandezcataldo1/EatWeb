@@ -259,23 +259,6 @@
                 cont.appendChild(div);
             });
 
-            // Hidden inputs para POST
-            const hidden = document.getElementById('gruposHidden');
-            hidden.innerHTML = '';
-            grupos.forEach((g, gi) => {
-                g.comensales.forEach((cid, ci) => {
-                    hidden.innerHTML += `
-                        <input type="hidden" name="Grupos[${gi}].Nombre" value="${g.nombre}" />
-                        <input type="hidden" name="Grupos[${gi}].ComensalIds[${ci}]" value="${cid}" />
-                    `;
-                });
-                // Si el grupo no tiene comensales, igual mandamos el nombre
-                if (g.comensales.length === 0) {
-                    hidden.innerHTML += `
-                        <input type="hidden" name="Grupos[${gi}].Nombre" value="${g.nombre}" />
-                    `;
-                }
-            });
         }
 
         function seleccionarTodo() {
