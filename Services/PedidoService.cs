@@ -10,6 +10,8 @@ public class LineaCarritoCalculada
     public Guid LineaId { get; set; }
     public int ProductoId { get; set; }
     public string NombreProducto { get; set; } = string.Empty;
+    public int? EstacionId { get; set; }
+    public string EstacionNombre { get; set; } = string.Empty;
     public decimal PrecioUnitario { get; set; }
     public int Cantidad { get; set; }
     public List<PersonalizacionLegible> Personalizaciones { get; set; } = new();
@@ -62,6 +64,8 @@ public class PedidoService
         {
             var producto = await _context.Productos
                 .AsNoTracking()
+                .Include(p => p.Categoria)
+                    .ThenInclude(c => c!.Estacion)
                 .FirstOrDefaultAsync(p => p.Id == linea.ProductoId && (!restauranteId.HasValue || p.RestauranteId == restauranteId.Value));
 
             if (producto == null)
@@ -149,6 +153,8 @@ public class PedidoService
                 LineaId = linea.LineaId,
                 ProductoId = producto.Id,
                 NombreProducto = producto.Nombre,
+                EstacionId = producto.Categoria?.EstacionId,
+                EstacionNombre = producto.Categoria?.Estacion?.Nombre ?? "Cocina",
                 PrecioUnitario = producto.Precio,
                 Cantidad = linea.Cantidad,
                 Personalizaciones = personalizaciones,
@@ -247,7 +253,10 @@ public class PedidoService
                 PrecioUnitario = lineaCalculada.PrecioUnitario,
                 Cantidad = lineaCalculada.Cantidad,
                 Observacion = lineaCalculada.Observacion,
-                Subtotal = lineaCalculada.Subtotal
+                Subtotal = lineaCalculada.Subtotal,
+                EstacionId = lineaCalculada.EstacionId,
+                EstacionNombre = lineaCalculada.EstacionNombre,
+                Estado = EstadoDetallePedido.Pendiente
             };
 
             foreach (var pers in lineaCalculada.Personalizaciones)
@@ -295,40 +304,107 @@ public class PedidoService
         string nuevoEstado,
         string usuarioId)
     {
-        var resultado = new ResultadoPedido();
+        var pedido = await _context.Pedidos
+            .Include(p => p.Detalles)
+            .FirstOrDefaultAsync(p => p.Id == pedidoId);
 
-        var pedido = await _context.Pedidos.FindAsync(pedidoId);
         if (pedido == null)
+            return new ResultadoPedido { Errores = { "Pedido no encontrado" } };
+
+        foreach (var detalle in pedido.Detalles.Where(d => EsTransicionValida(d.Estado, nuevoEstado)))
+            AplicarEstadoDetalle(detalle, nuevoEstado);
+
+        return await RecalcularYGuardarPedidoAsync(pedido, usuarioId);
+    }
+
+    public async Task<ResultadoPedido> CambiarEstadoDetalleAsync(
+        int detalleId,
+        string nuevoEstado,
+        string usuarioId)
+    {
+        var detalle = await _context.DetallesPedidos
+            .Include(d => d.Pedido)
+                .ThenInclude(p => p!.Detalles)
+            .FirstOrDefaultAsync(d => d.Id == detalleId);
+
+        if (detalle?.Pedido == null)
+            return new ResultadoPedido { Errores = { "Detalle no encontrado" } };
+
+        if (!EsTransicionValida(detalle.Estado, nuevoEstado))
+            return new ResultadoPedido { Errores = { $"Transición de {detalle.Estado} a {nuevoEstado} no permitida" } };
+
+        AplicarEstadoDetalle(detalle, nuevoEstado);
+        return await RecalcularYGuardarPedidoAsync(detalle.Pedido, usuarioId);
+    }
+
+    public async Task<ResultadoPedido> CambiarEstadoMesaAsync(
+        int sesionId,
+        string nuevoEstado,
+        string usuarioId)
+    {
+        var pedidos = await _context.Pedidos
+            .Include(p => p.Detalles)
+            .Where(p => p.MesaSesionId == sesionId && p.Estado != EstadoPedido.Cancelado)
+            .ToListAsync();
+
+        foreach (var pedido in pedidos)
         {
-            resultado.Errores.Add("Pedido no encontrado");
-            return resultado;
+            foreach (var detalle in pedido.Detalles.Where(d => EsTransicionValida(d.Estado, nuevoEstado)))
+                AplicarEstadoDetalle(detalle, nuevoEstado);
+
+            await RecalcularPedidoAsync(pedido, usuarioId);
         }
-
-        var estadoActual = pedido.Estado;
-
-        if (!EsTransicionValida(estadoActual, nuevoEstado))
-        {
-            resultado.Errores.Add(
-                $"Transición de {estadoActual} a {nuevoEstado} no permitida");
-            return resultado;
-        }
-
-        pedido.Estado = nuevoEstado;
-
-        _context.HistorialesEstadoPedido.Add(new HistorialEstadoPedido
-        {
-            PedidoId = pedidoId,
-            EstadoAnterior = estadoActual,
-            EstadoNuevo = nuevoEstado,
-            Fecha = DateTime.UtcNow,
-            UsuarioId = usuarioId
-        });
 
         await _context.SaveChangesAsync();
+        return new ResultadoPedido { Ok = true };
+    }
 
-        resultado.Ok = true;
-        resultado.PedidoId = pedidoId;
-        return resultado;
+    private async Task<ResultadoPedido> RecalcularYGuardarPedidoAsync(Pedido pedido, string usuarioId)
+    {
+        await RecalcularPedidoAsync(pedido, usuarioId);
+        await _context.SaveChangesAsync();
+        return new ResultadoPedido { Ok = true, PedidoId = pedido.Id };
+    }
+
+    private Task RecalcularPedidoAsync(Pedido pedido, string usuarioId)
+    {
+        var anterior = pedido.Estado;
+        var nuevo = CalcularEstadoPedido(pedido.Detalles);
+
+        if (anterior != nuevo)
+        {
+            pedido.Estado = nuevo;
+            _context.HistorialesEstadoPedido.Add(new HistorialEstadoPedido
+            {
+                PedidoId = pedido.Id,
+                EstadoAnterior = anterior,
+                EstadoNuevo = nuevo,
+                Fecha = DateTime.UtcNow,
+                UsuarioId = usuarioId
+            });
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public static string CalcularEstadoPedido(IEnumerable<DetallePedido> detalles)
+    {
+        var estados = detalles.Select(d => d.Estado).ToList();
+        if (estados.Count == 0) return EstadoPedido.Pendiente;
+        if (estados.All(e => e == EstadoDetallePedido.Cancelado)) return EstadoPedido.Cancelado;
+        if (estados.Where(e => e != EstadoDetallePedido.Cancelado).All(e => e == EstadoDetallePedido.Entregado)) return EstadoPedido.Entregado;
+        if (estados.Where(e => e != EstadoDetallePedido.Cancelado).All(e => e == EstadoDetallePedido.Listo || e == EstadoDetallePedido.Entregado)) return EstadoPedido.Listo;
+        if (estados.Any(e => e == EstadoDetallePedido.EnPreparacion || e == EstadoDetallePedido.Listo || e == EstadoDetallePedido.Entregado)) return EstadoPedido.EnPreparacion;
+        return EstadoPedido.Pendiente;
+    }
+
+    private static void AplicarEstadoDetalle(DetallePedido detalle, string nuevoEstado)
+    {
+        detalle.Estado = nuevoEstado;
+        var ahora = DateTime.UtcNow;
+        if (nuevoEstado == EstadoDetallePedido.EnPreparacion) detalle.FechaInicioPreparacion ??= ahora;
+        if (nuevoEstado == EstadoDetallePedido.Listo) detalle.FechaListo ??= ahora;
+        if (nuevoEstado == EstadoDetallePedido.Entregado) detalle.FechaEntregado ??= ahora;
     }
 
     private static bool EsTransicionValida(string estadoActual, string nuevoEstado)
