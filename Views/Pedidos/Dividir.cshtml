@@ -1,272 +1,256 @@
-﻿@model DivisionCuentaViewModel
+@model DivisionCuentaViewModel
 @{
-    ViewData["Title"] = $"Dividir cuenta - Mesa {Model.MesaNumero}";
+    ViewData["Title"] = $"Cobrar cuenta - Mesa {Model.MesaNumero}";
     var clp = new System.Globalization.CultureInfo("es-CL");
+    var partesIniciales = Math.Max(1, Model.CantidadPartes);
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0">Dividir cuenta – Mesa @Model.MesaNumero</h2>
+    <div>
+        <h2 class="mb-0">Cobrar / dividir – Mesa @Model.MesaNumero</h2>
+        <small class="text-muted">Registra uno o varios pagos hasta completar el saldo.</small>
+    </div>
     <a asp-action="Cuenta" asp-route-id="@Model.SesionId"
        class="btn btn-outline-secondary btn-sm">← Cuenta completa</a>
 </div>
 
-<div class="row">
-    <div class="col-md-7">
+@if (!Model.PuedeCobrar)
+{
+    <div class="alert alert-warning">
+        No se puede cobrar todavía: hay pedidos pendientes, en preparación o listos.
+    </div>
+}
+
+<div class="row g-3">
+    <div class="col-lg-7">
         <div class="card mb-3">
-            <div class="card-header">
-                <h5 class="mb-0">Comensales</h5>
+            <div class="card-header"><h5 class="mb-0">Saldo de la mesa</h5></div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col">
+                        <div class="small text-muted">Total</div>
+                        <strong>@Model.Total.ToString("C0", clp)</strong>
+                    </div>
+                    <div class="col">
+                        <div class="small text-muted">Pagado</div>
+                        <strong class="text-success">@Model.TotalPagado.ToString("C0", clp)</strong>
+                    </div>
+                    <div class="col">
+                        <div class="small text-muted">Pendiente</div>
+                        <strong class="text-danger">@Model.SaldoPendiente.ToString("C0", clp)</strong>
+                    </div>
+                </div>
             </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><h5 class="mb-0">Comensales</h5></div>
             <ul class="list-group list-group-flush">
                 @foreach (var p in Model.Personas)
                 {
-                    <li class="list-group-item d-flex justify-content-between">
-                        <div>
-                            <strong>@p.Nombre</strong>
-                            <small class="text-muted ms-2">
-                                @p.FechaIngreso.ToLocalTime().ToString("HH:mm")
-                            </small>
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>@p.Nombre</strong>
+                                <small class="text-muted ms-2">@p.FechaIngreso.ToLocalTime().ToString("HH:mm")</small>
+                            </div>
+                            <div class="text-end">
+                                <div>@p.TotalConsumido.ToString("C0", clp)</div>
+                                @if (p.TotalPagado > 0)
+                                {
+                                    <div class="small text-success">Pagado @p.TotalPagado.ToString("C0", clp)</div>
+                                }
+                                @if (p.SaldoPendiente > 0)
+                                {
+                                    <div class="small text-danger">Pendiente @p.SaldoPendiente.ToString("C0", clp)</div>
+                                }
+                            </div>
                         </div>
-                        <span>@p.TotalConsumido.ToString("C0", clp)</span>
                     </li>
                 }
             </ul>
-            <div class="card-footer">
-                <div><strong>Total: @Model.Total.ToString("C0", clp)</strong></div>
-                <div class="text-success">Pagado: @Model.TotalPagado.ToString("C0", clp)</div>
-                <div class="text-danger">Pendiente: @Model.SaldoPendiente.ToString("C0", clp)</div>
-            </div>
         </div>
+
+        @if (Model.Pagos.Any())
+        {
+            <div class="card mb-3">
+                <div class="card-header"><strong>Pagos registrados</strong></div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr class="small text-muted">
+                                <th>Hora</th>
+                                <th>Método</th>
+                                <th>Persona</th>
+                                <th class="text-end">Monto</th>
+                                <th class="text-end">Propina</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var pago in Model.Pagos)
+                            {
+                                <tr>
+                                    <td>@pago.Fecha.ToLocalTime().ToString("HH:mm")</td>
+                                    <td>@pago.Metodo</td>
+                                    <td>@(pago.ComensalNombre ?? "Mesa")</td>
+                                    <td class="text-end">@pago.Monto.ToString("C0", clp)</td>
+                                    <td class="text-end">@pago.Propina.ToString("C0", clp)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
     </div>
 
-    <div class="col-md-5">
-        <div class="card">
+    <div class="col-lg-5">
+        <div class="card sticky-top" style="top: 1rem;">
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Modo de división</h5>
-            </div>
-            <div class="card-body">
-                <div class="btn-group w-100 mb-3" role="group">
-                    <input type="radio" class="btn-check" name="modoRadio"
-                           id="modoIgual" value="Igual" checked
-                           onchange="cambiarModo('Igual')" />
-                    <label class="btn btn-outline-primary" for="modoIgual">
-                        Partes iguales
-                    </label>
-
-                    <input type="radio" class="btn-check" name="modoRadio"
-                           id="modoPorConsumo" value="PorConsumo"
-                           onchange="cambiarModo('PorConsumo')" />
-                    <label class="btn btn-outline-primary" for="modoPorConsumo">
-                        Por consumo
-                    </label>
-
-                    <input type="radio" class="btn-check" name="modoRadio"
-                           id="modoPersonalizado" value="Personalizado"
-                           onchange="cambiarModo('Personalizado')" />
-                    <label class="btn btn-outline-primary" for="modoPersonalizado">
-                        Personalizado
-                    </label>
-                </div>
-
-                <!-- Modo: partes iguales -->
-                <div id="panelIgual">
-                    <label class="form-label">¿Entre cuántas personas?</label>
-                    <input type="number" id="cantidadPartes" class="form-control"
-                           value="@Model.Personas.Count" min="1" max="@Model.Personas.Count"
-                           onchange="calcularIgual()" />
-                    <hr />
-                    <p class="mb-1">Cada uno paga:</p>
-                    <h3 id="montoIgual" class="text-primary"></h3>
-                </div>
-
-                <!-- Modo: por consumo -->
-                <div id="panelPorConsumo" style="display: none;">
-                    <p class="text-muted small">
-                        Cada comensal paga exactamente lo que consumió.
-                    </p>
-                    <ul class="list-group small">
-                        @foreach (var p in Model.Personas)
-                        {
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span>@p.Nombre</span>
-                                <strong>@p.TotalConsumido.ToString("C0", clp)</strong>
-                            </li>
-                        }
-                    </ul>
-                </div>
-
-                <!-- Modo: personalizado -->
-                <div id="panelPersonalizado" style="display: none;">
-                    <p class="text-muted small">
-                        Arrastra comensales a un grupo. Los que compartan grupo
-                        dividen su total en partes iguales.
-                    </p>
-                    <div id="gruposContainer"></div>
-                    <button type="button" class="btn btn-sm btn-outline-primary mt-2"
-                            onclick="agregarGrupo()">
-                        + Agregar grupo
-                    </button>
-                </div>
+                <h5 class="mb-0">Registrar pago</h5>
             </div>
 
-            <div class="card-footer">
-                <form asp-action="CerrarConDivision" method="post" id="formCerrar">
+            <form asp-action="CerrarConDivision" method="post" id="formPago">
+                <div class="card-body">
                     <input type="hidden" name="SesionId" value="@Model.SesionId" />
-                    <input type="hidden" name="Modo" id="inputModo" value="Seleccion" />
+                    <input type="hidden" name="Modo" id="inputModo" value="Todo" />
                     <input type="hidden" name="IdempotencyKey" value="@Guid.NewGuid().ToString("N")" />
 
-                    <label class="form-label small">Método</label>
-                    <select name="Metodo" class="form-select form-select-sm mb-2">
+                    <div class="btn-group w-100 mb-3" role="group" aria-label="Modo de pago">
+                        <input type="radio" class="btn-check" name="modoVisual" id="modoTodo"
+                               checked onchange="cambiarModo('Todo')" />
+                        <label class="btn btn-outline-primary" for="modoTodo">Todo</label>
+
+                        <input type="radio" class="btn-check" name="modoVisual" id="modoIgual"
+                               onchange="cambiarModo('Igual')" />
+                        <label class="btn btn-outline-primary" for="modoIgual">Igual</label>
+
+                        <input type="radio" class="btn-check" name="modoVisual" id="modoConsumo"
+                               onchange="cambiarModo('PorConsumo')" />
+                        <label class="btn btn-outline-primary" for="modoConsumo">Persona</label>
+
+                        <input type="radio" class="btn-check" name="modoVisual" id="modoPersonalizado"
+                               onchange="cambiarModo('Personalizado')" />
+                        <label class="btn btn-outline-primary" for="modoPersonalizado">Ítems</label>
+                    </div>
+
+                    <div id="panelTodo" class="mb-3">
+                        <div class="alert alert-light border mb-0">
+                            Se cobrará todo el saldo pendiente:
+                            <strong>@Model.SaldoPendiente.ToString("C0", clp)</strong>.
+                        </div>
+                    </div>
+
+                    <div id="panelIgual" class="mb-3" style="display:none;">
+                        <label class="form-label">Dividir el total entre</label>
+                        <input type="number" name="CantidadPartes" id="cantidadPartes"
+                               class="form-control" value="@partesIniciales" min="1" max="20"
+                               oninput="actualizarParte()" />
+                        <div class="form-text">
+                            Este pago registra una parte. Puedes repetir el proceso para las demás.
+                        </div>
+                        <div class="mt-2">
+                            Una parte: <strong id="montoParte"></strong>
+                        </div>
+                    </div>
+
+                    <div id="panelConsumo" class="mb-3" style="display:none;">
+                        <label class="form-label">Comensal</label>
+                        <select name="ComensalId" class="form-select">
+                            <option value="">Seleccione...</option>
+                            @foreach (var p in Model.Personas.Where(p => p.SaldoPendiente > 0))
+                            {
+                                <option value="@p.ComensalId">
+                                    @p.Nombre — @p.SaldoPendiente.ToString("C0", clp)
+                                </option>
+                            }
+                        </select>
+                        <div class="form-text">Se cobrará todo el saldo pendiente de esa persona.</div>
+                    </div>
+
+                    <div id="panelPersonalizado" class="mb-3" style="display:none;">
+                        <label class="form-label">Consumos pendientes</label>
+                        <div class="border rounded p-2" style="max-height: 260px; overflow:auto;">
+                            @foreach (var item in Model.Items)
+                            {
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="DetallePedidoIds" value="@item.DetallePedidoId"
+                                           id="detalle-@item.DetallePedidoId" />
+                                    <label class="form-check-label small" for="detalle-@item.DetallePedidoId">
+                                        <strong>@item.ComensalNombre:</strong>
+                                        @item.Cantidad× @item.Producto —
+                                        @item.SaldoPendiente.ToString("C0", clp)
+                                    </label>
+                                </div>
+                            }
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mt-2"
+                                onclick="seleccionarTodo()">
+                            Seleccionar todos
+                        </button>
+                    </div>
+
+                    <hr />
+
+                    <label class="form-label small">Método de pago</label>
+                    <select name="Metodo" class="form-select form-select-sm mb-3">
                         <option value="Efectivo">Efectivo</option>
                         <option value="Tarjeta">Tarjeta</option>
                         <option value="Transferencia">Transferencia</option>
                     </select>
 
                     <label class="form-label small">Propina</label>
-                    <input type="number" name="Propina" min="0" step="1"
-                           class="form-control form-control-sm mb-3" value="0" />
-
-                    <div class="mb-3">
-                        <strong class="small">Consumos a pagar</strong>
-                        @foreach (var item in Model.Items)
-                        {
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox"
-                                       name="DetallePedidoIds" value="@item.DetallePedidoId"
-                                       id="detalle-@item.DetallePedidoId" />
-                                <label class="form-check-label small" for="detalle-@item.DetallePedidoId">
-                                    @item.Cantidad× @item.Producto — @item.Subtotal.ToString("C0", clp)
-                                </label>
-                            </div>
-                        }
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">$</span>
+                        <input type="number" name="Propina" min="0" step="1"
+                               class="form-control" value="0" />
                     </div>
+                    <div class="form-text">La propina se registra aparte y no reduce el saldo de consumo.</div>
+                </div>
 
-                    <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-2"
-                            onclick="seleccionarTodo()">
-                        Seleccionar todo lo pendiente
-                    </button>
+                <div class="card-footer">
                     <button type="submit" class="btn btn-success w-100"
+                            @(!Model.PuedeCobrar || Model.SaldoPendiente <= 0 ? "disabled" : null)
                             onclick="return confirm('¿Registrar este pago?');">
                         💰 Registrar pago
                     </button>
-                </form>
-            </div>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
 @section Scripts {
     <script>
-        const total = @Model.Total;
-        const personas = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-            Model.Personas.Select(p => new { id = p.ComensalId, nombre = p.Nombre, total = p.TotalConsumido })));
-
-        const clp = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
-
-        let grupos = [];
+        const totalCuenta = @Model.Total;
+        const saldoPendiente = @Model.SaldoPendiente;
+        const clp = new Intl.NumberFormat('es-CL', {
+            style: 'currency',
+            currency: 'CLP',
+            maximumFractionDigits: 0
+        });
 
         function cambiarModo(modo) {
-            // Los modos siguen mostrando la propuesta de división; el cobro se registra por consumos seleccionados.
+            document.getElementById('inputModo').value = modo;
+            document.getElementById('panelTodo').style.display = modo === 'Todo' ? 'block' : 'none';
             document.getElementById('panelIgual').style.display = modo === 'Igual' ? 'block' : 'none';
-            document.getElementById('panelPorConsumo').style.display = modo === 'PorConsumo' ? 'block' : 'none';
+            document.getElementById('panelConsumo').style.display = modo === 'PorConsumo' ? 'block' : 'none';
             document.getElementById('panelPersonalizado').style.display = modo === 'Personalizado' ? 'block' : 'none';
 
-            if (modo === 'Igual') calcularIgual();
-            if (modo === 'Personalizado' && grupos.length === 0) {
-                agregarGrupo('Grupo 1');
-                agregarGrupo('Grupo 2');
-            }
+            if (modo === 'Igual') actualizarParte();
         }
 
-        function calcularIgual() {
-            const n = parseInt(document.getElementById('cantidadPartes').value) || 1;
-            const base = Math.floor(total / n);
-            const dif = total - (base * n);
-            document.getElementById('montoIgual').textContent = clp.format(base);
-            if (dif > 0) {
-                document.getElementById('montoIgual').textContent +=
-                    ` (uno paga ${clp.format(base + dif)})`;
-            }
-        }
-
-        function agregarGrupo(nombre = null) {
-            const idx = grupos.length;
-            grupos.push({
-                nombre: nombre || `Grupo ${idx + 1}`,
-                comensales: []
-            });
-            renderGrupos();
-        }
-
-        function quitarGrupo(idx) {
-            grupos.splice(idx, 1);
-            renderGrupos();
-        }
-
-        function toggleComensal(gIdx, comensalId) {
-            const grupo = grupos[gIdx];
-            const i = grupo.comensales.indexOf(comensalId);
-            if (i >= 0) grupo.comensales.splice(i, 1);
-            else {
-                // Quitar de otros grupos
-                grupos.forEach((g, gi) => {
-                    if (gi !== gIdx) {
-                        const j = g.comensales.indexOf(comensalId);
-                        if (j >= 0) g.comensales.splice(j, 1);
-                    }
-                });
-                grupo.comensales.push(comensalId);
-            }
-            renderGrupos();
-        }
-
-        function renderGrupos() {
-            const cont = document.getElementById('gruposContainer');
-            cont.innerHTML = '';
-
-            grupos.forEach((g, gi) => {
-                const totalGrupo = g.comensales.reduce((s, id) => {
-                    const p = personas.find(x => x.id === id);
-                    return s + (p ? p.total : 0);
-                }, 0);
-
-                const div = document.createElement('div');
-                div.className = 'card mb-2';
-                div.innerHTML = `
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <input type="text" class="form-control form-control-sm"
-                               style="max-width: 150px;" value="${g.nombre}"
-                               onchange="grupos[${gi}].nombre = this.value" />
-                        <div>
-                            <span class="badge bg-primary">${clp.format(totalGrupo)}</span>
-                            <button type="button" class="btn btn-sm btn-outline-danger ms-2"
-                                    onclick="quitarGrupo(${gi})">✕</button>
-                        </div>
-                    </div>
-                    <div class="card-body py-2">
-                        ${personas.map(p => `
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox"
-                                       id="g${gi}-c${p.id}"
-                                       ${g.comensales.includes(p.id) ? 'checked' : ''}
-                                       onchange="toggleComensal(${gi}, ${p.id})" />
-                                <label class="form-check-label small" for="g${gi}-c${p.id}">
-                                    ${p.nombre}
-                                </label>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-                cont.appendChild(div);
-            });
-
+        function actualizarParte() {
+            const n = Math.max(1, parseInt(document.getElementById('cantidadPartes').value) || 1);
+            const parte = Math.min(Math.ceil(totalCuenta / n), saldoPendiente);
+            document.getElementById('montoParte').textContent = clp.format(parte);
         }
 
         function seleccionarTodo() {
             document.querySelectorAll('input[name="DetallePedidoIds"]').forEach(x => x.checked = true);
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            calcularIgual();
-        });
+        document.addEventListener('DOMContentLoaded', actualizarParte);
     </script>
 }
