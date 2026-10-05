@@ -31,8 +31,6 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Pago> Pagos { get; set; } = null!;
     public DbSet<PagoDetalle> PagoDetalles { get; set; } = null!;
     public DbSet<Estacion> Estaciones { get; set; } = null!;
-    public DbSet<MensajeRapido> MensajesRapidos { get; set; } = null!;
-    public DbSet<HistorialMensajeRapido> HistorialesMensajes { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -516,54 +514,5 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .WithMany(u => u.HistorialesEstadoPedido)
             .HasForeignKey(h => h.UsuarioId)
             .OnDelete(DeleteBehavior.SetNull);
-
-        // MensajeRapido
-        modelBuilder.Entity<MensajeRapido>()
-            .HasOne(m => m.Restaurante)
-            .WithMany()
-            .HasForeignKey(m => m.RestauranteId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<MensajeRapido>()
-            .HasOne(m => m.Estacion)
-            .WithMany()
-            .HasForeignKey(m => m.EstacionId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<MensajeRapido>()
-            .Property(m => m.Texto)
-            .HasMaxLength(500)
-            .IsRequired();
-
-        modelBuilder.Entity<MensajeRapido>()
-            .HasIndex(m => new { m.RestauranteId, m.EstacionId });
-
-        // HistorialMensajeRapido
-        modelBuilder.Entity<HistorialMensajeRapido>()
-            .HasOne(h => h.MensajeRapido)
-            .WithMany(m => m.Historial)
-            .HasForeignKey(h => h.MensajeRapidoId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<HistorialMensajeRapido>()
-            .HasOne(h => h.Restaurante)
-            .WithMany()
-            .HasForeignKey(h => h.RestauranteId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<HistorialMensajeRapido>()
-            .HasOne(h => h.Estacion)
-            .WithMany()
-            .HasForeignKey(h => h.EstacionId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<HistorialMensajeRapido>()
-            .HasOne(h => h.Garzon)
-            .WithMany()
-            .HasForeignKey(h => h.GarzonId)
-            .OnDelete(DeleteBehavior.SetNull);
-
-        modelBuilder.Entity<HistorialMensajeRapido>()
-            .HasIndex(h => new { h.RestauranteId, h.EstacionId, h.EnviadoEn });
     }
 }
