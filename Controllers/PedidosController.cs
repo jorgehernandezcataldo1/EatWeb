@@ -72,7 +72,9 @@ public class PedidosController : RestauranteControllerBase
                         Id = p.Id,
                         ComensalNombre = c.Nombre,
                         Estado = p.Estado,
-                        Total = p.Total,
+                        Total = p.Detalles
+                            .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                            .Sum(d => d.Subtotal),
                         FechaCreacion = p.FechaCreacion,
 
                         Historial = p.Historial
@@ -202,8 +204,7 @@ public class PedidosController : RestauranteControllerBase
             var estacionValida = await _context.Estaciones
                 .AsNoTracking()
                 .AnyAsync(e => e.Id == estacionId.Value &&
-                               e.RestauranteId == RestauranteId &&
-                               e.Activa);
+                               e.RestauranteId == RestauranteId);
 
             if (!estacionValida) return BadRequest();
         }
@@ -286,7 +287,10 @@ public class PedidosController : RestauranteControllerBase
                     ComensalId = c.Id,
                     Nombre = c.Nombre,
                     FechaIngreso = c.FechaIngreso,
-                    TotalConsumido = pedidosComensal.Sum(p => p.Total),
+                    TotalConsumido = pedidosComensal
+                        .SelectMany(p => p.Detalles)
+                        .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                        .Sum(d => d.Subtotal),
                     Items = pedidosComensal
                         .SelectMany(p => p.Detalles
                             .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
@@ -356,7 +360,9 @@ public class PedidosController : RestauranteControllerBase
                 FechaIngreso = c.FechaIngreso,
                 TotalConsumido = c.Pedidos
                     .Where(p => p.Estado != EstadoPedido.Cancelado)
-                    .Sum(p => p.Total)
+                    .SelectMany(p => p.Detalles)
+                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                    .Sum(d => d.Subtotal)
             })
             .ToList();
 
