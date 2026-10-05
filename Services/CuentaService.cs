@@ -58,6 +58,21 @@ public class CuentaService
         }
     }
 
+    public async Task<ResultadoPago?> ObtenerResultadoIdempotenteAsync(
+        int sesionId,
+        string? idempotencyKey)
+    {
+        var key = idempotencyKey?.Trim() ?? string.Empty;
+        if (key.Length is < 8 or > 64)
+            return null;
+
+        var existente = await BuscarPagoPorIdempotenciaAsync(key);
+        if (existente == null)
+            return null;
+
+        return await ResolverPagoExistenteAsync(existente, sesionId);
+    }
+
     public async Task<ResultadoPago> RegistrarPagoConfirmadoAsync(
         int sesionId,
         int? comensalId,
