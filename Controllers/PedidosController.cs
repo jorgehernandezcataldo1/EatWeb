@@ -40,6 +40,7 @@ public class PedidosController : RestauranteControllerBase
 
         var sesiones = await _context.MesaSesiones
             .AsNoTracking()
+            .AsSplitQuery()
             .Where(s =>
                 s.FechaCierre == null &&
                 s.Mesa!.RestauranteId == RestauranteId &&
@@ -49,6 +50,10 @@ public class PedidosController : RestauranteControllerBase
                 .ThenInclude(c => c.Pedidos)
                     .ThenInclude(p => p.Detalles)
                         .ThenInclude(d => d.Ingredientes)
+            .Include(s => s.Comensales)
+                .ThenInclude(c => c.Pedidos)
+                    .ThenInclude(p => p.Historial)
+                        .ThenInclude(h => h.Usuario)
             .OrderBy(s => s.Mesa!.Numero)
             .ToListAsync();
 
@@ -69,6 +74,19 @@ public class PedidosController : RestauranteControllerBase
                         Estado = p.Estado,
                         Total = p.Total,
                         FechaCreacion = p.FechaCreacion,
+
+                        Historial = p.Historial
+                            .OrderBy(h => h.Fecha)
+                            .Select(h => new HistorialPedidoResumenViewModel
+                            {
+                                EstadoAnterior = h.EstadoAnterior,
+                                EstadoNuevo = h.EstadoNuevo,
+                                Fecha = h.Fecha,
+                                Actor = h.Usuario != null
+                                    ? h.Usuario.NombreCompleto
+                                    : "Sistema"
+                            })
+                            .ToList(),
 
                         Detalles = p.Detalles.Select(d => new DetallePedidoResumenViewModel
                         {
