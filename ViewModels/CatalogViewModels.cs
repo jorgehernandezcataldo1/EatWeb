@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 
 namespace EatWeb.ViewModels;
 
@@ -56,11 +57,12 @@ public class ProductoViewModel
     public string? Descripcion { get; set; }
 
     [Required(ErrorMessage = "El precio es requerido")]
-    [Range(0.01, 999999)]
+    [Range(1, 999999)]
     public decimal Precio { get; set; }
 
-    [StringLength(300)]
     public string? ImagenUrl { get; set; }
+    public IFormFile? Imagen { get; set; }
+    public bool EliminarImagen { get; set; }
 
     [Required(ErrorMessage = "La categoría es requerida")]
     public int CategoriaId { get; set; }
