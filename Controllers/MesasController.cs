@@ -35,7 +35,9 @@ public class MesasController : RestauranteControllerBase
         if (User.IsInRole(Roles.Garzon))
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            query = query.Where(m => m.GarzonId == userId);
+            query = query.Where(m =>
+                m.GarzonId == userId ||
+                m.Sesiones.Any(s => s.FechaCierre == null && s.GarzonId == userId));
         }
 
         return View(await ConstruirTableroAsync(query));
