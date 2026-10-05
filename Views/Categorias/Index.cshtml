@@ -17,6 +17,7 @@
     <thead class="table-dark">
         <tr>
             <th>Nombre</th>
+            <th>Estación</th>
             <th>Orden</th>
             <th>Estado</th>
             <th>Acciones</th>
@@ -27,6 +28,7 @@
         {
             <tr>
                 <td>@categoria.Nombre</td>
+                <td>@categoria.EstacionNombre</td>
                 <td>@categoria.Orden</td>
                 <td>
                     <span class="badge @(categoria.Activa ? "bg-success" : "bg-danger")">
