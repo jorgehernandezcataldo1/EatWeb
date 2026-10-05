@@ -201,6 +201,36 @@ namespace EatWeb.Migrations
                     b.ToTable("Comensales");
                 });
 
+            modelBuilder.Entity("EatWeb.Models.Cuenta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("FechaCierre")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("MesaSesionId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MesaSesionId")
+                        .IsUnique();
+
+                    b.ToTable("Cuentas");
+                });
+
             modelBuilder.Entity("EatWeb.Models.DetallePedido", b =>
                 {
                     b.Property<int>("Id")
@@ -392,22 +422,122 @@ namespace EatWeb.Migrations
                     b.Property<DateTime?>("CuentaSolicitadaEn")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.Property<DateTime>("FechaApertura")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("FechaCierre")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("GarzonId")
+                        .HasColumnType("text");
+
                     b.Property<int>("MesaId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GarzonId");
 
                     b.HasIndex("MesaId")
                         .IsUnique()
                         .HasFilter("\"FechaCierre\" IS NULL");
 
                     b.ToTable("MesaSesiones");
+                });
+
+            modelBuilder.Entity("EatWeb.Models.Pago", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ComensalId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CuentaId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("FechaConfirmacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Metodo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<decimal>("Propina")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<string>("Proveedor")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ReferenciaExterna")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComensalId");
+
+                    b.HasIndex("CuentaId");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("Pagos");
+                });
+
+            modelBuilder.Entity("EatWeb.Models.PagoDetalle", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DetallePedidoId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("MontoAsignado")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<int>("PagoId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DetallePedidoId");
+
+                    b.HasIndex("PagoId", "DetallePedidoId");
+
+                    b.ToTable("PagoDetalles");
                 });
 
             modelBuilder.Entity("EatWeb.Models.Pedido", b =>
@@ -750,6 +880,17 @@ namespace EatWeb.Migrations
                     b.Navigation("MesaSesion");
                 });
 
+            modelBuilder.Entity("EatWeb.Models.Cuenta", b =>
+                {
+                    b.HasOne("EatWeb.Models.MesaSesion", "MesaSesion")
+                        .WithOne("Cuenta")
+                        .HasForeignKey("EatWeb.Models.Cuenta", "MesaSesionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("MesaSesion");
+                });
+
             modelBuilder.Entity("EatWeb.Models.DetallePedido", b =>
                 {
                     b.HasOne("EatWeb.Models.Pedido", "Pedido")
@@ -837,13 +978,57 @@ namespace EatWeb.Migrations
 
             modelBuilder.Entity("EatWeb.Models.MesaSesion", b =>
                 {
+                    b.HasOne("EatWeb.Models.ApplicationUser", "Garzon")
+                        .WithMany("SesionesAtendidas")
+                        .HasForeignKey("GarzonId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("EatWeb.Models.Mesa", "Mesa")
                         .WithMany("Sesiones")
                         .HasForeignKey("MesaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("Garzon");
+
                     b.Navigation("Mesa");
+                });
+
+            modelBuilder.Entity("EatWeb.Models.Pago", b =>
+                {
+                    b.HasOne("EatWeb.Models.Comensal", "Comensal")
+                        .WithMany()
+                        .HasForeignKey("ComensalId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("EatWeb.Models.Cuenta", "Cuenta")
+                        .WithMany("Pagos")
+                        .HasForeignKey("CuentaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Comensal");
+
+                    b.Navigation("Cuenta");
+                });
+
+            modelBuilder.Entity("EatWeb.Models.PagoDetalle", b =>
+                {
+                    b.HasOne("EatWeb.Models.DetallePedido", "DetallePedido")
+                        .WithMany("Pagos")
+                        .HasForeignKey("DetallePedidoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EatWeb.Models.Pago", "Pago")
+                        .WithMany("Detalles")
+                        .HasForeignKey("PagoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DetallePedido");
+
+                    b.Navigation("Pago");
                 });
 
             modelBuilder.Entity("EatWeb.Models.Pedido", b =>
@@ -992,6 +1177,8 @@ namespace EatWeb.Migrations
                     b.Navigation("Mesas");
 
                     b.Navigation("Restaurantes");
+
+                    b.Navigation("SesionesAtendidas");
                 });
 
             modelBuilder.Entity("EatWeb.Models.Cadena", b =>
@@ -1011,9 +1198,16 @@ namespace EatWeb.Migrations
                     b.Navigation("Pedidos");
                 });
 
+            modelBuilder.Entity("EatWeb.Models.Cuenta", b =>
+                {
+                    b.Navigation("Pagos");
+                });
+
             modelBuilder.Entity("EatWeb.Models.DetallePedido", b =>
                 {
                     b.Navigation("Ingredientes");
+
+                    b.Navigation("Pagos");
                 });
 
             modelBuilder.Entity("EatWeb.Models.Ingrediente", b =>
@@ -1032,7 +1226,14 @@ namespace EatWeb.Migrations
                 {
                     b.Navigation("Comensales");
 
+                    b.Navigation("Cuenta");
+
                     b.Navigation("Pedidos");
+                });
+
+            modelBuilder.Entity("EatWeb.Models.Pago", b =>
+                {
+                    b.Navigation("Detalles");
                 });
 
             modelBuilder.Entity("EatWeb.Models.Pedido", b =>
