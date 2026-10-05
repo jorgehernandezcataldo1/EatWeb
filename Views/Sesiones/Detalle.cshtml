@@ -11,7 +11,7 @@
 </div>
 
 <div class="alert alert-secondary">
-    <strong>Apertura:</strong> @Model.FechaApertura.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+    <strong>Apertura:</strong> @ZonaHorariaService.ALocal(Model.FechaApertura).ToString("dd/MM/yyyy HH:mm")
 </div>
 
 @if (Model.SaldoPendiente > 0)
@@ -100,7 +100,7 @@
                             @foreach (var pago in Model.Pagos)
                             {
                                 <tr>
-                                    <td>@pago.Fecha.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                                    <td>@ZonaHorariaService.ALocal(pago.Fecha).ToString("dd/MM HH:mm")</td>
                                     <td>@pago.Metodo</td>
                                     <td>@(pago.ComensalNombre ?? "Mesa")</td>
                                     <td class="text-end">@pago.Monto.ToString("C0", clp)</td>
