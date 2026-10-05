@@ -26,8 +26,9 @@
     <div class="col-12">
         <label asp-for="EstacionId" class="form-label">Estación de preparación</label>
         <select asp-for="EstacionId" asp-items="Model.Estaciones" class="form-select">
-            <option value="">Sin estación</option>
+            <option value="">Seleccione una estación</option>
         </select>
+        <span asp-validation-for="EstacionId" class="text-danger"></span>
     </div>
 
     <div class="col-12 form-check">
