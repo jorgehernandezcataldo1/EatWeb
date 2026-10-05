@@ -8,7 +8,7 @@ public class Producto
     public string Nombre { get; set; } = string.Empty;
     public string? Descripcion { get; set; }
     public decimal Precio { get; set; }
-    public string? ImagenUrl { get; set; }
+    public string? ImagenKey { get; set; }
     public bool Activo { get; set; } = true;
     public bool Disponible { get; set; } = true;
     public DateTime FechaCreacion { get; set; }
