@@ -29,7 +29,7 @@ else
                 <div class="d-flex justify-content-between align-items-start gap-2">
                     <div>
                         <strong>@titulo</strong>
-                        <div class="small text-muted">@s.FechaCreacion.ToLocalTime().ToString("HH:mm")</div>
+                        <div class="small text-muted">@ZonaHorariaService.ALocal(s.FechaCreacion).ToString("HH:mm")</div>
                         @if (!string.IsNullOrWhiteSpace(s.Mensaje))
                         {
                             <div class="small mt-1">@s.Mensaje</div>

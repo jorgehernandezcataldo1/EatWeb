@@ -116,7 +116,7 @@ else
                                 <strong>@p.ComensalNombre</strong>
                                 <small class="text-muted ms-2">
                                     Pedido #@p.Id –
-                                    @p.FechaCreacion.ToLocalTime().ToString("HH:mm")
+                                    @ZonaHorariaService.ALocal(p.FechaCreacion).ToString("HH:mm")
                                 </small>
                             </div>
                             <partial name="_EstadoPedidoBadge" model="p.Estado" />
@@ -154,15 +154,15 @@ else
                                         <div class="small text-muted mt-1">
                                             @if (d.FechaInicioPreparacion.HasValue)
                                             {
-                                                <span class="me-2">Inicio @d.FechaInicioPreparacion.Value.ToLocalTime().ToString("HH:mm")</span>
+                                                <span class="me-2">Inicio @ZonaHorariaService.ALocal(d.FechaInicioPreparacion.Value).ToString("HH:mm")</span>
                                             }
                                             @if (d.FechaListo.HasValue)
                                             {
-                                                <span class="me-2">Listo @d.FechaListo.Value.ToLocalTime().ToString("HH:mm")</span>
+                                                <span class="me-2">Listo @ZonaHorariaService.ALocal(d.FechaListo.Value).ToString("HH:mm")</span>
                                             }
                                             @if (d.FechaEntregado.HasValue)
                                             {
-                                                <span>Entregado @d.FechaEntregado.Value.ToLocalTime().ToString("HH:mm")</span>
+                                                <span>Entregado @ZonaHorariaService.ALocal(d.FechaEntregado.Value).ToString("HH:mm")</span>
                                             }
                                         </div>
                                     }
@@ -260,7 +260,7 @@ else
                                     @foreach (var h in p.Historial)
                                     {
                                         <div class="text-muted">
-                                            @h.Fecha.ToLocalTime().ToString("HH:mm")
+                                            @ZonaHorariaService.ALocal(h.Fecha).ToString("HH:mm")
                                             · @(h.EstadoAnterior ?? "Creado") → @h.EstadoNuevo
                                             · @h.Actor
                                         </div>

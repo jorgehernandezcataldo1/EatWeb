@@ -31,8 +31,17 @@ public class DbSeeder
     public async Task SembrarAsync(IServiceProvider serviceProvider)
     {
         await _context.Database.MigrateAsync();
+        await AsegurarRolesAsync();
+        await SembrarBootstrapAsync();
 
-        // ===== 1. Roles =====
+        if (!_configuration.GetValue<bool>("SeedDemo:Enabled"))
+            return;
+
+        await SembrarDemoAsync();
+    }
+
+    private async Task AsegurarRolesAsync()
+    {
         var roles = new[]
         {
             Roles.AdminCadena,
@@ -45,153 +54,160 @@ public class DbSeeder
             if (!await _roleManager.RoleExistsAsync(role))
                 await _roleManager.CreateAsync(new IdentityRole(role));
         }
+    }
 
-        // ===== 2. Restaurante Demo =====
+    /// <summary>
+    /// Bootstrap opcional para una instalación nueva. No tiene valores por defecto
+    /// de email/password: deben venir de user-secrets o variables de entorno.
+    /// En una base ya inicializada, no cambia contraseñas existentes.
+    /// </summary>
+    private async Task SembrarBootstrapAsync()
+    {
+        var email = _configuration["SeedAdmin:Email"]?.Trim();
+        if (string.IsNullOrWhiteSpace(email))
+            return;
+
+        var nombre = _configuration["SeedAdmin:Nombre"]?.Trim();
+        if (string.IsNullOrWhiteSpace(nombre))
+            nombre = "Administrador";
+
+        var restauranteNombre = _configuration["SeedAdmin:RestauranteNombre"]?.Trim();
+        if (string.IsNullOrWhiteSpace(restauranteNombre))
+            restauranteNombre = "Mi Restaurante";
+
         var restaurante = await _context.Restaurantes
-            .FirstOrDefaultAsync(r => r.Nombre == "Restaurante Demo");
+            .FirstOrDefaultAsync(r => r.Nombre == restauranteNombre);
 
         if (restaurante == null)
         {
             restaurante = new Restaurante
             {
-                Nombre = "Restaurante Demo",
+                Nombre = restauranteNombre,
                 Activo = true
             };
+
             _context.Restaurantes.Add(restaurante);
             await _context.SaveChangesAsync();
         }
 
         await _defaults.AsegurarEstacionesAsync(restaurante.Id);
 
-        // ===== 3. Admin Restaurante =====
-        var adminEmail = _configuration["SeedAdmin:Email"]
-                         ?? "admin@restaurante.local";
-        var admin = await _userManager.FindByEmailAsync(adminEmail);
-
+        var admin = await _userManager.FindByEmailAsync(email);
         if (admin == null)
         {
-            var adminPassword = _configuration["SeedAdmin:Password"]
-                                ?? "Admin123!";
-            var adminNombre = _configuration["SeedAdmin:Nombre"]
-                              ?? "Administrador";
+            var password = _configuration["SeedAdmin:Password"];
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                throw new InvalidOperationException(
+                    "SeedAdmin:Password es obligatorio para crear el administrador inicial.");
+            }
 
             admin = new ApplicationUser
             {
-                UserName = adminEmail,
-                Email = adminEmail,
-                NombreCompleto = adminNombre,
+                UserName = email,
+                Email = email,
+                NombreCompleto = nombre,
                 Activo = true
             };
 
-            var result = await _userManager.CreateAsync(admin, adminPassword);
-            if (result.Succeeded)
+            var result = await _userManager.CreateAsync(admin, password);
+            if (!result.Succeeded)
             {
-                await _userManager.AddToRoleAsync(admin, Roles.AdminRestaurante);
-
-                _context.RestaurantesMiembros.Add(new RestauranteMiembro
-                {
-                    RestauranteId = restaurante.Id,
-                    UsuarioId = admin.Id,
-                    Rol = RolRestaurante.Administrador
-                });
-
-                await _context.SaveChangesAsync();
-            }
-        }
-        else
-        {
-            // Asegurar membresía si el admin ya existía
-            var tieneMembresia = await _context.RestaurantesMiembros
-                .AnyAsync(rm =>
-                    rm.UsuarioId == admin.Id &&
-                    rm.RestauranteId == restaurante.Id);
-
-            if (!tieneMembresia)
-            {
-                _context.RestaurantesMiembros.Add(new RestauranteMiembro
-                {
-                    RestauranteId = restaurante.Id,
-                    UsuarioId = admin.Id,
-                    Rol = RolRestaurante.Administrador
-                });
-                await _context.SaveChangesAsync();
+                var errores = string.Join("; ", result.Errors.Select(e => e.Description));
+                throw new InvalidOperationException(
+                    $"No se pudo crear el administrador inicial: {errores}");
             }
         }
 
-        // ===== 4. Garzón demo =====
-        var garzonEmail = "garzon@restaurante.local";
-        var garzon = await _userManager.FindByEmailAsync(garzonEmail);
+        if (!await _userManager.IsInRoleAsync(admin, Roles.AdminRestaurante))
+            await _userManager.AddToRoleAsync(admin, Roles.AdminRestaurante);
 
-        if (garzon == null)
+        if (!await _context.RestaurantesMiembros.AnyAsync(rm =>
+                rm.UsuarioId == admin.Id &&
+                rm.RestauranteId == restaurante.Id))
         {
-            garzon = new ApplicationUser
+            _context.RestaurantesMiembros.Add(new RestauranteMiembro
             {
-                UserName = garzonEmail,
-                Email = garzonEmail,
-                NombreCompleto = "Carlos Garzón",
+                RestauranteId = restaurante.Id,
+                UsuarioId = admin.Id,
+                Rol = RolRestaurante.Administrador
+            });
+
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>
+    /// Datos de demostración exclusivamente opt-in.
+    /// Las contraseñas deben configurarse externamente; no existen claves conocidas
+    /// dentro del repositorio.
+    /// </summary>
+    private async Task SembrarDemoAsync()
+    {
+        const string restauranteNombre = "Restaurante Demo";
+
+        var restaurante = await _context.Restaurantes
+            .FirstOrDefaultAsync(r => r.Nombre == restauranteNombre);
+
+        if (restaurante == null)
+        {
+            restaurante = new Restaurante
+            {
+                Nombre = restauranteNombre,
                 Activo = true
             };
 
-            var result = await _userManager.CreateAsync(garzon, "Garzon123!");
-            if (result.Succeeded)
-            {
-                await _userManager.AddToRoleAsync(garzon, Roles.Garzon);
-
-                _context.RestaurantesMiembros.Add(new RestauranteMiembro
-                {
-                    RestauranteId = restaurante.Id,
-                    UsuarioId = garzon.Id,
-                    Rol = RolRestaurante.Garzon
-                });
-
-                await _context.SaveChangesAsync();
-            }
-        }
-        else
-        {
-            var tieneMembresia = await _context.RestaurantesMiembros
-                .AnyAsync(rm =>
-                    rm.UsuarioId == garzon.Id &&
-                    rm.RestauranteId == restaurante.Id);
-
-            if (!tieneMembresia)
-            {
-                _context.RestaurantesMiembros.Add(new RestauranteMiembro
-                {
-                    RestauranteId = restaurante.Id,
-                    UsuarioId = garzon.Id,
-                    Rol = RolRestaurante.Garzon
-                });
-                await _context.SaveChangesAsync();
-            }
+            _context.Restaurantes.Add(restaurante);
+            await _context.SaveChangesAsync();
         }
 
-        // ===== 5. Datos demo (categorías, productos, mesas) =====
-        if (!await _context.Categorias.AnyAsync())
-        {
+        await _defaults.AsegurarEstacionesAsync(restaurante.Id);
+
+        var adminEmail = _configuration["SeedDemo:AdminEmail"]?.Trim()
+                         ?? "admin@restaurante.local";
+        var admin = await AsegurarUsuarioDemoAsync(
+            adminEmail,
+            _configuration["SeedDemo:AdminPassword"],
+            "Administrador Demo",
+            Roles.AdminRestaurante);
+
+        await AsegurarMembresiaRestauranteAsync(
+            restaurante.Id,
+            admin.Id,
+            RolRestaurante.Administrador);
+
+        var garzonEmail = _configuration["SeedDemo:GarzonEmail"]?.Trim()
+                          ?? "garzon@restaurante.local";
+        var garzon = await AsegurarUsuarioDemoAsync(
+            garzonEmail,
+            _configuration["SeedDemo:GarzonPassword"],
+            "Carlos Garzón",
+            Roles.Garzon);
+
+        await AsegurarMembresiaRestauranteAsync(
+            restaurante.Id,
+            garzon.Id,
+            RolRestaurante.Garzon);
+
+        if (!await _context.Categorias.AnyAsync(c => c.RestauranteId == restaurante.Id))
             await SembrarCatalogoDemoAsync(restaurante.Id);
-        }
 
-        // Asignar mesas 1-3 al garzón demo (si aún no las tiene)
-        if (garzon != null)
+        var mesas = await _context.Mesas
+            .Where(m =>
+                m.RestauranteId == restaurante.Id &&
+                new[] { 1, 2, 3 }.Contains(m.Numero) &&
+                m.GarzonId == null)
+            .ToListAsync();
+
+        if (mesas.Any())
         {
-            var mesas = await _context.Mesas
-                .Where(m => m.RestauranteId == restaurante.Id &&
-                            new[] { 1, 2, 3 }.Contains(m.Numero) &&
-                            m.GarzonId == null)
-                .ToListAsync();
+            foreach (var mesa in mesas)
+                mesa.GarzonId = garzon.Id;
 
-            if (mesas.Any())
-            {
-                foreach (var mesa in mesas)
-                    mesa.GarzonId = garzon.Id;
-
-                await _context.SaveChangesAsync();
-            }
+            await _context.SaveChangesAsync();
         }
 
-        // ===== 6. Cadena demo + Admin de Cadena =====
-        var cadenaNombre = "Burger King Demo";
+        const string cadenaNombre = "Cadena Demo";
         var cadena = await _context.Cadenas
             .FirstOrDefaultAsync(c => c.Nombre == cadenaNombre);
 
@@ -200,59 +216,94 @@ public class DbSeeder
             cadena = new Cadena { Nombre = cadenaNombre };
             _context.Cadenas.Add(cadena);
             await _context.SaveChangesAsync();
+        }
 
-            // Vincular el Restaurante Demo a la cadena
+        if (restaurante.CadenaId != cadena.Id)
+        {
             restaurante.CadenaId = cadena.Id;
             await _context.SaveChangesAsync();
         }
 
-        var adminCadenaEmail = "admincadena@demo.local";
-        var adminCadena = await _userManager.FindByEmailAsync(adminCadenaEmail);
+        var adminCadenaEmail = _configuration["SeedDemo:AdminCadenaEmail"]?.Trim()
+                               ?? "admincadena@demo.local";
+        var adminCadena = await AsegurarUsuarioDemoAsync(
+            adminCadenaEmail,
+            _configuration["SeedDemo:AdminCadenaPassword"],
+            "Admin de Cadena",
+            Roles.AdminCadena);
 
-        if (adminCadena == null)
+        if (!await _context.CadenasMiembros.AnyAsync(cm =>
+                cm.CadenaId == cadena.Id &&
+                cm.UsuarioId == adminCadena.Id))
         {
-            adminCadena = new ApplicationUser
+            _context.CadenasMiembros.Add(new CadenaMiembro
             {
-                UserName = adminCadenaEmail,
-                Email = adminCadenaEmail,
-                NombreCompleto = "Admin de Cadena",
-                Activo = true
-            };
+                CadenaId = cadena.Id,
+                UsuarioId = adminCadena.Id,
+                Rol = RolCadena.Administrador
+            });
 
-            var result = await _userManager.CreateAsync(adminCadena, "Cadena123!");
-            if (result.Succeeded)
-            {
-                await _userManager.AddToRoleAsync(adminCadena, Roles.AdminCadena);
-
-                _context.CadenasMiembros.Add(new CadenaMiembro
-                {
-                    CadenaId = cadena.Id,
-                    UsuarioId = adminCadena.Id,
-                    Rol = RolCadena.Administrador
-                });
-
-                await _context.SaveChangesAsync();
-            }
-        }
-        else
-        {
-            if (!await _userManager.IsInRoleAsync(adminCadena, Roles.AdminCadena))
-                await _userManager.AddToRoleAsync(adminCadena, Roles.AdminCadena);
-
-            if (!await _context.CadenasMiembros.AnyAsync(cm =>
-                    cm.CadenaId == cadena.Id && cm.UsuarioId == adminCadena.Id))
-            {
-                _context.CadenasMiembros.Add(new CadenaMiembro
-                {
-                    CadenaId = cadena.Id,
-                    UsuarioId = adminCadena.Id,
-                    Rol = RolCadena.Administrador
-                });
-                await _context.SaveChangesAsync();
-            }
+            await _context.SaveChangesAsync();
         }
     }
 
+    private async Task<ApplicationUser> AsegurarUsuarioDemoAsync(
+        string email,
+        string? password,
+        string nombre,
+        string role)
+    {
+        var usuario = await _userManager.FindByEmailAsync(email);
+        if (usuario == null)
+        {
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                throw new InvalidOperationException(
+                    $"SeedDemo está habilitado, pero falta la contraseña para {email}.");
+            }
+
+            usuario = new ApplicationUser
+            {
+                UserName = email,
+                Email = email,
+                NombreCompleto = nombre,
+                Activo = true
+            };
+
+            var result = await _userManager.CreateAsync(usuario, password);
+            if (!result.Succeeded)
+            {
+                var errores = string.Join("; ", result.Errors.Select(e => e.Description));
+                throw new InvalidOperationException(
+                    $"No se pudo crear el usuario demo {email}: {errores}");
+            }
+        }
+
+        if (!await _userManager.IsInRoleAsync(usuario, role))
+            await _userManager.AddToRoleAsync(usuario, role);
+
+        return usuario;
+    }
+
+    private async Task AsegurarMembresiaRestauranteAsync(
+        int restauranteId,
+        string usuarioId,
+        RolRestaurante rol)
+    {
+        if (await _context.RestaurantesMiembros.AnyAsync(rm =>
+                rm.RestauranteId == restauranteId &&
+                rm.UsuarioId == usuarioId))
+            return;
+
+        _context.RestaurantesMiembros.Add(new RestauranteMiembro
+        {
+            RestauranteId = restauranteId,
+            UsuarioId = usuarioId,
+            Rol = rol
+        });
+
+        await _context.SaveChangesAsync();
+    }
 
     // ============ Catálogo + mesas ============
 

@@ -21,9 +21,17 @@ public class SesionesController : RestauranteControllerBase
     [HttpGet]
     public async Task<IActionResult> Index(DateTime? desde, DateTime? hasta)
     {
-        // Default: últimos 7 días
-        var fin = (hasta ?? DateTime.UtcNow).Date.AddDays(1);
-        var inicio = (desde ?? fin.AddDays(-7)).Date;
+        // El filtro se interpreta como fechas de calendario de Santiago,
+        // no como la zona horaria del servidor.
+        var hoyLocal = ZonaHorariaService.HoyLocal();
+        var desdeLocal = (desde ?? hoyLocal.AddDays(-6)).Date;
+        var hastaLocal = (hasta ?? hoyLocal).Date;
+
+        if (hastaLocal < desdeLocal)
+            (desdeLocal, hastaLocal) = (hastaLocal, desdeLocal);
+
+        var inicio = ZonaHorariaService.InicioFechaLocalUtc(desdeLocal);
+        var fin = ZonaHorariaService.InicioFechaLocalUtc(hastaLocal.AddDays(1));
 
         var sesiones = await _context.MesaSesiones
             .AsNoTracking()
@@ -51,8 +59,8 @@ public class SesionesController : RestauranteControllerBase
 
         return View(new SesionesIndexViewModel
         {
-            Desde = inicio,
-            Hasta = fin.AddDays(-1),
+            Desde = desdeLocal,
+            Hasta = hastaLocal,
             Sesiones = sesiones,
             TotalPeriodo = sesiones.Sum(s => s.Total),
             CantidadSesiones = sesiones.Count

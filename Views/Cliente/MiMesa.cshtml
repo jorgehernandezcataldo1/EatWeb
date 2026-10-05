@@ -96,7 +96,7 @@ else
                     <strong>Pedido #@p.Id</strong>
                     <partial name="_EstadoPedidoBadge" model="p.Estado" />
                 </div>
-                <small class="text-muted">@p.Fecha.ToLocalTime().ToString("HH:mm")</small>
+                <small class="text-muted">@ZonaHorariaService.ALocal(p.Fecha).ToString("HH:mm")</small>
 
                 <ul class="mb-1 mt-2">
                     @foreach (var item in p.Items)
