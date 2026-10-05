@@ -156,10 +156,18 @@ public class SolicitudMesaService
         int comensalId)
     {
         var solicitud = await _context.SolicitudesMesa
-            .Include(s => s.MesaSesion)
-            .FirstOrDefaultAsync(s =>
+            .AsNoTracking()
+            .Where(s =>
                 s.Id == solicitudId &&
-                s.ComensalId == comensalId);
+                s.ComensalId == comensalId)
+            .Select(s => new
+            {
+                s.Id,
+                s.MesaSesionId,
+                s.Tipo,
+                s.Estado
+            })
+            .FirstOrDefaultAsync();
 
         if (solicitud == null)
             return Error("Solicitud no encontrada.");
@@ -167,12 +175,20 @@ public class SolicitudMesaService
         if (solicitud.Estado != EstadoSolicitudMesa.Pendiente)
             return Error("Solo puedes cancelar solicitudes pendientes.");
 
-        solicitud.Estado = EstadoSolicitudMesa.Cancelada;
-        solicitud.FechaResolucion = DateTime.UtcNow;
+        var ahora = DateTime.UtcNow;
+        var actualizadas = await _context.SolicitudesMesa
+            .Where(s =>
+                s.Id == solicitudId &&
+                s.ComensalId == comensalId &&
+                s.Estado == EstadoSolicitudMesa.Pendiente)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(s => s.Estado, EstadoSolicitudMesa.Cancelada)
+                .SetProperty(s => s.FechaResolucion, ahora));
 
-        if (solicitud.Tipo == TipoSolicitudMesa.PedirCuenta &&
-            solicitud.MesaSesion != null &&
-            solicitud.MesaSesion.Estado == EstadoSesion.CuentaSolicitada)
+        if (actualizadas == 0)
+            return Error("La solicitud ya fue atendida o cancelada.");
+
+        if (solicitud.Tipo == TipoSolicitudMesa.PedirCuenta)
         {
             var otraCuentaActiva = await _context.SolicitudesMesa
                 .AsNoTracking()
@@ -184,12 +200,19 @@ public class SolicitudMesaService
 
             if (!otraCuentaActiva)
             {
-                solicitud.MesaSesion.CuentaSolicitadaEn = null;
-                solicitud.MesaSesion.Estado = EstadoSesion.Abierta;
+                var sesion = await _context.MesaSesiones
+                    .FirstOrDefaultAsync(s =>
+                        s.Id == solicitud.MesaSesionId &&
+                        s.FechaCierre == null);
+
+                if (sesion != null && sesion.Estado == EstadoSesion.CuentaSolicitada)
+                {
+                    sesion.CuentaSolicitadaEn = null;
+                    sesion.Estado = EstadoSesion.Abierta;
+                    await _context.SaveChangesAsync();
+                }
             }
         }
-
-        await _context.SaveChangesAsync();
 
         return new ResultadoSolicitudMesa
         {
@@ -205,17 +228,24 @@ public class SolicitudMesaService
         bool esAdmin)
     {
         var solicitud = await _context.SolicitudesMesa
-            .Include(s => s.MesaSesion)
-                .ThenInclude(s => s!.Mesa)
-            .FirstOrDefaultAsync(s => s.Id == solicitudId);
+            .AsNoTracking()
+            .Where(s => s.Id == solicitudId)
+            .Select(s => new
+            {
+                s.Id,
+                s.Estado,
+                RestauranteId = s.MesaSesion!.Mesa!.RestauranteId,
+                SesionGarzonId = s.MesaSesion.GarzonId,
+                MesaGarzonId = s.MesaSesion.Mesa.GarzonId
+            })
+            .FirstOrDefaultAsync();
 
-        if (solicitud?.MesaSesion?.Mesa == null ||
-            solicitud.MesaSesion.Mesa.RestauranteId != restauranteId)
+        if (solicitud == null || solicitud.RestauranteId != restauranteId)
             return Error("Solicitud no encontrada.");
 
         if (!esAdmin &&
-            solicitud.MesaSesion.GarzonId != usuarioId &&
-            solicitud.MesaSesion.Mesa.GarzonId != usuarioId)
+            solicitud.SesionGarzonId != usuarioId &&
+            solicitud.MesaGarzonId != usuarioId)
             return Error("No tienes acceso a esta mesa.");
 
         if (solicitud.Estado != EstadoSolicitudMesa.Pendiente)
@@ -231,11 +261,33 @@ public class SolicitudMesaService
             };
         }
 
-        solicitud.Estado = EstadoSolicitudMesa.Atendida;
-        solicitud.FechaResolucion = DateTime.UtcNow;
-        solicitud.AtendidaPorId = usuarioId;
+        var ahora = DateTime.UtcNow;
+        var actualizadas = await _context.SolicitudesMesa
+            .Where(s =>
+                s.Id == solicitudId &&
+                s.Estado == EstadoSolicitudMesa.Pendiente)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(s => s.Estado, EstadoSolicitudMesa.Atendida)
+                .SetProperty(s => s.FechaResolucion, ahora)
+                .SetProperty(s => s.AtendidaPorId, usuarioId));
 
-        await _context.SaveChangesAsync();
+        if (actualizadas == 0)
+        {
+            var estadoActual = await _context.SolicitudesMesa
+                .AsNoTracking()
+                .Where(s => s.Id == solicitudId)
+                .Select(s => s.Estado)
+                .FirstOrDefaultAsync();
+
+            return estadoActual == EstadoSolicitudMesa.Atendida
+                ? new ResultadoSolicitudMesa
+                {
+                    Ok = true,
+                    SolicitudId = solicitudId,
+                    YaExistia = true
+                }
+                : Error("La solicitud fue cancelada por el cliente.");
+        }
 
         return new ResultadoSolicitudMesa
         {
