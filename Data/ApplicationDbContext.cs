@@ -30,6 +30,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Cuenta> Cuentas { get; set; } = null!;
     public DbSet<Pago> Pagos { get; set; } = null!;
     public DbSet<PagoDetalle> PagoDetalles { get; set; } = null!;
+    public DbSet<Estacion> Estaciones { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -274,6 +275,22 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasForeignKey(c => c.MesaSesionId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Estacion
+        modelBuilder.Entity<Estacion>()
+            .Property(e => e.Nombre)
+            .HasMaxLength(80)
+            .IsRequired();
+
+        modelBuilder.Entity<Estacion>()
+            .HasIndex(e => new { e.RestauranteId, e.Nombre })
+            .IsUnique();
+
+        modelBuilder.Entity<Estacion>()
+            .HasOne(e => e.Restaurante)
+            .WithMany(r => r.Estaciones)
+            .HasForeignKey(e => e.RestauranteId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Categoria
         modelBuilder.Entity<Categoria>()
             .Property(c => c.Nombre)
@@ -289,6 +306,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .WithMany(r => r.Categorias)
             .HasForeignKey(c => c.RestauranteId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Categoria>()
+            .HasOne(c => c.Estacion)
+            .WithMany(e => e.Categorias)
+            .HasForeignKey(c => c.EstacionId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         // Producto
         modelBuilder.Entity<Producto>()
@@ -397,6 +420,22 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .OnDelete(DeleteBehavior.Restrict);
 
         // DetallePedido
+        modelBuilder.Entity<DetallePedido>()
+            .Property(d => d.EstacionNombre)
+            .HasMaxLength(80)
+            .IsRequired();
+
+        modelBuilder.Entity<DetallePedido>()
+            .Property(d => d.Estado)
+            .HasMaxLength(30)
+            .IsRequired();
+
+        modelBuilder.Entity<DetallePedido>()
+            .HasOne<Estacion>()
+            .WithMany()
+            .HasForeignKey(d => d.EstacionId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         modelBuilder.Entity<DetallePedido>()
             .Property(d => d.NombreProducto)
             .HasMaxLength(120)
