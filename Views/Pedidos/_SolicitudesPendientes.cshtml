@@ -1,0 +1,54 @@
+@model IReadOnlyList<SolicitudMesaResumenViewModel>
+
+@if (!Model.Any())
+{
+    <div class="text-muted small">Sin solicitudes pendientes.</div>
+}
+else
+{
+    <div class="row g-2">
+        @foreach (var s in Model)
+        {
+            var titulo = s.Tipo switch
+            {
+                TipoSolicitudMesa.PedirCuenta => "💰 Cuenta",
+                TipoSolicitudMesa.LlamarGarzon => "🙋 Llamada",
+                TipoSolicitudMesa.SolicitarAlgo => "📝 Solicitud",
+                _ => s.Tipo
+            };
+
+            var minutos = Math.Max(0, (int)(DateTime.UtcNow - s.FechaCreacion).TotalMinutes);
+
+            <div class="col-md-6 col-xl-4">
+                <div class="border rounded p-2 h-100 @(minutos >= 5 ? "border-danger" : "border-warning")">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div>
+                            <strong>@titulo · Mesa @s.MesaNumero</strong>
+                            <div class="small text-muted">@s.ComensalNombre · hace @minutos min</div>
+                        </div>
+                        @if (minutos >= 5)
+                        {
+                            <span class="badge bg-danger">Demorada</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Pendiente</span>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(s.Mensaje))
+                    {
+                        <div class="small mt-2">@s.Mensaje</div>
+                    }
+
+                    <form asp-action="AtenderSolicitud" method="post" class="mt-2">
+                        <input type="hidden" name="id" value="@s.Id" />
+                        <button type="submit" class="btn btn-sm btn-success">
+                            ✓ Marcar atendida
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+}
