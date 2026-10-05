@@ -1,6 +1,7 @@
 using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Services;
+using EatWeb.Services.Storage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -70,6 +71,10 @@ builder.Services.AddSession(options =>
 });
 
 builder.Services.AddHttpContextAccessor();
+
+builder.Services.Configure<StorageOptions>(
+    builder.Configuration.GetSection(StorageOptions.SectionName));
+builder.Services.AddSingleton<IStorageService, S3StorageService>();
 
 // Toda acción insegura (POST/PUT/PATCH/DELETE) exige antiforgery por defecto.
 builder.Services.AddControllersWithViews(options =>
