@@ -5,6 +5,7 @@ namespace EatWeb.ViewModels;
 public class PedidosIndexViewModel
 {
     public List<PedidoMesaViewModel> Mesas { get; set; } = new();
+    public List<SolicitudMesaResumenViewModel> SolicitudesPendientes { get; set; } = new();
 }
 
 public class PedidoMesaViewModel
