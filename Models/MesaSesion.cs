@@ -17,5 +17,6 @@ public class MesaSesion
     public ApplicationUser? Garzon { get; set; }
     public ICollection<Comensal> Comensales { get; set; } = new List<Comensal>();
     public ICollection<Pedido> Pedidos { get; set; } = new List<Pedido>();
+    public ICollection<SolicitudMesa> SolicitudesMesa { get; set; } = new List<SolicitudMesa>();
     public Cuenta? Cuenta { get; set; }
 }
