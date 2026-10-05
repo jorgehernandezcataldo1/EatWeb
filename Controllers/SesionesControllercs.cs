@@ -43,7 +43,9 @@ public class SesionesController : RestauranteControllerBase
                 TotalPedidos = s.Pedidos.Count(),
                 Total = s.Pedidos
                     .Where(p => p.Estado != EstadoPedido.Cancelado)
-                    .Sum(p => p.Total)
+                    .SelectMany(p => p.Detalles)
+                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                    .Sum(d => d.Subtotal)
             })
             .ToListAsync();
 
@@ -81,10 +83,14 @@ public class SesionesController : RestauranteControllerBase
                 FechaIngreso = c.FechaIngreso,
                 TotalConsumido = c.Pedidos
                     .Where(p => p.Estado != EstadoPedido.Cancelado)
-                    .Sum(p => p.Total),
+                    .SelectMany(p => p.Detalles)
+                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                    .Sum(d => d.Subtotal),
                 Items = c.Pedidos
                     .Where(p => p.Estado != EstadoPedido.Cancelado)
-                    .SelectMany(p => p.Detalles.Select(d => new CuentaItemViewModel
+                    .SelectMany(p => p.Detalles
+                        .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                        .Select(d => new CuentaItemViewModel
                     {
                         PedidoId = p.Id,
                         Producto = d.NombreProducto,
