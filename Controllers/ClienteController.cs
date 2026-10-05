@@ -290,7 +290,9 @@ public class ClienteController : Controller
             {
                 Id = p.Id,
                 Estado = p.Estado,
-                Total = p.Total,
+                Total = p.Detalles
+                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                    .Sum(d => d.Subtotal),
                 Fecha = p.FechaCreacion,
                 Items = p.Detalles
                     .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
