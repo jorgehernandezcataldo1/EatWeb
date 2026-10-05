@@ -1,4 +1,4 @@
-﻿@model MiMesaViewModel
+@model MiMesaViewModel
 @{
     ViewData["Title"] = "Mi Mesa";
     var clp = new System.Globalization.CultureInfo("es-CL");
@@ -6,23 +6,67 @@
 
 <h3>Mesa @Model.MesaNumero – @Model.ComensalNombre</h3>
 
-<div class="card mb-3 bg-light">
-    <div class="card-body">
-        <h5>Tu consumo</h5>
-        <p class="display-6 mb-2">@Model.TotalConsumido.ToString("C0", clp)</p>
+<div class="row g-3 mb-4">
+    <div class="col-lg-6">
+        <div class="card h-100 bg-light">
+            <div class="card-body">
+                <h5>Tu consumo</h5>
+                <p class="display-6 mb-3">@Model.TotalConsumido.ToString("C0", clp)</p>
 
-        @if (Model.CuentaSolicitada)
-        {
-            <div class="alert alert-warning mb-0">✅ Cuenta solicitada. El garzón te atenderá pronto.</div>
-        }
-        else
-        {
-            <form asp-action="SolicitarCuenta" method="post">
-                <button type="submit" class="btn btn-warning w-100">
-                    💰 Pedir la cuenta
-                </button>
-            </form>
-        }
+                @if (Model.CuentaSolicitada)
+                {
+                    <div class="alert alert-warning mb-0">
+                        La cuenta ya fue solicitada. Puedes seguir viendo el estado de la solicitud aquí.
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <strong>¿Necesitas ayuda?</strong>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <form asp-action="CrearSolicitud" method="post">
+                        <input type="hidden" name="tipo" value="@TipoSolicitudMesa.LlamarGarzon" />
+                        <button type="submit" class="btn btn-outline-primary w-100">
+                            🙋 Llamar al garzón
+                        </button>
+                    </form>
+
+                    <form asp-action="CrearSolicitud" method="post">
+                        <input type="hidden" name="tipo" value="@TipoSolicitudMesa.PedirCuenta" />
+                        <button type="submit" class="btn btn-warning w-100" disabled="@Model.CuentaSolicitada">
+                            💰 Pedir la cuenta
+                        </button>
+                    </form>
+
+                    <form asp-action="CrearSolicitud" method="post" class="border rounded p-2">
+                        <input type="hidden" name="tipo" value="@TipoSolicitudMesa.SolicitarAlgo" />
+                        <label class="form-label small">Pedir algo adicional</label>
+                        <div class="input-group">
+                            <input type="text" name="mensaje" maxlength="200"
+                                   class="form-control"
+                                   placeholder="Ej: agua, servilletas, cubiertos..." required />
+                            <button type="submit" class="btn btn-outline-primary">Enviar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Solicitudes al garzón</strong>
+        <small class="text-muted">Actualización automática</small>
+    </div>
+    <div class="card-body" id="misSolicitudes">
+        <partial name="_MisSolicitudes" model="Model.Solicitudes" />
     </div>
 </div>
 
@@ -73,4 +117,23 @@ else
             </div>
         </div>
     }
+}
+
+@section Scripts {
+    <script>
+        async function actualizarMisSolicitudes() {
+            try {
+                const response = await fetch('@Url.Action("MisSolicitudes", "Cliente")', {
+                    cache: 'no-store'
+                });
+
+                if (!response.ok) return;
+                document.getElementById('misSolicitudes').innerHTML = await response.text();
+            } catch {
+                // La siguiente iteración vuelve a intentarlo.
+            }
+        }
+
+        setInterval(actualizarMisSolicitudes, 8000);
+    </script>
 }
