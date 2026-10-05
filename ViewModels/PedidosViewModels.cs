@@ -37,7 +37,11 @@ public class DetallePedidoResumenViewModel
 {
     public int Id { get; set; }
     public string Estado { get; set; } = string.Empty;
+    public int EstacionId { get; set; }
     public string Estacion { get; set; } = string.Empty;
+    public DateTime? FechaInicioPreparacion { get; set; }
+    public DateTime? FechaListo { get; set; }
+    public DateTime? FechaEntregado { get; set; }
     public string Producto { get; set; } = string.Empty;
 
     public int Cantidad { get; set; }
