@@ -50,8 +50,11 @@ else
                         <ul class="list-unstyled mt-2 mb-2">
                             @foreach (var d in p.Detalles)
                             {
-                                <li class="mb-1">
-                                    <strong>@d.Cantidad×</strong> @d.Producto
+                                <li class="mb-2 border rounded p-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span><strong>@d.Cantidad×</strong> @d.Producto</span>
+                                        <span><span class="badge bg-secondary">@d.Estacion</span> <span class="badge bg-info text-dark">@d.Estado</span></span>
+                                    </div>
                                     @if (d.Personalizaciones.Any())
                                     {
                                         <ul class="small text-muted mb-0">
@@ -63,10 +66,22 @@ else
                                     }
                                     @if (!string.IsNullOrWhiteSpace(d.Observacion))
                                     {
-                                        <div class="small fst-italic text-secondary">
-                                            💬 "@d.Observacion"
-                                        </div>
+                                        <div class="small fst-italic text-secondary">💬 "@d.Observacion"</div>
                                     }
+                                    <div class="btn-group btn-group-sm mt-1">
+                                        @if (d.Estado == "Pendiente")
+                                        {
+                                            <form asp-action="CambiarEstadoDetalle" method="post"><input type="hidden" name="id" value="@d.Id" /><input type="hidden" name="nuevoEstado" value="EnPreparacion" /><button class="btn btn-outline-info">Preparar</button></form>
+                                        }
+                                        else if (d.Estado == "EnPreparacion")
+                                        {
+                                            <form asp-action="CambiarEstadoDetalle" method="post"><input type="hidden" name="id" value="@d.Id" /><input type="hidden" name="nuevoEstado" value="Listo" /><button class="btn btn-outline-success">Listo</button></form>
+                                        }
+                                        else if (d.Estado == "Listo")
+                                        {
+                                            <form asp-action="CambiarEstadoDetalle" method="post"><input type="hidden" name="id" value="@d.Id" /><input type="hidden" name="nuevoEstado" value="Entregado" /><button class="btn btn-outline-secondary">Entregar</button></form>
+                                        }
+                                    </div>
                                 </li>
                             }
                         </ul>
@@ -111,6 +126,11 @@ else
                     </div>
                 }
 
+                <div class="btn-group btn-group-sm mt-2 me-2">
+                    <form asp-action="CambiarEstadoMesa" method="post"><input type="hidden" name="id" value="@m.SesionId" /><input type="hidden" name="nuevoEstado" value="EnPreparacion" /><button class="btn btn-outline-info">Mesa → preparación</button></form>
+                    <form asp-action="CambiarEstadoMesa" method="post"><input type="hidden" name="id" value="@m.SesionId" /><input type="hidden" name="nuevoEstado" value="Listo" /><button class="btn btn-outline-success">Mesa → listo</button></form>
+                    <form asp-action="CambiarEstadoMesa" method="post"><input type="hidden" name="id" value="@m.SesionId" /><input type="hidden" name="nuevoEstado" value="Entregado" /><button class="btn btn-outline-secondary">Mesa → entregado</button></form>
+                </div>
                 <a asp-action="Cuenta" asp-route-id="@m.SesionId"
                    class="btn btn-outline-primary btn-sm mt-2">
                     📄 Ver cuenta completa
