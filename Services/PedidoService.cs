@@ -44,10 +44,14 @@ public class ResultadoPedido
 public class PedidoService
 {
     private readonly ApplicationDbContext _context;
+    private readonly ILogger<PedidoService> _logger;
 
-    public PedidoService(ApplicationDbContext context)
+    public PedidoService(
+        ApplicationDbContext context,
+        ILogger<PedidoService> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<CarritoCalculado> CalcularCarritoAsync(CarritoSesion carrito, int? restauranteId = null)
@@ -293,7 +297,13 @@ public class PedidoService
         }
         catch (DbUpdateException ex)
         {
-            resultado.Errores.Add("Error al guardar el pedido: " + ex.Message);
+            _logger.LogError(ex,
+                "Error persistiendo pedido para comensal {ComensalId} en sesión {SesionId}",
+                comensalId,
+                sesion.Id);
+
+            resultado.Errores.Add(
+                "No pudimos guardar el pedido. Intenta nuevamente o avisa al personal.");
             return resultado;
         }
 
