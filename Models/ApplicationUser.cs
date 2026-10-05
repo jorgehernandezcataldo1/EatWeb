@@ -22,4 +22,7 @@ public class ApplicationUser : IdentityUser
 
     public ICollection<HistorialEstadoPedido> HistorialesEstadoPedido { get; set; }
         = new List<HistorialEstadoPedido>();
+
+    public ICollection<SolicitudMesa> SolicitudesMesaAtendidas { get; set; }
+        = new List<SolicitudMesa>();
 }
