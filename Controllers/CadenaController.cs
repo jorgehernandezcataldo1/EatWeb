@@ -87,6 +87,12 @@ public class CadenasController : Controller
         }
         else
         {
+            if (string.IsNullOrWhiteSpace(modelo.AdminPassword))
+            {
+                ModelState.AddModelError(nameof(modelo.AdminPassword), "La contraseña es requerida para un administrador nuevo.");
+                return View(modelo);
+            }
+
             adminUser = new ApplicationUser
             {
                 UserName = modelo.AdminEmail,
@@ -95,7 +101,7 @@ public class CadenasController : Controller
                 Activo = true
             };
 
-            var result = await _userManager.CreateAsync(adminUser, modelo.AdminPassword!);
+            var result = await _userManager.CreateAsync(adminUser, modelo.AdminPassword);
 
             if (!result.Succeeded)
             {
