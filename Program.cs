@@ -2,6 +2,7 @@ using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Services;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -70,8 +71,11 @@ builder.Services.AddSession(options =>
 
 builder.Services.AddHttpContextAccessor();
 
-// Add controllers with auto-validate anti-forgery
-builder.Services.AddControllersWithViews();
+// Toda acción insegura (POST/PUT/PATCH/DELETE) exige antiforgery por defecto.
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+});
 
 // Add services
 builder.Services.AddScoped<SesionService>();
