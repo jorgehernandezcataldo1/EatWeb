@@ -48,7 +48,10 @@ public class AccountController : Controller
         }
 
         var result = await _signInManager.PasswordSignInAsync(
-    user.UserName!, password, isPersistent: false, lockoutOnFailure: false);
+            user.UserName!,
+            password,
+            isPersistent: false,
+            lockoutOnFailure: true);
 
         if (result.Succeeded)
         {
@@ -67,7 +70,14 @@ public class AccountController : Controller
 
         }
 
-        ModelState.AddModelError(string.Empty, "Intento de inicio de sesión inválido");
+        if (result.IsLockedOut)
+        {
+            ModelState.AddModelError(string.Empty,
+                "Demasiados intentos fallidos. Intenta nuevamente en unos minutos.");
+            return View();
+        }
+
+        ModelState.AddModelError(string.Empty, "Credenciales inválidas");
         return View();
     }
 
