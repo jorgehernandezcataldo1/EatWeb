@@ -27,8 +27,8 @@ public class CategoriaViewModel
 
     public bool Activa { get; set; } = true;
 
-    [Required(ErrorMessage = "La estación es requerida")]
-    public int? EstacionId { get; set; }
+    [Range(1, int.MaxValue, ErrorMessage = "La estación es requerida")]
+    public int EstacionId { get; set; }
     public string? EstacionNombre { get; set; }
     public List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> Estaciones { get; set; } = new();
 }
