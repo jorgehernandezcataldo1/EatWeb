@@ -165,23 +165,34 @@
                 </dl>
             </div>
             <div class="card-footer">
-                @if (Model.SaldoPendiente > 0)
+                @if (Model.SaldoPendiente > 0 && Model.PuedeCobrar)
                 {
                     <a asp-action="Dividir" asp-route-id="@Model.SesionId"
-                       class="btn btn-success w-100 @(Model.PuedeCobrar ? "" : "disabled")"
-                       aria-disabled="@(!Model.PuedeCobrar)">
+                       class="btn btn-success w-100">
                         💰 Registrar pago
                     </a>
                 }
-                else
+                else if (Model.SaldoPendiente > 0)
+                {
+                    <button type="button" class="btn btn-success w-100" disabled>
+                        💰 Registrar pago
+                    </button>
+                }
+                else if (Model.PuedeCobrar)
                 {
                     <form asp-action="CerrarMesa" asp-route-id="@Model.SesionId"
                           method="post"
                           onsubmit="return confirm('¿Cerrar la mesa?');">
-                        <button type="submit" class="btn btn-success w-100" disabled="@(!Model.PuedeCobrar)">
+                        <button type="submit" class="btn btn-success w-100">
                             ✅ Cerrar mesa
                         </button>
                     </form>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-success w-100" disabled>
+                        ✅ Cerrar mesa
+                    </button>
                 }
 
                 <a asp-action="Index" class="btn btn-outline-secondary w-100 mt-2">
