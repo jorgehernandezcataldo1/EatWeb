@@ -17,17 +17,20 @@ public class PedidosController : RestauranteControllerBase
     private readonly PedidoService _pedidoService;
     private readonly SesionService _sesionService;
     private readonly CuentaService _cuentaService;
+    private readonly SolicitudMesaService _solicitudMesaService;
 
     public PedidosController(
         ApplicationDbContext context,
         PedidoService pedidoService,
         SesionService sesionService,
-        CuentaService cuentaService)
+        CuentaService cuentaService,
+        SolicitudMesaService solicitudMesaService)
     {
         _context = context;
         _pedidoService = pedidoService;
         _sesionService = sesionService;
         _cuentaService = cuentaService;
+        _solicitudMesaService = solicitudMesaService;
     }
 
     private string? GetUserId() =>
@@ -57,8 +60,11 @@ public class PedidosController : RestauranteControllerBase
             .OrderBy(s => s.Mesa!.Numero)
             .ToListAsync();
 
+        var solicitudesPendientes = await ObtenerSolicitudesPendientesAsync();
+
         var vm = new PedidosIndexViewModel
         {
+            SolicitudesPendientes = solicitudesPendientes,
             Mesas = sesiones.Select(s => new PedidoMesaViewModel
             {
                 SesionId = s.Id,
@@ -125,6 +131,32 @@ public class PedidosController : RestauranteControllerBase
         };
 
         return View(vm);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> SolicitudesPendientes()
+    {
+        Response.Headers.CacheControl = "no-store";
+        var solicitudes = await ObtenerSolicitudesPendientesAsync();
+        return PartialView("_SolicitudesPendientes", solicitudes);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AtenderSolicitud(int id)
+    {
+        var resultado = await _solicitudMesaService.AtenderAsync(
+            id,
+            RestauranteId,
+            GetUserId() ?? string.Empty,
+            User.EsAdmin());
+
+        if (!resultado.Ok)
+            TempData["Error"] = string.Join(" ", resultado.Errores);
+        else
+            TempData["Ok"] = "Solicitud marcada como atendida.";
+
+        return RedirectToAction(nameof(Index));
     }
 
     [HttpPost]
@@ -730,5 +762,34 @@ public class PedidosController : RestauranteControllerBase
         int DetalleId,
         int ComensalId,
         decimal Saldo);
+    private Task<List<SolicitudMesaResumenViewModel>> ObtenerSolicitudesPendientesAsync()
+    {
+        var userId = GetUserId();
+
+        return _context.SolicitudesMesa
+            .AsNoTracking()
+            .Where(s =>
+                s.Estado == EstadoSolicitudMesa.Pendiente &&
+                s.MesaSesion!.FechaCierre == null &&
+                s.MesaSesion.Mesa!.RestauranteId == RestauranteId &&
+                (User.EsAdmin() ||
+                 s.MesaSesion.GarzonId == userId ||
+                 s.MesaSesion.Mesa.GarzonId == userId))
+            .OrderBy(s => s.FechaCreacion)
+            .Select(s => new SolicitudMesaResumenViewModel
+            {
+                Id = s.Id,
+                SesionId = s.MesaSesionId,
+                MesaNumero = s.MesaSesion!.Mesa!.Numero,
+                ComensalNombre = s.Comensal!.Nombre,
+                Tipo = s.Tipo,
+                Mensaje = s.Mensaje,
+                Estado = s.Estado,
+                FechaCreacion = s.FechaCreacion,
+                FechaResolucion = s.FechaResolucion
+            })
+            .ToListAsync();
+    }
+
 
 }
