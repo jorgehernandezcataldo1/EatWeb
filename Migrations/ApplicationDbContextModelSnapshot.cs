@@ -717,7 +717,7 @@ namespace EatWeb.Migrations
                     b.Property<DateTime>("FechaCreacion")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("ImagenUrl")
+                    b.Property<string>("ImagenKey")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
