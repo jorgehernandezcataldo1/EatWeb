@@ -12,7 +12,7 @@ public class DetallePedido
     public int Cantidad { get; set; }
     public string? Observacion { get; set; }
     public decimal Subtotal { get; set; }
-    public int? EstacionId { get; set; }
+    public int EstacionId { get; set; }
     public string EstacionNombre { get; set; } = string.Empty;
     public string Estado { get; set; } = EstadoDetallePedido.Pendiente;
     public DateTime? FechaInicioPreparacion { get; set; }
