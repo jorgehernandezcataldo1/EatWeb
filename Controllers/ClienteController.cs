@@ -19,13 +19,20 @@ public class ClienteController : Controller
     private readonly SesionService _sesionService;
     private readonly CarritoService _carrito;
     private readonly PedidoService _pedidoService;
+    private readonly SolicitudMesaService _solicitudMesaService;
 
-    public ClienteController(ApplicationDbContext context, SesionService sesionService, CarritoService carrito, PedidoService pedidoService)
+    public ClienteController(
+        ApplicationDbContext context,
+        SesionService sesionService,
+        CarritoService carrito,
+        PedidoService pedidoService,
+        SolicitudMesaService solicitudMesaService)
     {
         _context = context;
         _sesionService = sesionService;
         _carrito = carrito;
         _pedidoService = pedidoService;
+        _solicitudMesaService = solicitudMesaService;
     }
 
     // Datos mínimos de la mesa escaneada (nada de entidades completas)
@@ -301,26 +308,107 @@ public class ClienteController : Controller
             })
             .ToListAsync();
 
+        var solicitudes = await ObtenerSolicitudesAsync(ctx);
+
         return View(new MiMesaViewModel
         {
             MesaNumero = ctx.MesaNumero,
             ComensalNombre = ctx.Nombre,
             CuentaSolicitada = ctx.CuentaSolicitada,
             TotalConsumido = pedidos.Sum(p => p.Total),
-            Pedidos = pedidos
+            Pedidos = pedidos,
+            Solicitudes = solicitudes
         });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SolicitarCuenta()
+    public async Task<IActionResult> CrearSolicitud(string tipo, string? mensaje)
     {
         var ctx = await ObtenerContextoAsync();
-        if (ctx == null) return RedirectToAction(nameof(SinSesion));
+        if (ctx == null)
+            return RedirectToAction(nameof(SinSesion));
 
-        await _sesionService.SolicitarCuentaAsync(ctx.SesionId);
-        TempData["Ok"] = "Cuenta solicitada. El garzón te atenderá pronto.";
+        var resultado = await _solicitudMesaService.CrearAsync(
+            ctx.SesionId,
+            ctx.ComensalId,
+            tipo,
+            mensaje);
+
+        if (!resultado.Ok)
+        {
+            TempData["Error"] = string.Join(" ", resultado.Errores);
+            return RedirectToAction(nameof(MiMesa));
+        }
+
+        TempData["Ok"] = resultado.YaExistia
+            ? "Ya tienes una solicitud pendiente de este tipo."
+            : tipo switch
+            {
+                TipoSolicitudMesa.PedirCuenta => "Cuenta solicitada. El garzón te atenderá pronto.",
+                TipoSolicitudMesa.LlamarGarzon => "Llamaste al garzón. Te atenderá pronto.",
+                _ => "Solicitud enviada al garzón."
+            };
+
         return RedirectToAction(nameof(MiMesa));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public Task<IActionResult> SolicitarCuenta() =>
+        CrearSolicitud(TipoSolicitudMesa.PedirCuenta, null);
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CancelarSolicitud(int id)
+    {
+        var ctx = await ObtenerContextoAsync();
+        if (ctx == null)
+            return RedirectToAction(nameof(SinSesion));
+
+        var resultado = await _solicitudMesaService.CancelarAsync(id, ctx.ComensalId);
+        if (!resultado.Ok)
+            TempData["Error"] = string.Join(" ", resultado.Errores);
+        else
+            TempData["Ok"] = "Solicitud cancelada.";
+
+        return RedirectToAction(nameof(MiMesa));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> MisSolicitudes()
+    {
+        var ctx = await LeerContextoAsync();
+        if (ctx == null)
+            return Unauthorized();
+
+        Response.Headers.CacheControl = "no-store";
+        var solicitudes = await ObtenerSolicitudesAsync(ctx);
+        return PartialView("_MisSolicitudes", solicitudes);
+    }
+
+    private Task<List<SolicitudMesaResumenViewModel>> ObtenerSolicitudesAsync(ContextoComensal ctx)
+    {
+        return _context.SolicitudesMesa
+            .AsNoTracking()
+            .Where(s =>
+                s.MesaSesionId == ctx.SesionId &&
+                s.ComensalId == ctx.ComensalId)
+            .OrderByDescending(s => s.FechaCreacion)
+            .Take(10)
+            .Select(s => new SolicitudMesaResumenViewModel
+            {
+                Id = s.Id,
+                SesionId = s.MesaSesionId,
+                MesaNumero = ctx.MesaNumero,
+                ComensalNombre = ctx.Nombre,
+                Tipo = s.Tipo,
+                Mensaje = s.Mensaje,
+                Estado = s.Estado,
+                FechaCreacion = s.FechaCreacion,
+                FechaResolucion = s.FechaResolucion
+            })
+            .ToListAsync();
     }
 
     // ---------- 4) Sin sesión (terminó la visita o nunca entró) ----------
