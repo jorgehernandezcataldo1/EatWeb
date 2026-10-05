@@ -249,9 +249,6 @@ public class PedidoService
         // === Crear detalles ===
         foreach (var lineaCalculada in carritoCalculado.Lineas)
         {
-            var lineaOriginal = carrito.Lineas
-                .First(l => l.LineaId == lineaCalculada.LineaId);
-
             var detalle = new DetallePedido
             {
                 ProductoId = lineaCalculada.ProductoId,
@@ -319,7 +316,20 @@ public class PedidoService
         if (pedido == null)
             return new ResultadoPedido { Errores = { "Pedido no encontrado" } };
 
-        foreach (var detalle in pedido.Detalles.Where(d => EsTransicionValida(d.Estado, nuevoEstado)))
+        var detallesElegibles = pedido.Detalles
+            .Where(d => EsTransicionValida(d.Estado, nuevoEstado))
+            .ToList();
+
+        if (detallesElegibles.Count == 0)
+        {
+            await transaccion.RollbackAsync();
+            return new ResultadoPedido
+            {
+                Errores = { $"No hay ítems del pedido que puedan pasar a {nuevoEstado}" }
+            };
+        }
+
+        foreach (var detalle in detallesElegibles)
             AplicarEstadoDetalle(detalle, nuevoEstado);
 
         await RecalcularPedidoAsync(pedido, usuarioId);
@@ -372,16 +382,38 @@ public class PedidoService
             .Where(p => p.MesaSesionId == sesionId && p.Estado != EstadoPedido.Cancelado)
             .ToListAsync();
 
+        var cambios = 0;
+
         foreach (var pedido in pedidos)
         {
-            var detallesElegibles = pedido.Detalles.Where(d =>
-                (!estacionId.HasValue || d.EstacionId == estacionId.Value) &&
-                EsTransicionValida(d.Estado, nuevoEstado));
+            var detallesElegibles = pedido.Detalles
+                .Where(d =>
+                    (!estacionId.HasValue || d.EstacionId == estacionId.Value) &&
+                    EsTransicionValida(d.Estado, nuevoEstado))
+                .ToList();
 
             foreach (var detalle in detallesElegibles)
+            {
                 AplicarEstadoDetalle(detalle, nuevoEstado);
+                cambios++;
+            }
 
-            await RecalcularPedidoAsync(pedido, usuarioId);
+            if (detallesElegibles.Count > 0)
+                await RecalcularPedidoAsync(pedido, usuarioId);
+        }
+
+        if (cambios == 0)
+        {
+            await transaccion.RollbackAsync();
+            return new ResultadoPedido
+            {
+                Errores =
+                {
+                    estacionId.HasValue
+                        ? $"No hay ítems elegibles de la estación seleccionada para pasar a {nuevoEstado}"
+                        : $"No hay ítems elegibles en la mesa para pasar a {nuevoEstado}"
+                }
+            };
         }
 
         await _context.SaveChangesAsync();
@@ -442,16 +474,16 @@ public class PedidoService
     {
         return estadoActual switch
         {
-            var x when x == EstadoPedido.Pendiente =>
-                nuevoEstado == EstadoPedido.EnPreparacion ||
-                nuevoEstado == EstadoPedido.Cancelado,
+            var x when x == EstadoDetallePedido.Pendiente =>
+                nuevoEstado == EstadoDetallePedido.EnPreparacion ||
+                nuevoEstado == EstadoDetallePedido.Cancelado,
 
-            var x when x == EstadoPedido.EnPreparacion =>
-                nuevoEstado == EstadoPedido.Listo ||
-                nuevoEstado == EstadoPedido.Cancelado,
+            var x when x == EstadoDetallePedido.EnPreparacion =>
+                nuevoEstado == EstadoDetallePedido.Listo ||
+                nuevoEstado == EstadoDetallePedido.Cancelado,
 
-            var x when x == EstadoPedido.Listo =>
-                nuevoEstado == EstadoPedido.Entregado,
+            var x when x == EstadoDetallePedido.Listo =>
+                nuevoEstado == EstadoDetallePedido.Entregado,
 
             _ => false
         };
