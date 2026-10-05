@@ -80,9 +80,9 @@ public class PedidoService
                 continue;
             }
 
-            if (producto.Categoria?.Estacion == null)
+            if (producto.Categoria?.Estacion == null || !producto.Categoria.Estacion.Activa)
             {
-                resultado.Errores.Add($"{producto.Nombre} no tiene una estación de preparación válida");
+                resultado.Errores.Add($"{producto.Nombre} no tiene una estación de preparación activa");
                 continue;
             }
 
