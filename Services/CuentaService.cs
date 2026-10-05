@@ -1,7 +1,9 @@
+using System.Data;
 using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace EatWeb.Services;
 
@@ -14,7 +16,7 @@ public class ResultadoPago
     public decimal TotalCuenta { get; set; }
     public decimal TotalPagado { get; set; }
     public decimal SaldoPendiente { get; set; }
-    public bool CuentaPagada => SaldoPendiente == 0;
+    public bool CuentaPagada => SaldoPendiente <= 0;
     public List<string> Errores { get; set; } = new();
 }
 
@@ -32,7 +34,8 @@ public class CuentaService
         var existente = await _context.Cuentas
             .FirstOrDefaultAsync(c => c.MesaSesionId == sesionId);
 
-        if (existente != null) return existente;
+        if (existente != null)
+            return existente;
 
         var cuenta = new Cuenta
         {
@@ -42,6 +45,7 @@ public class CuentaService
         };
 
         _context.Cuentas.Add(cuenta);
+
         try
         {
             await _context.SaveChangesAsync();
@@ -62,159 +66,289 @@ public class CuentaService
         decimal propina = 0,
         string? idempotencyKey = null)
     {
-        var resultado = new ResultadoPago();
-        var items = asignaciones.Where(a => a.Monto > 0).ToList();
-
-        if (items.Count == 0)
+        var key = idempotencyKey?.Trim() ?? string.Empty;
+        if (key.Length is < 8 or > 64)
         {
-            resultado.Errores.Add("El pago no contiene consumos.");
-            return resultado;
+            return Error("El identificador idempotente del pago es inválido.");
         }
 
-        if (propina < 0)
-        {
-            resultado.Errores.Add("La propina no puede ser negativa.");
-            return resultado;
-        }
-
-        await using var tx = await _context.Database.BeginTransactionAsync();
-
-        var sesion = await _context.MesaSesiones
-            .Include(s => s.Comensales)
-            .ThenInclude(c => c.Pedidos)
-            .ThenInclude(p => p.Detalles)
-            .FirstOrDefaultAsync(s => s.Id == sesionId && s.FechaCierre == null);
-
-        if (sesion == null)
-        {
-            resultado.Errores.Add("Sesión no encontrada o cerrada.");
-            return resultado;
-        }
-
-        if (sesion.Comensales.SelectMany(c => c.Pedidos).Any(p =>
-            p.Estado == EstadoPedido.Pendiente ||
-            p.Estado == EstadoPedido.EnPreparacion ||
-            p.Estado == EstadoPedido.Listo))
-        {
-            resultado.Errores.Add("No se puede cobrar mientras existan pedidos activos.");
-            return resultado;
-        }
-
-        var detallesValidos = sesion.Comensales
-            .SelectMany(c => c.Pedidos)
-            .Where(p => p.Estado != EstadoPedido.Cancelado)
-            .SelectMany(p => p.Detalles)
-            .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
-            .ToDictionary(d => d.Id);
-
-        if (items.Any(a => !detallesValidos.ContainsKey(a.DetallePedidoId)))
-        {
-            resultado.Errores.Add("El pago contiene consumos que no pertenecen a esta cuenta.");
-            return resultado;
-        }
-
-        var duplicados = items.GroupBy(a => a.DetallePedidoId).Where(g => g.Count() > 1).ToList();
-        if (duplicados.Count > 0)
-        {
-            resultado.Errores.Add("Un consumo no puede aparecer repetido dentro del mismo pago.");
-            return resultado;
-        }
-
-        var cuenta = await ObtenerOCrearCuentaAsync(sesionId);
-        var detalleIds = items.Select(a => a.DetallePedidoId).ToList();
-
-        var yaAsignado = await _context.PagoDetalles
-            .Where(pd => detalleIds.Contains(pd.DetallePedidoId) &&
-                         pd.Pago!.Estado == EstadoPago.Confirmado)
-            .GroupBy(pd => pd.DetallePedidoId)
-            .Select(g => new { DetalleId = g.Key, Monto = g.Sum(x => x.MontoAsignado) })
-            .ToDictionaryAsync(x => x.DetalleId, x => x.Monto);
-
-        foreach (var item in items)
-        {
-            var disponible = detallesValidos[item.DetallePedidoId].Subtotal
-                - yaAsignado.GetValueOrDefault(item.DetallePedidoId);
-
-            if (item.Monto > disponible)
-            {
-                resultado.Errores.Add($"El monto asignado al consumo {item.DetallePedidoId} supera su saldo pendiente.");
-                return resultado;
-            }
-        }
-
-        var key = string.IsNullOrWhiteSpace(idempotencyKey)
-            ? Guid.NewGuid().ToString("N")
-            : idempotencyKey.Trim();
-
-        var existente = await _context.Pagos
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.IdempotencyKey == key);
-
+        // La idempotencia se resuelve antes de exigir que la sesión siga abierta.
+        // Así, un reintento del mismo POST después de cerrar la mesa devuelve
+        // exactamente el pago ya confirmado en vez de crear uno nuevo o fallar.
+        var existente = await BuscarPagoPorIdempotenciaAsync(key);
         if (existente != null)
-        {
-            resultado.Ok = existente.Estado == EstadoPago.Confirmado;
-            resultado.PagoId = existente.Id;
-            return await CompletarSaldoAsync(resultado, sesionId);
-        }
+            return await ResolverPagoExistenteAsync(existente, sesionId);
 
-        var monto = items.Sum(a => a.Monto);
-        var pago = new Pago
+        var metodoNormalizado = NormalizarMetodo(metodo);
+        if (metodoNormalizado == null)
+            return Error("Método de pago inválido.");
+
+        if (propina < 0 || decimal.Truncate(propina) != propina)
+            return Error("La propina debe ser un monto CLP válido y no negativo.");
+
+        var items = asignaciones.ToList();
+        if (items.Count == 0 || items.Any(a => a.Monto <= 0 || decimal.Truncate(a.Monto) != a.Monto))
+            return Error("El pago no contiene consumos válidos.");
+
+        if (items.GroupBy(a => a.DetallePedidoId).Any(g => g.Count() > 1))
+            return Error("Un consumo no puede aparecer repetido dentro del mismo pago.");
+
+        await using var tx = await _context.Database
+            .BeginTransactionAsync(IsolationLevel.Serializable);
+
+        try
         {
-            CuentaId = cuenta.Id,
-            ComensalId = comensalId,
-            Estado = EstadoPago.Confirmado,
-            Metodo = metodo,
-            IdempotencyKey = key,
-            Monto = monto,
-            Propina = propina,
-            FechaCreacion = DateTime.UtcNow,
-            FechaConfirmacion = DateTime.UtcNow,
-            Detalles = items.Select(a => new PagoDetalle
+            // Segundo chequeo dentro de la transacción para cubrir carreras de reintentos.
+            existente = await BuscarPagoPorIdempotenciaAsync(key);
+            if (existente != null)
             {
-                DetallePedidoId = a.DetallePedidoId,
-                MontoAsignado = a.Monto
-            }).ToList()
-        };
+                await tx.RollbackAsync();
+                return await ResolverPagoExistenteAsync(existente, sesionId);
+            }
 
-        _context.Pagos.Add(pago);
-        sesion.Estado = EstadoSesion.Pagando;
-        await _context.SaveChangesAsync();
+            var sesion = await _context.MesaSesiones
+                .Include(s => s.Comensales)
+                    .ThenInclude(c => c.Pedidos)
+                        .ThenInclude(p => p.Detalles)
+                .FirstOrDefaultAsync(s => s.Id == sesionId && s.FechaCierre == null);
 
-        resultado.Ok = true;
-        resultado.PagoId = pago.Id;
-        await CompletarSaldoAsync(resultado, sesionId);
+            if (sesion == null)
+            {
+                await tx.RollbackAsync();
+                return Error("Sesión no encontrada o cerrada.");
+            }
 
-        if (resultado.CuentaPagada)
-        {
-            cuenta.Estado = EstadoCuenta.Pagada;
-            cuenta.FechaCierre = DateTime.UtcNow;
-            sesion.Estado = EstadoSesion.Cerrada;
-            sesion.FechaCierre = DateTime.UtcNow;
+            if (comensalId.HasValue &&
+                sesion.Comensales.All(c => c.Id != comensalId.Value))
+            {
+                await tx.RollbackAsync();
+                return Error("El comensal indicado no pertenece a esta mesa.");
+            }
+
+            var hayPedidosActivos = sesion.Comensales
+                .SelectMany(c => c.Pedidos)
+                .Any(p =>
+                    p.Estado == EstadoPedido.Pendiente ||
+                    p.Estado == EstadoPedido.EnPreparacion ||
+                    p.Estado == EstadoPedido.Listo);
+
+            if (hayPedidosActivos)
+            {
+                await tx.RollbackAsync();
+                return Error("No se puede cobrar mientras existan pedidos activos.");
+            }
+
+            var detallesValidos = sesion.Comensales
+                .SelectMany(c => c.Pedidos)
+                .Where(p => p.Estado != EstadoPedido.Cancelado)
+                .SelectMany(p => p.Detalles)
+                .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                .ToDictionary(d => d.Id);
+
+            if (items.Any(a => !detallesValidos.ContainsKey(a.DetallePedidoId)))
+            {
+                await tx.RollbackAsync();
+                return Error("El pago contiene consumos que no pertenecen a esta cuenta.");
+            }
+
+            var detalleIds = items.Select(a => a.DetallePedidoId).ToList();
+            var yaAsignado = await _context.PagoDetalles
+                .Where(pd =>
+                    detalleIds.Contains(pd.DetallePedidoId) &&
+                    pd.Pago!.Cuenta!.MesaSesionId == sesionId &&
+                    pd.Pago.Estado == EstadoPago.Confirmado)
+                .GroupBy(pd => pd.DetallePedidoId)
+                .Select(g => new
+                {
+                    DetalleId = g.Key,
+                    Monto = g.Sum(x => x.MontoAsignado)
+                })
+                .ToDictionaryAsync(x => x.DetalleId, x => x.Monto);
+
+            foreach (var item in items)
+            {
+                var disponible = detallesValidos[item.DetallePedidoId].Subtotal
+                    - yaAsignado.GetValueOrDefault(item.DetallePedidoId);
+
+                if (disponible <= 0)
+                {
+                    await tx.RollbackAsync();
+                    return Error($"El consumo {item.DetallePedidoId} ya está pagado.");
+                }
+
+                if (item.Monto > disponible)
+                {
+                    await tx.RollbackAsync();
+                    return Error($"El monto asignado al consumo {item.DetallePedidoId} supera su saldo pendiente.");
+                }
+            }
+
+            var cuenta = await _context.Cuentas
+                .FirstOrDefaultAsync(c => c.MesaSesionId == sesionId);
+
+            if (cuenta == null)
+            {
+                cuenta = new Cuenta
+                {
+                    MesaSesionId = sesionId,
+                    Estado = EstadoCuenta.Abierta,
+                    FechaCreacion = DateTime.UtcNow
+                };
+                _context.Cuentas.Add(cuenta);
+            }
+
+            var ahora = DateTime.UtcNow;
+            var pago = new Pago
+            {
+                Cuenta = cuenta,
+                ComensalId = comensalId,
+                Estado = EstadoPago.Confirmado,
+                Metodo = metodoNormalizado,
+                IdempotencyKey = key,
+                Monto = items.Sum(a => a.Monto),
+                Propina = propina,
+                FechaCreacion = ahora,
+                FechaConfirmacion = ahora,
+                Detalles = items.Select(a => new PagoDetalle
+                {
+                    DetallePedidoId = a.DetallePedidoId,
+                    MontoAsignado = a.Monto
+                }).ToList()
+            };
+
+            _context.Pagos.Add(pago);
+            sesion.Estado = EstadoSesion.Pagando;
+
+            await _context.SaveChangesAsync();
+
+            var resultado = new ResultadoPago
+            {
+                Ok = true,
+                PagoId = pago.Id
+            };
+
+            await CompletarSaldoAsync(resultado, sesionId);
+
+            if (resultado.CuentaPagada)
+            {
+                cuenta.Estado = EstadoCuenta.Pagada;
+                cuenta.FechaCierre = ahora;
+                sesion.Estado = EstadoSesion.Cerrada;
+                sesion.FechaCierre = ahora;
+            }
+            else
+            {
+                cuenta.Estado = EstadoCuenta.ParcialmentePagada;
+            }
+
+            await _context.SaveChangesAsync();
+            await tx.CommitAsync();
+            return resultado;
         }
-        else
+        catch (PostgresException ex) when (
+            ex.SqlState == PostgresErrorCodes.SerializationFailure ||
+            ex.SqlState == PostgresErrorCodes.UniqueViolation)
         {
-            cuenta.Estado = EstadoCuenta.ParcialmentePagada;
-        }
+            await tx.RollbackAsync();
+            _context.ChangeTracker.Clear();
 
-        await _context.SaveChangesAsync();
-        await tx.CommitAsync();
-        return resultado;
+            // Un choque por IdempotencyKey puede significar que otro request idéntico
+            // ganó la carrera. En ese caso se devuelve el resultado ya persistido.
+            existente = await BuscarPagoPorIdempotenciaAsync(key);
+            if (existente != null)
+                return await ResolverPagoExistenteAsync(existente, sesionId);
+
+            return Error("La cuenta cambió mientras se registraba el pago. Intenta nuevamente.");
+        }
+        catch (DbUpdateException)
+        {
+            await tx.RollbackAsync();
+            _context.ChangeTracker.Clear();
+
+            existente = await BuscarPagoPorIdempotenciaAsync(key);
+            if (existente != null)
+                return await ResolverPagoExistenteAsync(existente, sesionId);
+
+            return Error("No se pudo registrar el pago de forma segura. Intenta nuevamente.");
+        }
     }
 
-    private async Task<ResultadoPago> CompletarSaldoAsync(ResultadoPago resultado, int sesionId)
+    private async Task<PagoIdempotenteInfo?> BuscarPagoPorIdempotenciaAsync(string key)
+    {
+        return await _context.Pagos
+            .AsNoTracking()
+            .Where(p => p.IdempotencyKey == key)
+            .Select(p => new PagoIdempotenteInfo(
+                p.Id,
+                p.Estado,
+                p.Cuenta!.MesaSesionId))
+            .FirstOrDefaultAsync();
+    }
+
+    private async Task<ResultadoPago> ResolverPagoExistenteAsync(
+        PagoIdempotenteInfo existente,
+        int sesionId)
+    {
+        if (existente.MesaSesionId != sesionId)
+            return Error("El identificador de pago ya fue utilizado en otra cuenta.");
+
+        var resultado = new ResultadoPago
+        {
+            Ok = existente.Estado == EstadoPago.Confirmado,
+            PagoId = existente.Id
+        };
+
+        if (!resultado.Ok)
+        {
+            resultado.Errores.Add($"El pago existente está en estado {existente.Estado}.");
+            return resultado;
+        }
+
+        return await CompletarSaldoAsync(resultado, sesionId);
+    }
+
+    private async Task<ResultadoPago> CompletarSaldoAsync(
+        ResultadoPago resultado,
+        int sesionId)
     {
         resultado.TotalCuenta = await _context.DetallesPedidos
-            .Where(d => d.Pedido!.MesaSesionId == sesionId &&
-                        d.Pedido.Estado != EstadoPedido.Cancelado &&
-                        d.Estado != EstadoDetallePedido.Cancelado)
+            .AsNoTracking()
+            .Where(d =>
+                d.Pedido!.MesaSesionId == sesionId &&
+                d.Pedido.Estado != EstadoPedido.Cancelado &&
+                d.Estado != EstadoDetallePedido.Cancelado)
             .SumAsync(d => (decimal?)d.Subtotal) ?? 0;
 
         resultado.TotalPagado = await _context.PagoDetalles
-            .Where(pd => pd.Pago!.Cuenta!.MesaSesionId == sesionId &&
-                         pd.Pago.Estado == EstadoPago.Confirmado)
+            .AsNoTracking()
+            .Where(pd =>
+                pd.Pago!.Cuenta!.MesaSesionId == sesionId &&
+                pd.Pago.Estado == EstadoPago.Confirmado)
             .SumAsync(pd => (decimal?)pd.MontoAsignado) ?? 0;
 
-        resultado.SaldoPendiente = Math.Max(0, resultado.TotalCuenta - resultado.TotalPagado);
+        resultado.SaldoPendiente = Math.Max(
+            0,
+            resultado.TotalCuenta - resultado.TotalPagado);
+
         return resultado;
     }
+
+    private static string? NormalizarMetodo(string? metodo)
+    {
+        return metodo?.Trim().ToLowerInvariant() switch
+        {
+            "efectivo" => "Efectivo",
+            "tarjeta" => "Tarjeta",
+            "transferencia" => "Transferencia",
+            _ => null
+        };
+    }
+
+    private static ResultadoPago Error(string mensaje) =>
+        new() { Errores = { mensaje } };
+
+    private sealed record PagoIdempotenteInfo(
+        int Id,
+        string Estado,
+        int MesaSesionId);
 }
