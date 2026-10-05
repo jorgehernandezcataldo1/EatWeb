@@ -64,51 +64,102 @@ public class SesionesController : RestauranteControllerBase
     {
         var sesion = await _context.MesaSesiones
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(s => s.Mesa)
             .Include(s => s.Comensales)
                 .ThenInclude(c => c.Pedidos)
                     .ThenInclude(p => p.Detalles)
                         .ThenInclude(d => d.Ingredientes)
-            .FirstOrDefaultAsync(s => s.Id == id
-                                       && s.Mesa!.RestauranteId == RestauranteId);
+            .FirstOrDefaultAsync(s =>
+                s.Id == id &&
+                s.Mesa!.RestauranteId == RestauranteId);
 
-        if (sesion == null) return NotFound();
+        if (sesion == null)
+            return NotFound();
+
+        var pagadoPorDetalle = await _context.PagoDetalles
+            .AsNoTracking()
+            .Where(pd =>
+                pd.Pago!.Cuenta!.MesaSesionId == sesion.Id &&
+                pd.Pago.Estado == EstadoPago.Confirmado)
+            .GroupBy(pd => pd.DetallePedidoId)
+            .Select(g => new
+            {
+                DetalleId = g.Key,
+                Monto = g.Sum(x => x.MontoAsignado)
+            })
+            .ToDictionaryAsync(x => x.DetalleId, x => x.Monto);
 
         var personas = sesion.Comensales
             .OrderBy(c => c.FechaIngreso)
-            .Select(c => new CuentaPersonaViewModel
+            .Select(c =>
             {
-                ComensalId = c.Id,
-                Nombre = c.Nombre,
-                FechaIngreso = c.FechaIngreso,
-                TotalConsumido = c.Pedidos
-                    .Where(p => p.Estado != EstadoPedido.Cancelado)
-                    .SelectMany(p => p.Detalles)
-                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
-                    .Sum(d => d.Subtotal),
-                Items = c.Pedidos
+                var items = c.Pedidos
                     .Where(p => p.Estado != EstadoPedido.Cancelado)
                     .SelectMany(p => p.Detalles
                         .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
-                        .Select(d => new CuentaItemViewModel
-                    {
-                        PedidoId = p.Id,
-                        Producto = d.NombreProducto,
-                        Cantidad = d.Cantidad,
-                        PrecioUnitario = d.PrecioUnitario,
-                        Subtotal = d.Subtotal,
-                        Observacion = d.Observacion,
-                        EstadoPedido = p.Estado,
-                        Personalizaciones = d.Ingredientes
-                            .Select(i =>
-                                (i.Accion == AccionIngrediente.Quitar ? "Sin" : "Agregar")
-                                + " " + i.NombreIngrediente
-                                + (i.PrecioExtra > 0 ? $" (+{i.PrecioExtra:C0})" : ""))
-                            .ToList()
-                    }))
-                    .ToList()
+                        .Select(d =>
+                        {
+                            var pagado = Math.Min(
+                                d.Subtotal,
+                                pagadoPorDetalle.GetValueOrDefault(d.Id));
+
+                            return new CuentaItemViewModel
+                            {
+                                PedidoId = p.Id,
+                                DetallePedidoId = d.Id,
+                                ComensalId = c.Id,
+                                ComensalNombre = c.Nombre,
+                                Producto = d.NombreProducto,
+                                Cantidad = d.Cantidad,
+                                PrecioUnitario = d.PrecioUnitario,
+                                Subtotal = d.Subtotal,
+                                MontoPagado = pagado,
+                                SaldoPendiente = Math.Max(0, d.Subtotal - pagado),
+                                Observacion = d.Observacion,
+                                EstadoPedido = p.Estado,
+                                Personalizaciones = d.Ingredientes
+                                    .Select(i =>
+                                        (i.Accion == AccionIngrediente.Quitar ? "Sin" : "Agregar") +
+                                        " " + i.NombreIngrediente +
+                                        (i.PrecioExtra > 0 ? $" (+{i.PrecioExtra:C0})" : ""))
+                                    .ToList()
+                            };
+                        }))
+                    .ToList();
+
+                return new CuentaPersonaViewModel
+                {
+                    ComensalId = c.Id,
+                    Nombre = c.Nombre,
+                    FechaIngreso = c.FechaIngreso,
+                    TotalConsumido = items.Sum(i => i.Subtotal),
+                    TotalPagado = items.Sum(i => i.MontoPagado),
+                    SaldoPendiente = items.Sum(i => i.SaldoPendiente),
+                    Items = items
+                };
             })
             .ToList();
+
+        var pagos = await _context.Pagos
+            .AsNoTracking()
+            .Where(p =>
+                p.Cuenta!.MesaSesionId == sesion.Id &&
+                p.Estado == EstadoPago.Confirmado)
+            .OrderBy(p => p.FechaConfirmacion ?? p.FechaCreacion)
+            .Select(p => new PagoResumenViewModel
+            {
+                Id = p.Id,
+                Metodo = p.Metodo,
+                Monto = p.Monto,
+                Propina = p.Propina,
+                Fecha = p.FechaConfirmacion ?? p.FechaCreacion,
+                ComensalNombre = p.Comensal != null ? p.Comensal.Nombre : null
+            })
+            .ToListAsync();
+
+        var total = personas.Sum(p => p.TotalConsumido);
+        var totalPagado = personas.Sum(p => p.TotalPagado);
 
         return View(new CuentaViewModel
         {
@@ -117,10 +168,14 @@ public class SesionesController : RestauranteControllerBase
             FechaApertura = sesion.FechaApertura,
             CuentaSolicitada = sesion.CuentaSolicitadaEn.HasValue,
             CuentaSolicitadaEn = sesion.CuentaSolicitadaEn,
-            Total = personas.Sum(p => p.TotalConsumido),
-            TotalVerificado = personas.Sum(p => p.TotalConsumido),
+            Total = total,
+            TotalVerificado = total,
+            TotalPagado = totalPagado,
+            SaldoPendiente = Math.Max(0, total - totalPagado),
             Personas = personas,
-            Items = personas.SelectMany(p => p.Items).ToList()
+            Items = personas.SelectMany(p => p.Items).ToList(),
+            Pagos = pagos
         });
     }
+
 }
