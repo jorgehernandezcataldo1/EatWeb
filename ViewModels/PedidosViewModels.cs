@@ -72,9 +72,13 @@ public class CuentaViewModel
 
     public decimal Total { get; set; }
     public decimal TotalVerificado { get; set; }
+    public decimal TotalPagado { get; set; }
+    public decimal SaldoPendiente { get; set; }
+    public bool PuedeCobrar { get; set; }
 
     public List<CuentaPersonaViewModel> Personas { get; set; } = new();
     public List<CuentaItemViewModel> Items { get; set; } = new();
+    public List<PagoResumenViewModel> Pagos { get; set; } = new();
 }
 
 public class CuentaPersonaViewModel
@@ -112,6 +116,7 @@ public class DivisionCuentaViewModel
     public decimal Total { get; set; }
     public decimal TotalPagado { get; set; }
     public decimal SaldoPendiente { get; set; }
+    public bool PuedeCobrar { get; set; }
     public string Modo { get; set; } = "Igual";  // Igual | PorConsumo | Personalizado
     public int CantidadPartes { get; set; }
     public List<CuentaPersonaViewModel> Personas { get; set; } = new();
