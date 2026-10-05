@@ -240,6 +240,23 @@ else
 
                             <strong>@p.Total.ToString("C0", clp)</strong>
                         </div>
+
+                        @if (p.Historial.Any())
+                        {
+                            <details class="mt-2">
+                                <summary class="small text-muted">Historial del pedido</summary>
+                                <div class="small mt-1">
+                                    @foreach (var h in p.Historial)
+                                    {
+                                        <div class="text-muted">
+                                            @h.Fecha.ToLocalTime().ToString("HH:mm")
+                                            · @(h.EstadoAnterior ?? "Creado") → @h.EstadoNuevo
+                                            · @h.Actor
+                                        </div>
+                                    }
+                                </div>
+                            </details>
+                        }
                     </div>
                 }
 
