@@ -11,4 +11,5 @@ public class Comensal
     // Relaciones
     public MesaSesion? MesaSesion { get; set; }
     public ICollection<Pedido> Pedidos { get; set; } = new List<Pedido>();
+    public ICollection<SolicitudMesa> SolicitudesMesa { get; set; } = new List<SolicitudMesa>();
 }
