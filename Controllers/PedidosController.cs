@@ -74,7 +74,11 @@ public class PedidosController : RestauranteControllerBase
                         {
                             Id = d.Id,
                             Estado = d.Estado,
+                            EstacionId = d.EstacionId,
                             Estacion = d.EstacionNombre,
+                            FechaInicioPreparacion = d.FechaInicioPreparacion,
+                            FechaListo = d.FechaListo,
+                            FechaEntregado = d.FechaEntregado,
                             Producto = d.NombreProducto,
                             Cantidad = d.Cantidad,
                             Subtotal = d.Subtotal,
