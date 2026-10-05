@@ -83,6 +83,8 @@ public class CuentaPersonaViewModel
     public string Nombre { get; set; } = string.Empty;
     public DateTime FechaIngreso { get; set; }
     public decimal TotalConsumido { get; set; }
+    public decimal TotalPagado { get; set; }
+    public decimal SaldoPendiente { get; set; }
     public List<CuentaItemViewModel> Items { get; set; } = new();
 }
 
@@ -90,10 +92,14 @@ public class CuentaItemViewModel
 {
     public int PedidoId { get; set; }
     public int DetallePedidoId { get; set; }
+    public int ComensalId { get; set; }
+    public string ComensalNombre { get; set; } = string.Empty;
     public string Producto { get; set; } = string.Empty;
     public int Cantidad { get; set; }
     public decimal PrecioUnitario { get; set; }
     public decimal Subtotal { get; set; }
+    public decimal MontoPagado { get; set; }
+    public decimal SaldoPendiente { get; set; }
     public string? Observacion { get; set; }
     public List<string> Personalizaciones { get; set; } = new();
     public string EstadoPedido { get; set; } = string.Empty;
@@ -110,9 +116,20 @@ public class DivisionCuentaViewModel
     public int CantidadPartes { get; set; }
     public List<CuentaPersonaViewModel> Personas { get; set; } = new();
     public List<CuentaItemViewModel> Items { get; set; } = new();
+    public List<PagoResumenViewModel> Pagos { get; set; } = new();
 
     // Para "Personalizado": grupo → lista de comensales
     public List<GrupoDivisionViewModel> Grupos { get; set; } = new();
+}
+
+public class PagoResumenViewModel
+{
+    public int Id { get; set; }
+    public string Metodo { get; set; } = string.Empty;
+    public decimal Monto { get; set; }
+    public decimal Propina { get; set; }
+    public DateTime Fecha { get; set; }
+    public string? ComensalNombre { get; set; }
 }
 
 public class GrupoDivisionViewModel
@@ -131,6 +148,7 @@ public class CerrarConDivisionInputViewModel
 {
     public int SesionId { get; set; }
     public string Modo { get; set; } = string.Empty;
+    public int CantidadPartes { get; set; } = 1;
     public List<GrupoDivisionInput> Grupos { get; set; } = new();
     public List<int> DetallePedidoIds { get; set; } = new();
     public int? ComensalId { get; set; }
