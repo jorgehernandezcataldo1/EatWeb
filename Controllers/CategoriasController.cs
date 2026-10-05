@@ -96,14 +96,14 @@ public class CategoriasController : RestauranteControllerBase
         if (categoria == null)
             return NotFound();
 
-        return View(new CategoriaViewModel
+        return View(await PrepararEstacionesAsync(new CategoriaViewModel
         {
             Id = categoria.Id,
             Nombre = categoria.Nombre,
             Orden = categoria.Orden,
             Activa = categoria.Activa,
             EstacionId = categoria.EstacionId
-        });
+        }));
     }
 
     [HttpPost]
@@ -176,6 +176,7 @@ public class CategoriasController : RestauranteControllerBase
     private async Task<CategoriaViewModel> PrepararEstacionesAsync(CategoriaViewModel modelo)
     {
         modelo.Estaciones = await _context.Estaciones
+            .AsNoTracking()
             .Where(e => e.RestauranteId == RestauranteId && e.Activa)
             .OrderBy(e => e.Orden)
             .Select(e => new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem(e.Nombre, e.Id.ToString()))
@@ -184,6 +185,10 @@ public class CategoriasController : RestauranteControllerBase
     }
 
     private async Task<bool> EstacionValidaAsync(int? estacionId) =>
-        !estacionId.HasValue || await _context.Estaciones.AnyAsync(e => e.Id == estacionId && e.RestauranteId == RestauranteId && e.Activa);
+        estacionId.HasValue &&
+        await _context.Estaciones.AnyAsync(e =>
+            e.Id == estacionId.Value &&
+            e.RestauranteId == RestauranteId &&
+            e.Activa);
 
 }
