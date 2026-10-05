@@ -86,8 +86,8 @@ else
 
                     <tr>
                         <td><strong>Mesa @s.MesaNumero</strong></td>
-                        <td>@s.FechaApertura.ToLocalTime().ToString("dd/MM HH:mm")</td>
-                        <td>@(s.FechaCierre?.ToLocalTime().ToString("dd/MM HH:mm") ?? "—")</td>
+                        <td>@ZonaHorariaService.ALocal(s.FechaApertura).ToString("dd/MM HH:mm")</td>
+                        <td>@(s.FechaCierre.HasValue ? ZonaHorariaService.ALocal(s.FechaCierre.Value).ToString("dd/MM HH:mm") : "—")</td>
                         <td>
                             @if (duracion.TotalHours >= 1)
                             {
