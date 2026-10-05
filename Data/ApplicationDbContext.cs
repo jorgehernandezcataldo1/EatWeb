@@ -31,6 +31,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Pago> Pagos { get; set; } = null!;
     public DbSet<PagoDetalle> PagoDetalles { get; set; } = null!;
     public DbSet<Estacion> Estaciones { get; set; } = null!;
+    public DbSet<SolicitudMesa> SolicitudesMesa { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -255,6 +256,45 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .WithMany(d => d.Pagos)
             .HasForeignKey(pd => pd.DetallePedidoId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // SolicitudMesa
+        modelBuilder.Entity<SolicitudMesa>()
+            .Property(s => s.Tipo)
+            .HasMaxLength(30)
+            .IsRequired();
+
+        modelBuilder.Entity<SolicitudMesa>()
+            .Property(s => s.Estado)
+            .HasMaxLength(20)
+            .IsRequired();
+
+        modelBuilder.Entity<SolicitudMesa>()
+            .Property(s => s.Mensaje)
+            .HasMaxLength(200);
+
+        modelBuilder.Entity<SolicitudMesa>()
+            .HasIndex(s => new { s.MesaSesionId, s.Estado, s.FechaCreacion });
+
+        modelBuilder.Entity<SolicitudMesa>()
+            .HasIndex(s => new { s.ComensalId, s.Estado });
+
+        modelBuilder.Entity<SolicitudMesa>()
+            .HasOne(s => s.MesaSesion)
+            .WithMany(ms => ms.SolicitudesMesa)
+            .HasForeignKey(s => s.MesaSesionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<SolicitudMesa>()
+            .HasOne(s => s.Comensal)
+            .WithMany(c => c.SolicitudesMesa)
+            .HasForeignKey(s => s.ComensalId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<SolicitudMesa>()
+            .HasOne(s => s.AtendidaPor)
+            .WithMany(u => u.SolicitudesMesaAtendidas)
+            .HasForeignKey(s => s.AtendidaPorId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         // Comensal
         modelBuilder.Entity<Comensal>()
