@@ -13,7 +13,7 @@ namespace EatWeb.Controllers;
 
 // Admin y Garzón entran al controller; las acciones de gestión exigen además Admin.
 [Authorize(Roles = Roles.AdminOGarzon)]
-public class MesasController : Controller
+public class MesasController : RestauranteControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly IConfiguration _configuration;
@@ -24,14 +24,12 @@ public class MesasController : Controller
         _configuration = configuration;
     }
 
-    private int GetRestauranteId() =>
-        int.Parse(User.FindFirst("RestauranteId")?.Value ?? "0");
 
     // ---------- Tablero: el garzón ve sus mesas, el admin todas ----------
     [HttpGet]
     public async Task<IActionResult> Index()
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var query = _context.Mesas.Where(m => m.RestauranteId == restauranteId);
 
         if (User.IsInRole(Roles.Garzon))
@@ -48,7 +46,7 @@ public class MesasController : Controller
     [HttpGet]
     public async Task<IActionResult> Administrar()
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var query = _context.Mesas.Where(m => m.RestauranteId == restauranteId);
         return View(await ConstruirTableroAsync(query));
     }
@@ -57,7 +55,7 @@ public class MesasController : Controller
     [HttpGet]
     public async Task<IActionResult> Crear()
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var ultimo = await _context.Mesas
             .Where(m => m.RestauranteId == restauranteId)
             .MaxAsync(m => (int?)m.Numero) ?? 0;
@@ -71,7 +69,7 @@ public class MesasController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Crear(MesaFormViewModel modelo)
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
 
         if (await _context.Mesas.AnyAsync(m => m.RestauranteId == restauranteId && m.Numero == modelo.Numero))
             ModelState.AddModelError(nameof(modelo.Numero), "Ya existe una mesa con ese número");
@@ -125,7 +123,7 @@ public class MesasController : Controller
     {
         if (id != modelo.Id) return BadRequest();
 
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var mesa = await BuscarMesaAsync(id);
         if (mesa == null) return NotFound();
 
@@ -221,7 +219,7 @@ public class MesasController : Controller
     // ---------- Helpers privados ----------
     private Task<Mesa?> BuscarMesaAsync(int id)
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         return _context.Mesas.FirstOrDefaultAsync(m => m.Id == id && m.RestauranteId == restauranteId);
     }
 
