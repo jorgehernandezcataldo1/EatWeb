@@ -1,0 +1,53 @@
+@model IReadOnlyList<SolicitudMesaResumenViewModel>
+
+@if (!Model.Any())
+{
+    <div class="text-muted small">No tienes solicitudes recientes.</div>
+}
+else
+{
+    <div class="list-group list-group-flush">
+        @foreach (var s in Model)
+        {
+            var titulo = s.Tipo switch
+            {
+                TipoSolicitudMesa.PedirCuenta => "Pedir la cuenta",
+                TipoSolicitudMesa.LlamarGarzon => "Llamar al garzón",
+                TipoSolicitudMesa.SolicitarAlgo => "Solicitud adicional",
+                _ => s.Tipo
+            };
+
+            var badge = s.Estado switch
+            {
+                EstadoSolicitudMesa.Pendiente => "bg-warning text-dark",
+                EstadoSolicitudMesa.Atendida => "bg-success",
+                EstadoSolicitudMesa.Cancelada => "bg-secondary",
+                _ => "bg-secondary"
+            };
+
+            <div class="list-group-item px-0">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                        <strong>@titulo</strong>
+                        <div class="small text-muted">@s.FechaCreacion.ToLocalTime().ToString("HH:mm")</div>
+                        @if (!string.IsNullOrWhiteSpace(s.Mensaje))
+                        {
+                            <div class="small mt-1">@s.Mensaje</div>
+                        }
+                    </div>
+                    <span class="badge @badge">@s.Estado</span>
+                </div>
+
+                @if (s.Estado == EstadoSolicitudMesa.Pendiente)
+                {
+                    <form asp-action="CancelarSolicitud" method="post" class="mt-2">
+                        <input type="hidden" name="id" value="@s.Id" />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                            Cancelar
+                        </button>
+                    </form>
+                }
+            </div>
+        }
+    </div>
+}
