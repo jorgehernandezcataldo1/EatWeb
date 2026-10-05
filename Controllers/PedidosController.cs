@@ -273,12 +273,6 @@ public class PedidosController : RestauranteControllerBase
 
         if (sesion == null) return NotFound();
 
-        // Solo pedidos no cancelados
-        var pedidosValidos = sesion.Comensales
-            .SelectMany(c => c.Pedidos)
-            .Where(p => p.Estado != EstadoPedido.Cancelado)
-            .ToList();
-
         var personas = sesion.Comensales
             .OrderBy(c => c.FechaIngreso)
             .Select(c =>
@@ -294,7 +288,9 @@ public class PedidosController : RestauranteControllerBase
                     FechaIngreso = c.FechaIngreso,
                     TotalConsumido = pedidosComensal.Sum(p => p.Total),
                     Items = pedidosComensal
-                        .SelectMany(p => p.Detalles.Select(d => new CuentaItemViewModel
+                        .SelectMany(p => p.Detalles
+                            .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                            .Select(d => new CuentaItemViewModel
                         {
                             PedidoId = p.Id,
                             DetallePedidoId = d.Id,
@@ -367,7 +363,9 @@ public class PedidosController : RestauranteControllerBase
         var items = sesion.Comensales
             .SelectMany(c => c.Pedidos)
             .Where(p => p.Estado != EstadoPedido.Cancelado)
-            .SelectMany(p => p.Detalles.Select(d => new CuentaItemViewModel
+            .SelectMany(p => p.Detalles
+                .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                .Select(d => new CuentaItemViewModel
             {
                 PedidoId = p.Id,
                 DetallePedidoId = d.Id,
@@ -424,7 +422,8 @@ public class PedidosController : RestauranteControllerBase
         var detalles = await _context.DetallesPedidos
             .AsNoTracking()
             .Where(d => d.Pedido!.MesaSesionId == modelo.SesionId &&
-                        d.Pedido.Estado != EstadoPedido.Cancelado)
+                        d.Pedido.Estado != EstadoPedido.Cancelado &&
+                        d.Estado != EstadoDetallePedido.Cancelado)
             .Select(d => new { d.Id, d.Subtotal, d.Pedido!.ComensalId })
             .ToListAsync();
 
