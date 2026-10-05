@@ -2,6 +2,7 @@
 using EatWeb.Models;
 using EatWeb.Models.Enums;
 using EatWeb.Services;
+using EatWeb.Services.Storage;
 using EatWeb.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,19 +21,22 @@ public class ClienteController : Controller
     private readonly CarritoService _carrito;
     private readonly PedidoService _pedidoService;
     private readonly SolicitudMesaService _solicitudMesaService;
+    private readonly IStorageService _storage;
 
     public ClienteController(
         ApplicationDbContext context,
         SesionService sesionService,
         CarritoService carrito,
         PedidoService pedidoService,
-        SolicitudMesaService solicitudMesaService)
+        SolicitudMesaService solicitudMesaService,
+        IStorageService storage)
     {
         _context = context;
         _sesionService = sesionService;
         _carrito = carrito;
         _pedidoService = pedidoService;
         _solicitudMesaService = solicitudMesaService;
+        _storage = storage;
     }
 
     // Datos mínimos de la mesa escaneada (nada de entidades completas)
@@ -139,12 +143,18 @@ public class ClienteController : Controller
                         Nombre = p.Nombre,
                         Descripcion = p.Descripcion,
                         Precio = p.Precio,
-                        ImagenUrl = p.ImagenUrl,
+                        ImagenKey = p.ImagenKey,
                         Disponible = p.Disponible
                     })
                     .ToList()
             })
             .ToListAsync();
+
+        foreach (var categoria in categorias)
+        {
+            foreach (var producto in categoria.Productos)
+                producto.ImagenUrl = _storage.ObtenerUrlPublica(producto.ImagenKey);
+        }
 
         return View(new CartaViewModel { Categorias = categorias });
     }
@@ -189,6 +199,7 @@ public class ClienteController : Controller
 
         if (producto == null) return NotFound();
 
+        producto.ImagenUrl = _storage.ObtenerUrlPublica(producto.ImagenKey);
         return View(producto);
     }
 
