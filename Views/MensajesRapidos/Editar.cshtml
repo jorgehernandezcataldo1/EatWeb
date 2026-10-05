@@ -1,0 +1,56 @@
+@model EatWeb.Models.MensajeRapido
+
+@{
+    ViewData["Title"] = "Editar Mensaje Rápido";
+    var estaciones = (List<EatWeb.Models.Estacion>)ViewData["Estaciones"]!;
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <h1>@ViewData["Title"]</h1>
+
+            <form method="post" class="mt-4">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+
+                <div class="mb-3">
+                    <label class="form-label">Estación <span class="text-danger">*</span></label>
+                    <select class="form-select" name="estacionId" disabled>
+                        @foreach (var est in estaciones.OrderBy(e => e.Orden))
+                        {
+                            <option value="@est.Id" selected="@(est.Id == Model.EstacionId)">@est.Nombre</option>
+                        }
+                    </select>
+                    <small class="form-text text-muted">La estación no puede ser cambiada.</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Texto del Mensaje <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="texto" value="@Model.Texto" 
+                           placeholder="Ej: ¡Listo para servir!" required maxlength="500">
+                    @Html.ValidationMessage("texto", new { @class = "text-danger" })
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Orden</label>
+                    <input type="number" class="form-control" name="orden" value="@Model.Orden" min="0" required>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input type="hidden" name="activo" value="false" />
+                    <input type="checkbox" class="form-check-input" id="activeCheck" name="activo" value="true" 
+                           @(Model.Activo ? "checked" : "")>
+                    <label class="form-check-label" for="activeCheck">
+                        Activo
+                    </label>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <a href="/mensajes-rapidos" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

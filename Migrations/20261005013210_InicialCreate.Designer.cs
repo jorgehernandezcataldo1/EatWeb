@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EatWeb.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20261004224500_ChatGpt")]
-    partial class ChatGpt
+    [Migration("20261005013210_InicialCreate")]
+    partial class InicialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -153,6 +153,9 @@ namespace EatWeb.Migrations
                     b.Property<bool>("Activa")
                         .HasColumnType("boolean");
 
+                    b.Property<int?>("EstacionId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -165,6 +168,8 @@ namespace EatWeb.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EstacionId");
 
                     b.HasIndex("RestauranteId", "Nombre")
                         .IsUnique();
@@ -245,6 +250,28 @@ namespace EatWeb.Migrations
                     b.Property<int>("Cantidad")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("EstacionId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EstacionNombre")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("FechaEntregado")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaInicioPreparacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaListo")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("NombreProducto")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -269,6 +296,8 @@ namespace EatWeb.Migrations
                         .HasColumnType("numeric(18,0)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EstacionId");
 
                     b.HasIndex("PedidoId");
 
@@ -312,6 +341,36 @@ namespace EatWeb.Migrations
                     b.HasIndex("IngredienteId");
 
                     b.ToTable("DetallesIngredientes");
+                });
+
+            modelBuilder.Entity("EatWeb.Models.Estacion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activa")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RestauranteId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestauranteId", "Nombre")
+                        .IsUnique();
+
+                    b.ToTable("Estaciones");
                 });
 
             modelBuilder.Entity("EatWeb.Models.HistorialEstadoPedido", b =>
@@ -863,11 +922,18 @@ namespace EatWeb.Migrations
 
             modelBuilder.Entity("EatWeb.Models.Categoria", b =>
                 {
+                    b.HasOne("EatWeb.Models.Estacion", "Estacion")
+                        .WithMany("Categorias")
+                        .HasForeignKey("EstacionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("EatWeb.Models.Restaurante", "Restaurante")
                         .WithMany("Categorias")
                         .HasForeignKey("RestauranteId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Estacion");
 
                     b.Navigation("Restaurante");
                 });
@@ -896,6 +962,11 @@ namespace EatWeb.Migrations
 
             modelBuilder.Entity("EatWeb.Models.DetallePedido", b =>
                 {
+                    b.HasOne("EatWeb.Models.Estacion", null)
+                        .WithMany()
+                        .HasForeignKey("EstacionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("EatWeb.Models.Pedido", "Pedido")
                         .WithMany("Detalles")
                         .HasForeignKey("PedidoId")
@@ -930,6 +1001,17 @@ namespace EatWeb.Migrations
                     b.Navigation("DetallePedido");
 
                     b.Navigation("Ingrediente");
+                });
+
+            modelBuilder.Entity("EatWeb.Models.Estacion", b =>
+                {
+                    b.HasOne("EatWeb.Models.Restaurante", "Restaurante")
+                        .WithMany("Estaciones")
+                        .HasForeignKey("RestauranteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Restaurante");
                 });
 
             modelBuilder.Entity("EatWeb.Models.HistorialEstadoPedido", b =>
@@ -1213,6 +1295,11 @@ namespace EatWeb.Migrations
                     b.Navigation("Pagos");
                 });
 
+            modelBuilder.Entity("EatWeb.Models.Estacion", b =>
+                {
+                    b.Navigation("Categorias");
+                });
+
             modelBuilder.Entity("EatWeb.Models.Ingrediente", b =>
                 {
                     b.Navigation("DetallesIngredientes");
@@ -1256,6 +1343,8 @@ namespace EatWeb.Migrations
             modelBuilder.Entity("EatWeb.Models.Restaurante", b =>
                 {
                     b.Navigation("Categorias");
+
+                    b.Navigation("Estaciones");
 
                     b.Navigation("Ingredientes");
 

@@ -1,6 +1,7 @@
 ﻿using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
+using EatWeb.Services;
 using EatWeb.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -247,5 +248,37 @@ public class GarzonesController : RestauranteControllerBase
             };
             ModelState.AddModelError(string.Empty, mensaje);
         }
+    }
+
+    // POST: /api/garzones/enviar-mensaje/{mensajeId}
+    [HttpPost]
+    [Authorize(Roles = Roles.Garzon)]
+    [Route("/api/garzones/enviar-mensaje/{mensajeId:int}")]
+    public async Task<IActionResult> EnviarMensajeRapido(int mensajeId)
+    {
+        var mensajesService = HttpContext.RequestServices.GetRequiredService<MensajosRapidosService>();
+        var historialService = HttpContext.RequestServices.GetRequiredService<HistorialMensajesService>();
+
+        var mensaje = await mensajesService.ObtenerPorIdAsync(mensajeId);
+        if (mensaje == null || mensaje.RestauranteId != RestauranteId)
+            return NotFound(new { error = "Mensaje no encontrado." });
+
+        var usuarioId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(usuarioId))
+            return Unauthorized();
+
+        var historial = await historialService.RegistrarEnvioAsync(
+            mensajeId,
+            usuarioId,
+            RestauranteId,
+            mensaje.EstacionId);
+
+        return Ok(new
+        {
+            id = historial.Id,
+            mensaje = mensaje.Texto,
+            enviadoEn = historial.EnviadoEn,
+            estacion = mensaje.Estacion.Nombre
+        });
     }
 }

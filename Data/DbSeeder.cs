@@ -12,17 +12,20 @@ public class DbSeeder
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly IConfiguration _configuration;
+    private readonly RestauranteDefaultsService _defaults;
 
     public DbSeeder(
         ApplicationDbContext context,
         UserManager<ApplicationUser> userManager,
         RoleManager<IdentityRole> roleManager,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        RestauranteDefaultsService defaults)
     {
         _context = context;
         _userManager = userManager;
         _roleManager = roleManager;
         _configuration = configuration;
+        _defaults = defaults;
     }
 
     public async Task SembrarAsync(IServiceProvider serviceProvider)
@@ -58,7 +61,7 @@ public class DbSeeder
             await _context.SaveChangesAsync();
         }
 
-        await AsegurarEstacionesAsync(restaurante.Id);
+        await _defaults.AsegurarEstacionesAsync(restaurante.Id);
 
         // ===== 3. Admin Restaurante =====
         var adminEmail = _configuration["SeedAdmin:Email"]

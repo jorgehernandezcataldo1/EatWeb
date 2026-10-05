@@ -11,35 +11,24 @@ using System.Security.Claims;
 namespace EatWeb.Controllers;
 
 [Authorize(Roles = Roles.AdminOGarzon)]
-public class PedidosController : Controller
+public class PedidosController : RestauranteControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly PedidoService _pedidoService;
-    private readonly RestauranteContextService _restauranteContext;
     private readonly SesionService _sesionService;
     private readonly CuentaService _cuentaService;
 
     public PedidosController(
         ApplicationDbContext context,
         PedidoService pedidoService,
-        RestauranteContextService restauranteContext,
         SesionService sesionService,
         CuentaService cuentaService)
     {
         _context = context;
         _pedidoService = pedidoService;
-        _restauranteContext = restauranteContext;
         _sesionService = sesionService;
         _cuentaService = cuentaService;
     }
-
-
-    private async Task<int?> GetRestauranteIdAsync()
-    {
-        var restaurante = await _restauranteContext.ObtenerActualAsync();
-        return restaurante?.Id;
-    }
-
 
     private string? GetUserId() =>
         User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -47,18 +36,13 @@ public class PedidosController : Controller
     [HttpGet]
     public async Task<IActionResult> Index()
     {
-        var restauranteId = await GetRestauranteIdAsync();
-
-        if (!restauranteId.HasValue)
-            return Forbid();
-
         var userId = GetUserId();
 
         var sesiones = await _context.MesaSesiones
             .AsNoTracking()
             .Where(s =>
                 s.FechaCierre == null &&
-                s.Mesa!.RestauranteId == restauranteId.Value &&
+                s.Mesa!.RestauranteId == RestauranteId &&
                 (User.EsAdmin() || s.GarzonId == userId))
             .Include(s => s.Mesa)
             .Include(s => s.Comensales)
@@ -128,17 +112,12 @@ public class PedidosController : Controller
         if (!EstadoPedido.Todos().Contains(nuevoEstado))
             return BadRequest();
 
-        var restauranteId = await GetRestauranteIdAsync();
-
-        if (!restauranteId.HasValue)
-            return Forbid();
-
         var pedido = await _context.Pedidos
             .Include(p => p.MesaSesion)
                 .ThenInclude(s => s!.Mesa)
             .FirstOrDefaultAsync(p =>
                 p.Id == id &&
-                p.MesaSesion!.Mesa!.RestauranteId == restauranteId.Value);
+                p.MesaSesion!.Mesa!.RestauranteId == RestauranteId);
 
         if (pedido == null)
             return NotFound();
@@ -166,12 +145,9 @@ public class PedidosController : Controller
     {
         if (!EstadoDetallePedido.Todos().Contains(nuevoEstado)) return BadRequest();
 
-        var restauranteId = await GetRestauranteIdAsync();
-        if (!restauranteId.HasValue) return Forbid();
-
         var permitido = await _context.DetallesPedidos
             .AnyAsync(d => d.Id == id &&
-                           d.Pedido!.MesaSesion!.Mesa!.RestauranteId == restauranteId.Value &&
+                           d.Pedido!.MesaSesion!.Mesa!.RestauranteId == RestauranteId &&
                            (User.EsAdmin() || d.Pedido.MesaSesion.GarzonId == GetUserId()));
 
         if (!permitido) return NotFound();
@@ -187,12 +163,9 @@ public class PedidosController : Controller
     {
         if (!EstadoDetallePedido.Todos().Contains(nuevoEstado)) return BadRequest();
 
-        var restauranteId = await GetRestauranteIdAsync();
-        if (!restauranteId.HasValue) return Forbid();
-
         var permitido = await _context.MesaSesiones
             .AnyAsync(s => s.Id == id && s.FechaCierre == null &&
-                           s.Mesa!.RestauranteId == restauranteId.Value &&
+                           s.Mesa!.RestauranteId == RestauranteId &&
                            (User.EsAdmin() || s.GarzonId == GetUserId()));
 
         if (!permitido) return NotFound();
@@ -206,9 +179,6 @@ public class PedidosController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CerrarMesa(int id)
     {
-        var restauranteId = await GetRestauranteIdAsync();
-        if (!restauranteId.HasValue) return Forbid();
-
         var userId = GetUserId();
 
         var sesion = await _context.MesaSesiones
@@ -216,7 +186,7 @@ public class PedidosController : Controller
             .FirstOrDefaultAsync(s =>
                 s.Id == id &&
                 s.FechaCierre == null &&
-                s.Mesa!.RestauranteId == restauranteId.Value &&
+                s.Mesa!.RestauranteId == RestauranteId &&
                 (User.EsAdmin() ||
                  User.IsInRole(Roles.AdminCadena) ||
                  User.IsInRole(Roles.AdminRestaurante) ||
@@ -243,9 +213,6 @@ public class PedidosController : Controller
     [HttpGet]
     public async Task<IActionResult> Cuenta(int id)
     {
-        var restauranteId = await GetRestauranteIdAsync();
-        if (!restauranteId.HasValue) return Forbid();
-
         var userId = GetUserId();
 
         var sesion = await _context.MesaSesiones
@@ -258,7 +225,7 @@ public class PedidosController : Controller
             .FirstOrDefaultAsync(s =>
                 s.Id == id &&
                 s.FechaCierre == null &&
-                s.Mesa!.RestauranteId == restauranteId.Value &&
+                s.Mesa!.RestauranteId == RestauranteId &&
                 (User.EsAdmin() ||
                  User.IsInRole(Roles.AdminCadena) ||
                  User.IsInRole(Roles.AdminRestaurante) ||
@@ -326,9 +293,6 @@ public class PedidosController : Controller
     [HttpGet]
     public async Task<IActionResult> Dividir(int id)
     {
-        var restauranteId = await GetRestauranteIdAsync();
-        if (!restauranteId.HasValue) return Forbid();
-
         var sesion = await _context.MesaSesiones
             .AsNoTracking()
             .Include(s => s.Mesa)
@@ -338,7 +302,7 @@ public class PedidosController : Controller
             .FirstOrDefaultAsync(s =>
                 s.Id == id &&
                 s.FechaCierre == null &&
-                s.Mesa!.RestauranteId == restauranteId.Value);
+                s.Mesa!.RestauranteId == RestauranteId);
 
         if (sesion == null) return NotFound();
 
@@ -399,14 +363,11 @@ public class PedidosController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CerrarConDivision(CerrarConDivisionInputViewModel modelo)
     {
-        var restauranteId = await GetRestauranteIdAsync();
-        if (!restauranteId.HasValue) return Forbid();
-
         var sesionValida = await _context.MesaSesiones
             .AsNoTracking()
             .AnyAsync(s => s.Id == modelo.SesionId &&
                            s.FechaCierre == null &&
-                           s.Mesa!.RestauranteId == restauranteId.Value);
+                           s.Mesa!.RestauranteId == RestauranteId);
 
         if (!sesionValida) return NotFound();
 

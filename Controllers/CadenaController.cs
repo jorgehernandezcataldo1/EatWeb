@@ -139,6 +139,9 @@ public class CadenasController : Controller
 
         await _context.SaveChangesAsync();
 
+        // Asegurar estaciones por defecto (Cocina, Bar)
+        await _defaults.AsegurarEstacionesAsync(restaurante.Id);
+
         TempData["Ok"] = $"Restaurante {restaurante.Nombre} creado";
         return RedirectToAction(nameof(Index));
     }

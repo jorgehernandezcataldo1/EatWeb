@@ -1,0 +1,39 @@
+@{
+    ViewData["Title"] = "Crear Mensaje Rápido";
+    var estaciones = (List<EatWeb.Models.Estacion>)ViewData["Estaciones"]!;
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <h1>@ViewData["Title"]</h1>
+
+            <form method="post" class="mt-4">
+                @Html.AntiForgeryToken()
+
+                <div class="mb-3">
+                    <label class="form-label">Estación <span class="text-danger">*</span></label>
+                    <select class="form-select" name="estacionId" required>
+                        <option value="">-- Seleccionar una estación --</option>
+                        @foreach (var est in estaciones.OrderBy(e => e.Orden))
+                        {
+                            <option value="@est.Id">@est.Nombre</option>
+                        }
+                    </select>
+                    @Html.ValidationMessage("estacionId", new { @class = "text-danger" })
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Texto del Mensaje <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="texto" placeholder="Ej: ¡Listo para servir!" required maxlength="500">
+                    @Html.ValidationMessage("texto", new { @class = "text-danger" })
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <a href="/mensajes-rapidos" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Crear Mensaje</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
