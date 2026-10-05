@@ -104,6 +104,7 @@ public class CuentaService
             .SelectMany(c => c.Pedidos)
             .Where(p => p.Estado != EstadoPedido.Cancelado)
             .SelectMany(p => p.Detalles)
+            .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
             .ToDictionary(d => d.Id);
 
         if (items.Any(a => !detallesValidos.ContainsKey(a.DetallePedidoId)))
@@ -204,7 +205,8 @@ public class CuentaService
     {
         resultado.TotalCuenta = await _context.DetallesPedidos
             .Where(d => d.Pedido!.MesaSesionId == sesionId &&
-                        d.Pedido.Estado != EstadoPedido.Cancelado)
+                        d.Pedido.Estado != EstadoPedido.Cancelado &&
+                        d.Estado != EstadoDetallePedido.Cancelado)
             .SumAsync(d => (decimal?)d.Subtotal) ?? 0;
 
         resultado.TotalPagado = await _context.PagoDetalles
