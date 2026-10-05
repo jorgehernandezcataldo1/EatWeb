@@ -112,6 +112,13 @@ public class EstacionesController : RestauranteControllerBase
             return View(modelo);
         }
 
+        if (estacion.Activa && !modelo.Activa && await EstaEnUsoAsync(estacion.Id))
+        {
+            ModelState.AddModelError(nameof(modelo.Activa),
+                "No puedes desactivar una estación mientras existan categorías asignadas. Reasigna esas categorías primero.");
+            return View(modelo);
+        }
+
         estacion.Nombre = nombre;
         estacion.Orden = modelo.Orden;
         estacion.Activa = modelo.Activa;
@@ -133,11 +140,7 @@ public class EstacionesController : RestauranteControllerBase
 
         if (estacion.Activa)
         {
-            var enUso = await _context.Categorias
-                .AsNoTracking()
-                .AnyAsync(c => c.RestauranteId == RestauranteId && c.EstacionId == estacion.Id);
-
-            if (enUso)
+            if (await EstaEnUsoAsync(estacion.Id))
             {
                 TempData["Error"] = "No puedes desactivar una estación mientras existan categorías asignadas. Reasigna esas categorías primero.";
                 return RedirectToAction(nameof(Index));
@@ -150,4 +153,9 @@ public class EstacionesController : RestauranteControllerBase
         TempData["Ok"] = $"Estación {(estacion.Activa ? "activada" : "desactivada")}";
         return RedirectToAction(nameof(Index));
     }
+
+    private Task<bool> EstaEnUsoAsync(int estacionId) =>
+        _context.Categorias
+            .AsNoTracking()
+            .AnyAsync(c => c.RestauranteId == RestauranteId && c.EstacionId == estacionId);
 }
