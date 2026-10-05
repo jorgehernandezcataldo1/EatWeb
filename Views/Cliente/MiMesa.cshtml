@@ -37,12 +37,21 @@
                         </button>
                     </form>
 
-                    <form asp-action="CrearSolicitud" method="post">
-                        <input type="hidden" name="tipo" value="@TipoSolicitudMesa.PedirCuenta" />
-                        <button type="submit" class="btn btn-warning w-100" disabled="@Model.CuentaSolicitada">
-                            💰 Pedir la cuenta
+                    @if (!Model.CuentaSolicitada)
+                    {
+                        <form asp-action="CrearSolicitud" method="post">
+                            <input type="hidden" name="tipo" value="@TipoSolicitudMesa.PedirCuenta" />
+                            <button type="submit" class="btn btn-warning w-100">
+                                💰 Pedir la cuenta
+                            </button>
+                        </form>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-warning w-100" disabled>
+                            💰 Cuenta solicitada
                         </button>
-                    </form>
+                    }
 
                     <form asp-action="CrearSolicitud" method="post" class="border rounded p-2">
                         <input type="hidden" name="tipo" value="@TipoSolicitudMesa.SolicitarAlgo" />
