@@ -10,7 +10,7 @@ public class LineaCarritoCalculada
     public Guid LineaId { get; set; }
     public int ProductoId { get; set; }
     public string NombreProducto { get; set; } = string.Empty;
-    public int? EstacionId { get; set; }
+    public int EstacionId { get; set; }
     public string EstacionNombre { get; set; } = string.Empty;
     public decimal PrecioUnitario { get; set; }
     public int Cantidad { get; set; }
@@ -77,6 +77,12 @@ public class PedidoService
             if (!producto.Activo || !producto.Disponible)
             {
                 resultado.Errores.Add($"{producto.Nombre} no está disponible");
+                continue;
+            }
+
+            if (producto.Categoria?.Estacion == null)
+            {
+                resultado.Errores.Add($"{producto.Nombre} no tiene una estación de preparación válida");
                 continue;
             }
 
@@ -153,8 +159,8 @@ public class PedidoService
                 LineaId = linea.LineaId,
                 ProductoId = producto.Id,
                 NombreProducto = producto.Nombre,
-                EstacionId = producto.Categoria?.EstacionId,
-                EstacionNombre = producto.Categoria?.Estacion?.Nombre ?? "Cocina",
+                EstacionId = producto.Categoria.Estacion.Id,
+                EstacionNombre = producto.Categoria.Estacion.Nombre,
                 PrecioUnitario = producto.Precio,
                 Cantidad = linea.Cantidad,
                 Personalizaciones = personalizaciones,
@@ -304,6 +310,8 @@ public class PedidoService
         string nuevoEstado,
         string usuarioId)
     {
+        await using var transaccion = await _context.Database.BeginTransactionAsync();
+
         var pedido = await _context.Pedidos
             .Include(p => p.Detalles)
             .FirstOrDefaultAsync(p => p.Id == pedidoId);
@@ -314,7 +322,11 @@ public class PedidoService
         foreach (var detalle in pedido.Detalles.Where(d => EsTransicionValida(d.Estado, nuevoEstado)))
             AplicarEstadoDetalle(detalle, nuevoEstado);
 
-        return await RecalcularYGuardarPedidoAsync(pedido, usuarioId);
+        await RecalcularPedidoAsync(pedido, usuarioId);
+        await _context.SaveChangesAsync();
+        await transaccion.CommitAsync();
+
+        return new ResultadoPedido { Ok = true, PedidoId = pedido.Id };
     }
 
     public async Task<ResultadoPedido> CambiarEstadoDetalleAsync(
@@ -340,8 +352,21 @@ public class PedidoService
     public async Task<ResultadoPedido> CambiarEstadoMesaAsync(
         int sesionId,
         string nuevoEstado,
-        string usuarioId)
+        string usuarioId,
+        int? estacionId = null)
     {
+        if (nuevoEstado != EstadoDetallePedido.EnPreparacion &&
+            nuevoEstado != EstadoDetallePedido.Listo &&
+            nuevoEstado != EstadoDetallePedido.Entregado)
+        {
+            return new ResultadoPedido
+            {
+                Errores = { "El estado masivo debe ser EnPreparacion, Listo o Entregado" }
+            };
+        }
+
+        await using var transaccion = await _context.Database.BeginTransactionAsync();
+
         var pedidos = await _context.Pedidos
             .Include(p => p.Detalles)
             .Where(p => p.MesaSesionId == sesionId && p.Estado != EstadoPedido.Cancelado)
@@ -349,13 +374,19 @@ public class PedidoService
 
         foreach (var pedido in pedidos)
         {
-            foreach (var detalle in pedido.Detalles.Where(d => EsTransicionValida(d.Estado, nuevoEstado)))
+            var detallesElegibles = pedido.Detalles.Where(d =>
+                (!estacionId.HasValue || d.EstacionId == estacionId.Value) &&
+                EsTransicionValida(d.Estado, nuevoEstado));
+
+            foreach (var detalle in detallesElegibles)
                 AplicarEstadoDetalle(detalle, nuevoEstado);
 
             await RecalcularPedidoAsync(pedido, usuarioId);
         }
 
         await _context.SaveChangesAsync();
+        await transaccion.CommitAsync();
+
         return new ResultadoPedido { Ok = true };
     }
 
