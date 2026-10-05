@@ -1,6 +1,7 @@
 ﻿using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
+using EatWeb.Services;
 using EatWeb.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
