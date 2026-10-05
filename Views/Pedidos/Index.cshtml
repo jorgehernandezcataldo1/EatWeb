@@ -1,4 +1,4 @@
-﻿@model PedidosIndexViewModel
+@model PedidosIndexViewModel
 @{
     ViewData["Title"] = "Pedidos";
     var clp = new System.Globalization.CultureInfo("es-CL");
@@ -20,6 +20,13 @@ else
 {
     @foreach (var m in Model.Mesas)
     {
+        var estacionesMesa = m.Pedidos
+            .SelectMany(p => p.Detalles)
+            .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+            .GroupBy(d => new { d.EstacionId, d.Estacion })
+            .OrderBy(g => g.Key.Estacion)
+            .ToList();
+
         <div class="card mb-3 shadow-sm">
             <div class="card-header d-flex justify-content-between align-items-center
                         @(m.CuentaSolicitada ? "bg-warning text-dark" : "bg-light")">
@@ -32,7 +39,64 @@ else
                     <span class="badge bg-dark">💰 Cuenta solicitada</span>
                 }
             </div>
+
             <div class="card-body">
+                @if (estacionesMesa.Any())
+                {
+                    <div class="border rounded p-2 mb-3 bg-light">
+                        <div class="small text-uppercase text-muted fw-semibold mb-2">Acciones por estación</div>
+
+                        @foreach (var estacion in estacionesMesa)
+                        {
+                            var pendientes = estacion.Count(d => d.Estado == EstadoDetallePedido.Pendiente);
+                            var preparando = estacion.Count(d => d.Estado == EstadoDetallePedido.EnPreparacion);
+                            var listos = estacion.Count(d => d.Estado == EstadoDetallePedido.Listo);
+                            var entregados = estacion.Count(d => d.Estado == EstadoDetallePedido.Entregado);
+
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 py-1">
+                                <div>
+                                    <strong>@estacion.Key.Estacion</strong>
+                                    <span class="small text-muted ms-2">
+                                        P:@pendientes · Prep:@preparando · Listos:@listos · Ent:@entregados
+                                    </span>
+                                </div>
+
+                                <div class="d-flex flex-wrap gap-1">
+                                    @if (pendientes > 0)
+                                    {
+                                        <form asp-action="CambiarEstadoMesa" method="post">
+                                            <input type="hidden" name="id" value="@m.SesionId" />
+                                            <input type="hidden" name="estacionId" value="@estacion.Key.EstacionId" />
+                                            <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
+                                            <button class="btn btn-sm btn-outline-info">@estacion.Key.Estacion → preparar</button>
+                                        </form>
+                                    }
+
+                                    @if (preparando > 0)
+                                    {
+                                        <form asp-action="CambiarEstadoMesa" method="post">
+                                            <input type="hidden" name="id" value="@m.SesionId" />
+                                            <input type="hidden" name="estacionId" value="@estacion.Key.EstacionId" />
+                                            <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Listo" />
+                                            <button class="btn btn-sm btn-outline-success">@estacion.Key.Estacion → listo</button>
+                                        </form>
+                                    }
+
+                                    @if (listos > 0)
+                                    {
+                                        <form asp-action="CambiarEstadoMesa" method="post">
+                                            <input type="hidden" name="id" value="@m.SesionId" />
+                                            <input type="hidden" name="estacionId" value="@estacion.Key.EstacionId" />
+                                            <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Entregado" />
+                                            <button class="btn btn-sm btn-outline-secondary">@estacion.Key.Estacion → entregar</button>
+                                        </form>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
                 @foreach (var p in m.Pedidos)
                 {
                     <div class="border-start border-4 border-info ps-3 mb-3">
@@ -51,10 +115,14 @@ else
                             @foreach (var d in p.Detalles)
                             {
                                 <li class="mb-2 border rounded p-2">
-                                    <div class="d-flex justify-content-between">
+                                    <div class="d-flex justify-content-between gap-2">
                                         <span><strong>@d.Cantidad×</strong> @d.Producto</span>
-                                        <span><span class="badge bg-secondary">@d.Estacion</span> <span class="badge bg-info text-dark">@d.Estado</span></span>
+                                        <span class="text-nowrap">
+                                            <span class="badge bg-secondary">@d.Estacion</span>
+                                            <span class="badge @(d.Estado == EstadoDetallePedido.Cancelado ? "bg-danger" : "bg-info text-dark")">@d.Estado</span>
+                                        </span>
                                     </div>
+
                                     @if (d.Personalizaciones.Any())
                                     {
                                         <ul class="small text-muted mb-0">
@@ -64,81 +132,146 @@ else
                                             }
                                         </ul>
                                     }
+
                                     @if (!string.IsNullOrWhiteSpace(d.Observacion))
                                     {
                                         <div class="small fst-italic text-secondary">💬 "@d.Observacion"</div>
                                     }
-                                    <div class="btn-group btn-group-sm mt-1">
-                                        @if (d.Estado == "Pendiente")
+
+                                    @if (d.FechaInicioPreparacion.HasValue || d.FechaListo.HasValue || d.FechaEntregado.HasValue)
+                                    {
+                                        <div class="small text-muted mt-1">
+                                            @if (d.FechaInicioPreparacion.HasValue)
+                                            {
+                                                <span class="me-2">Inicio @d.FechaInicioPreparacion.Value.ToLocalTime().ToString("HH:mm")</span>
+                                            }
+                                            @if (d.FechaListo.HasValue)
+                                            {
+                                                <span class="me-2">Listo @d.FechaListo.Value.ToLocalTime().ToString("HH:mm")</span>
+                                            }
+                                            @if (d.FechaEntregado.HasValue)
+                                            {
+                                                <span>Entregado @d.FechaEntregado.Value.ToLocalTime().ToString("HH:mm")</span>
+                                            }
+                                        </div>
+                                    }
+
+                                    <div class="d-flex flex-wrap gap-1 mt-2">
+                                        @if (d.Estado == EstadoDetallePedido.Pendiente)
                                         {
-                                            <form asp-action="CambiarEstadoDetalle" method="post"><input type="hidden" name="id" value="@d.Id" /><input type="hidden" name="nuevoEstado" value="EnPreparacion" /><button class="btn btn-outline-info">Preparar</button></form>
+                                            <form asp-action="CambiarEstadoDetalle" method="post">
+                                                <input type="hidden" name="id" value="@d.Id" />
+                                                <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
+                                                <button class="btn btn-sm btn-outline-info">Preparar</button>
+                                            </form>
+                                            <form asp-action="CambiarEstadoDetalle" method="post">
+                                                <input type="hidden" name="id" value="@d.Id" />
+                                                <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Cancelado" />
+                                                <button class="btn btn-sm btn-outline-danger"
+                                                        onclick="return confirm('¿Cancelar este ítem?')">
+                                                    Cancelar
+                                                </button>
+                                            </form>
                                         }
-                                        else if (d.Estado == "EnPreparacion")
+                                        else if (d.Estado == EstadoDetallePedido.EnPreparacion)
                                         {
-                                            <form asp-action="CambiarEstadoDetalle" method="post"><input type="hidden" name="id" value="@d.Id" /><input type="hidden" name="nuevoEstado" value="Listo" /><button class="btn btn-outline-success">Listo</button></form>
+                                            <form asp-action="CambiarEstadoDetalle" method="post">
+                                                <input type="hidden" name="id" value="@d.Id" />
+                                                <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Listo" />
+                                                <button class="btn btn-sm btn-outline-success">Listo</button>
+                                            </form>
+                                            <form asp-action="CambiarEstadoDetalle" method="post">
+                                                <input type="hidden" name="id" value="@d.Id" />
+                                                <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Cancelado" />
+                                                <button class="btn btn-sm btn-outline-danger"
+                                                        onclick="return confirm('¿Cancelar este ítem en preparación?')">
+                                                    Cancelar
+                                                </button>
+                                            </form>
                                         }
-                                        else if (d.Estado == "Listo")
+                                        else if (d.Estado == EstadoDetallePedido.Listo)
                                         {
-                                            <form asp-action="CambiarEstadoDetalle" method="post"><input type="hidden" name="id" value="@d.Id" /><input type="hidden" name="nuevoEstado" value="Entregado" /><button class="btn btn-outline-secondary">Entregar</button></form>
+                                            <form asp-action="CambiarEstadoDetalle" method="post">
+                                                <input type="hidden" name="id" value="@d.Id" />
+                                                <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Entregado" />
+                                                <button class="btn btn-sm btn-outline-secondary">Entregar</button>
+                                            </form>
                                         }
                                     </div>
                                 </li>
                             }
                         </ul>
 
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="btn-group btn-group-sm">
-                                @if (p.Estado == "Pendiente")
+                        <div class="d-flex justify-content-between align-items-center gap-2">
+                            <div class="d-flex flex-wrap gap-1">
+                                @if (p.Estado == EstadoPedido.Pendiente)
                                 {
-                                    <form asp-action="CambiarEstado" method="post" class="d-inline">
+                                    <form asp-action="CambiarEstado" method="post">
                                         <input type="hidden" name="id" value="@p.Id" />
-                                        <input type="hidden" name="nuevoEstado" value="EnPreparacion" />
-                                        <button class="btn btn-info">▶ A preparación</button>
+                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
+                                        <button class="btn btn-sm btn-info">Pedido → preparación</button>
                                     </form>
-                                    <form asp-action="CambiarEstado" method="post" class="d-inline ms-1">
+                                    <form asp-action="CambiarEstado" method="post">
                                         <input type="hidden" name="id" value="@p.Id" />
-                                        <input type="hidden" name="nuevoEstado" value="Cancelado" />
-                                        <button class="btn btn-outline-danger"
-                                                onclick="return confirm('¿Cancelar este pedido?')">
-                                            ✕ Cancelar
+                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Cancelado" />
+                                        <button class="btn btn-sm btn-outline-danger"
+                                                onclick="return confirm('¿Cancelar los ítems cancelables de este pedido?')">
+                                            Cancelar pedido
                                         </button>
                                     </form>
                                 }
-                                else if (p.Estado == "EnPreparacion")
+                                else if (p.Estado == EstadoPedido.EnPreparacion)
                                 {
-                                    <form asp-action="CambiarEstado" method="post" class="d-inline">
+                                    <form asp-action="CambiarEstado" method="post">
                                         <input type="hidden" name="id" value="@p.Id" />
-                                        <input type="hidden" name="nuevoEstado" value="Listo" />
-                                        <button class="btn btn-success">✓ Listo</button>
+                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Listo" />
+                                        <button class="btn btn-sm btn-success">Pedido → listo</button>
                                     </form>
                                 }
-                                else if (p.Estado == "Listo")
+                                else if (p.Estado == EstadoPedido.Listo)
                                 {
-                                    <form asp-action="CambiarEstado" method="post" class="d-inline">
+                                    <form asp-action="CambiarEstado" method="post">
                                         <input type="hidden" name="id" value="@p.Id" />
-                                        <input type="hidden" name="nuevoEstado" value="Entregado" />
-                                        <button class="btn btn-secondary">🍽 Entregado</button>
+                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Entregado" />
+                                        <button class="btn btn-sm btn-secondary">Pedido → entregado</button>
                                     </form>
                                 }
                             </div>
+
                             <strong>@p.Total.ToString("C0", clp)</strong>
                         </div>
                     </div>
                 }
 
-                <div class="btn-group btn-group-sm mt-2 me-2">
-                    <form asp-action="CambiarEstadoMesa" method="post"><input type="hidden" name="id" value="@m.SesionId" /><input type="hidden" name="nuevoEstado" value="EnPreparacion" /><button class="btn btn-outline-info">Mesa → preparación</button></form>
-                    <form asp-action="CambiarEstadoMesa" method="post"><input type="hidden" name="id" value="@m.SesionId" /><input type="hidden" name="nuevoEstado" value="Listo" /><button class="btn btn-outline-success">Mesa → listo</button></form>
-                    <form asp-action="CambiarEstadoMesa" method="post"><input type="hidden" name="id" value="@m.SesionId" /><input type="hidden" name="nuevoEstado" value="Entregado" /><button class="btn btn-outline-secondary">Mesa → entregado</button></form>
+                <div class="border-top pt-2 mt-2">
+                    <div class="small text-uppercase text-muted fw-semibold mb-2">Acciones para toda la mesa</div>
+                    <div class="d-flex flex-wrap gap-1">
+                        <form asp-action="CambiarEstadoMesa" method="post">
+                            <input type="hidden" name="id" value="@m.SesionId" />
+                            <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
+                            <button class="btn btn-sm btn-outline-info">Mesa → preparación</button>
+                        </form>
+                        <form asp-action="CambiarEstadoMesa" method="post">
+                            <input type="hidden" name="id" value="@m.SesionId" />
+                            <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Listo" />
+                            <button class="btn btn-sm btn-outline-success">Mesa → listo</button>
+                        </form>
+                        <form asp-action="CambiarEstadoMesa" method="post">
+                            <input type="hidden" name="id" value="@m.SesionId" />
+                            <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Entregado" />
+                            <button class="btn btn-sm btn-outline-secondary">Mesa → entregado</button>
+                        </form>
+
+                        <a asp-action="Cuenta" asp-route-id="@m.SesionId"
+                           class="btn btn-outline-primary btn-sm">
+                            📄 Ver cuenta completa
+                        </a>
+                        <a asp-action="Dividir" asp-route-id="@m.SesionId"
+                           class="btn btn-outline-info btn-sm">
+                            💰 Dividir
+                        </a>
+                    </div>
                 </div>
-                <a asp-action="Cuenta" asp-route-id="@m.SesionId"
-                   class="btn btn-outline-primary btn-sm mt-2">
-                    📄 Ver cuenta completa
-                </a>
-                <a asp-action="Dividir" asp-route-id="@m.SesionId"
-                   class="btn btn-outline-info btn-sm mt-2 ms-2">
-                    💰 Dividir
-                </a>
             </div>
         </div>
     }
