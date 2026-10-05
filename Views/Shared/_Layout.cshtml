@@ -54,6 +54,12 @@
                                     <a class="nav-link" asp-controller="Pedidos" asp-action="Index">Pedidos</a>
                                 </li>
                             }
+                            @if (User.IsInRole(Roles.AdminRestaurante) && ViewData["RestauranteNombre"] is string restauranteNombre)
+                            {
+                                <li class="nav-item">
+                                    <span class="navbar-text me-2">@restauranteNombre</span>
+                                </li>
+                            }
                             @if (User.IsInRole(Roles.AdminCadena))
                             {
                                 @await Component.InvokeAsync("RestauranteSelector")
