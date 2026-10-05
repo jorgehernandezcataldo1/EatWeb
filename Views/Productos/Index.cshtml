@@ -2,6 +2,7 @@
 
 @{
     ViewData["Title"] = "Productos";
+    var clp = new System.Globalization.CultureInfo("es-CL");
 }
 
 <div class="row mb-3">
@@ -13,9 +14,10 @@
     </div>
 </div>
 
-<table class="table table-striped table-hover">
+<table class="table table-striped table-hover align-middle">
     <thead class="table-dark">
         <tr>
+            <th>Foto</th>
             <th>Nombre</th>
             <th>Precio</th>
             <th>Estado</th>
@@ -27,11 +29,27 @@
         @foreach (var producto in Model.OrderBy(p => p.Nombre))
         {
             <tr>
+                <td style="width: 76px;">
+                    @if (!string.IsNullOrWhiteSpace(producto.ImagenUrl))
+                    {
+                        <img src="@producto.ImagenUrl"
+                             alt="@producto.Nombre"
+                             loading="lazy"
+                             class="rounded border"
+                             style="width: 56px; height: 56px; object-fit: cover;" />
+                    }
+                    else
+                    {
+                        <div class="rounded border bg-light d-flex align-items-center justify-content-center text-muted"
+                             style="width: 56px; height: 56px;"
+                             aria-label="Sin foto">—</div>
+                    }
+                </td>
                 <td>
-                    <strong>@producto.Nombre</strong><br/>
+                    <strong>@producto.Nombre</strong><br />
                     <small class="text-muted">@producto.Descripcion</small>
                 </td>
-                <td>$@producto.Precio.ToString("F2")</td>
+                <td>@producto.Precio.ToString("C0", clp)</td>
                 <td>
                     <span class="badge @(producto.Activo ? "bg-success" : "bg-danger")">
                         @(producto.Activo ? "Activo" : "Inactivo")
