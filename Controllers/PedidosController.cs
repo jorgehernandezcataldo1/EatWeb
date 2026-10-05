@@ -534,17 +534,48 @@ public class PedidosController : RestauranteControllerBase
         var userId = GetUserId();
 
         // Para reintentos idempotentes también se permite consultar una sesión ya cerrada.
-        var tieneAcceso = await _context.MesaSesiones
+        var acceso = await _context.MesaSesiones
             .AsNoTracking()
-            .AnyAsync(s =>
+            .Where(s =>
                 s.Id == modelo.SesionId &&
                 s.Mesa!.RestauranteId == RestauranteId &&
                 (User.EsAdmin() ||
                  s.GarzonId == userId ||
-                 s.Mesa.GarzonId == userId));
+                 s.Mesa.GarzonId == userId))
+            .Select(s => new { s.FechaCierre })
+            .FirstOrDefaultAsync();
 
-        if (!tieneAcceso)
+        if (acceso == null)
             return NotFound();
+
+        var repetido = await _cuentaService.ObtenerResultadoIdempotenteAsync(
+            modelo.SesionId,
+            modelo.IdempotencyKey);
+
+        if (repetido != null)
+        {
+            if (!repetido.Ok)
+            {
+                TempData["Error"] = string.Join(" ", repetido.Errores);
+                return acceso.FechaCierre.HasValue
+                    ? RedirectToAction(nameof(Index))
+                    : RedirectToAction(nameof(Dividir), new { id = modelo.SesionId });
+            }
+
+            TempData["Ok"] = repetido.CuentaPagada
+                ? "Pago ya registrado. La cuenta está pagada."
+                : $"Pago ya registrado. Saldo pendiente: {repetido.SaldoPendiente:C0}.";
+
+            return repetido.CuentaPagada || acceso.FechaCierre.HasValue
+                ? RedirectToAction(nameof(Index))
+                : RedirectToAction(nameof(Dividir), new { id = modelo.SesionId });
+        }
+
+        if (acceso.FechaCierre.HasValue)
+        {
+            TempData["Error"] = "La mesa ya está cerrada y no admite nuevos pagos.";
+            return RedirectToAction(nameof(Index));
+        }
 
         var detalles = await _context.DetallesPedidos
             .AsNoTracking()
