@@ -113,7 +113,36 @@ public class SolicitudMesaService
             sesion.Estado = EstadoSesion.CuentaSolicitada;
         }
 
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            _context.ChangeTracker.Clear();
+
+            var concurrente = await _context.SolicitudesMesa
+                .AsNoTracking()
+                .Where(s =>
+                    s.MesaSesionId == sesionId &&
+                    s.ComensalId == comensalId &&
+                    s.Tipo == tipo &&
+                    s.Estado == EstadoSolicitudMesa.Pendiente)
+                .OrderByDescending(s => s.FechaCreacion)
+                .FirstOrDefaultAsync();
+
+            if (concurrente != null)
+            {
+                return new ResultadoSolicitudMesa
+                {
+                    Ok = true,
+                    SolicitudId = concurrente.Id,
+                    YaExistia = true
+                };
+            }
+
+            throw;
+        }
 
         return new ResultadoSolicitudMesa
         {
