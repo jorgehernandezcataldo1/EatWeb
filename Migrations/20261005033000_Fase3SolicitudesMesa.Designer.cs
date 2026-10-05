@@ -645,6 +645,10 @@ namespace EatWeb.Migrations
 
                     b.HasIndex("ComensalId", "Estado");
 
+                    b.HasIndex("ComensalId", "Tipo")
+                        .IsUnique()
+                        .HasFilter("\"Estado\" = 'Pendiente'");
+
                     b.HasIndex("MesaSesionId", "Estado", "FechaCreacion");
 
                     b.ToTable("SolicitudesMesa");
