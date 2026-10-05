@@ -369,7 +369,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasMaxLength(500);
 
         modelBuilder.Entity<Producto>()
-            .Property(p => p.ImagenUrl)
+            .Property(p => p.ImagenKey)
             .HasMaxLength(300);
 
         modelBuilder.Entity<Producto>()
