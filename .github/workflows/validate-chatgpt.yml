@@ -1,0 +1,23 @@
+name: Validate ChatGPT branch
+
+on:
+  push:
+    branches:
+      - chatgpt/fase0-fase1-hardening
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore
+        run: dotnet restore EatWeb.csproj
+      - name: Build
+        run: dotnet build EatWeb.csproj --configuration Release --no-restore
