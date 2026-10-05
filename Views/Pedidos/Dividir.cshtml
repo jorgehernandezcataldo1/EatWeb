@@ -210,11 +210,19 @@
                 </div>
 
                 <div class="card-footer">
-                    <button type="submit" class="btn btn-success w-100"
-                            @(!Model.PuedeCobrar || Model.SaldoPendiente <= 0 ? "disabled" : null)
-                            onclick="return confirm('¿Registrar este pago?');">
-                        💰 Registrar pago
-                    </button>
+                    @if (Model.PuedeCobrar && Model.SaldoPendiente > 0)
+                    {
+                        <button type="submit" class="btn btn-success w-100"
+                                onclick="return confirm('¿Registrar este pago?');">
+                            💰 Registrar pago
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-success w-100" disabled>
+                            💰 Registrar pago
+                        </button>
+                    }
                 </div>
             </form>
         </div>
