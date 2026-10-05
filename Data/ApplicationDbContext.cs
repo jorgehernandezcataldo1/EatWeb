@@ -311,7 +311,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasOne(c => c.Estacion)
             .WithMany(e => e.Categorias)
             .HasForeignKey(c => c.EstacionId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Producto
         modelBuilder.Entity<Producto>()
@@ -434,7 +434,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasOne<Estacion>()
             .WithMany()
             .HasForeignKey(d => d.EstacionId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<DetallePedido>()
             .Property(d => d.NombreProducto)
