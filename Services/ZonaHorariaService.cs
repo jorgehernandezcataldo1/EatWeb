@@ -34,9 +34,23 @@ public static class ZonaHorariaService
     {
         var ahora = DateTime.UtcNow;
         var horaLocal = ALocal(ahora);
-        var inicioDelDia = horaLocal.Date; // 0:00:00
-
-        // Convertir de vuelta a UTC
-        return TimeZoneInfo.ConvertTimeToUtc(inicioDelDia, _zonaHoraria);
+        return InicioFechaLocalUtc(horaLocal.Date);
     }
+
+    /// <summary>
+    /// Convierte el inicio de una fecha de calendario de Santiago a UTC.
+    /// La fecha recibida se trata como hora local de Santiago, independiente
+    /// de la zona horaria configurada en el servidor.
+    /// </summary>
+    public static DateTime InicioFechaLocalUtc(DateTime fechaLocal)
+    {
+        var localSinZona = DateTime.SpecifyKind(
+            fechaLocal.Date,
+            DateTimeKind.Unspecified);
+
+        return TimeZoneInfo.ConvertTimeToUtc(localSinZona, _zonaHoraria);
+    }
+
+    public static DateTime HoyLocal() =>
+        ALocal(DateTime.UtcNow).Date;
 }
