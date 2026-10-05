@@ -31,7 +31,7 @@
                     <div>
                         <strong>@persona.Nombre</strong>
                         <small class="text-muted ms-2">
-                            desde @persona.FechaIngreso.ToLocalTime().ToString("HH:mm")
+                            desde @ZonaHorariaService.ALocal(persona.FechaIngreso).ToString("HH:mm")
                         </small>
                     </div>
                     <div class="text-end">
@@ -125,7 +125,7 @@
                             @foreach (var pago in Model.Pagos)
                             {
                                 <tr>
-                                    <td>@pago.Fecha.ToLocalTime().ToString("HH:mm")</td>
+                                    <td>@ZonaHorariaService.ALocal(pago.Fecha).ToString("HH:mm")</td>
                                     <td>@pago.Metodo</td>
                                     <td>@(pago.ComensalNombre ?? "Mesa")</td>
                                     <td class="text-end">@pago.Monto.ToString("C0", clp)</td>
