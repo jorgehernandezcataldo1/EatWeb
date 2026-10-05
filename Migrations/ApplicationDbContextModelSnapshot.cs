@@ -3,7 +3,6 @@ using System;
 using EatWeb.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,7 +11,6 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EatWeb.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20261005013141_SkipChatGptMigration")]
     partial class ApplicationDbContextModelSnapshot : ModelSnapshot
     {
         /// <inheritdoc />
