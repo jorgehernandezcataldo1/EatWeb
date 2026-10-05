@@ -18,7 +18,7 @@
                     <ul class="navbar-nav ms-auto">
                         @if (User.Identity?.IsAuthenticated == true)
                         {
-                            @if (User.IsInRole(Roles.AdminRestaurante))
+                            @if (User.EsAdmin())
                             {
                                 <li class="nav-item">
                                     <a class="nav-link" asp-controller="Admin" asp-action="Index">Dashboard</a>
@@ -55,6 +55,7 @@
                             }
                             @if (User.IsInRole(Roles.AdminCadena))
                             {
+                                @await Component.InvokeAsync("RestauranteSelector")
                                 <li class="nav-item">
                                     <a class="nav-link" asp-controller="Cadenas" asp-action="Index">Mi Cadena</a>
                                 </li>
