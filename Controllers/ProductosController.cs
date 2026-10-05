@@ -62,6 +62,8 @@ public class ProductosController : RestauranteControllerBase
     {
         var restauranteId = RestauranteId;
 
+        ValidarPrecioClp(modelo);
+
         if (!ModelState.IsValid)
         {
             var categorias = await _context.Categorias
@@ -148,6 +150,8 @@ public class ProductosController : RestauranteControllerBase
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Editar(int id, ProductoViewModel modelo)
     {
+        ValidarPrecioClp(modelo);
+
         if (id != modelo.Id || !ModelState.IsValid)
         {
             var categoriasError = await _context.Categorias
@@ -261,9 +265,25 @@ public class ProductosController : RestauranteControllerBase
             return RedirectToAction(nameof(Ingredientes), new { productoId });
         }
 
-        // Si tipo es Incluido, el precio debe ser 0
+        if (!TipoIngrediente.Todos().Contains(tipo))
+        {
+            TempData["Error"] = "Tipo de ingrediente inválido";
+            return RedirectToAction(nameof(Ingredientes), new { productoId });
+        }
+
+        // Si tipo es Incluido, el precio debe ser 0. Los extras se expresan
+        // en CLP enteros y nunca pueden disminuir el precio.
         if (tipo == TipoIngrediente.Incluido)
+        {
             precioExtra = 0;
+        }
+        else if (precioExtra < 0 ||
+                 precioExtra > 999999 ||
+                 decimal.Truncate(precioExtra) != precioExtra)
+        {
+            TempData["Error"] = "El precio extra debe ser un monto CLP válido entre $0 y $999.999";
+            return RedirectToAction(nameof(Ingredientes), new { productoId });
+        }
 
         var productoIngrediente = new ProductoIngrediente
         {
@@ -320,5 +340,16 @@ public class ProductosController : RestauranteControllerBase
         }
 
         return RedirectToAction(nameof(Index));
+    }    private void ValidarPrecioClp(ProductoViewModel modelo)
+    {
+        if (modelo.Precio > 0 &&
+            decimal.Truncate(modelo.Precio) != modelo.Precio)
+        {
+            ModelState.AddModelError(
+                nameof(modelo.Precio),
+                "El precio debe ingresarse en pesos chilenos, sin decimales.");
+        }
     }
+
+
 }
