@@ -279,6 +279,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasIndex(s => new { s.ComensalId, s.Estado });
 
         modelBuilder.Entity<SolicitudMesa>()
+            .HasIndex(s => new { s.ComensalId, s.Tipo })
+            .IsUnique()
+            .HasFilter("\"Estado\" = 'Pendiente'");
+
+        modelBuilder.Entity<SolicitudMesa>()
             .HasOne(s => s.MesaSesion)
             .WithMany(ms => ms.SolicitudesMesa)
             .HasForeignKey(s => s.MesaSesionId)
