@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace EatWeb.Controllers;
 
 [Authorize(Roles = Roles.Admin)]
-public class ProductosController : Controller
+public class ProductosController : RestauranteControllerBase
 {
     private readonly ApplicationDbContext _context;
 
@@ -19,14 +19,10 @@ public class ProductosController : Controller
         _context = context;
     }
 
-    private int GetRestauranteId()
-    {
-        return int.Parse(User.FindFirst("RestauranteId")?.Value ?? "0");
-    }
 
     public async Task<IActionResult> Index()
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var productos = await _context.Productos
             .AsNoTracking()
             .Where(p => p.RestauranteId == restauranteId)
@@ -50,7 +46,7 @@ public class ProductosController : Controller
     [HttpGet]
     public async Task<IActionResult> Crear()
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var categorias = await _context.Categorias
             .Where(c => c.RestauranteId == restauranteId && c.Activa)
             .OrderBy(c => c.Orden)
@@ -64,7 +60,7 @@ public class ProductosController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Crear(ProductoViewModel modelo)
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
 
         if (!ModelState.IsValid)
         {
@@ -119,7 +115,7 @@ public class ProductosController : Controller
     [HttpGet]
     public async Task<IActionResult> Editar(int id)
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var producto = await _context.Productos
             .FirstOrDefaultAsync(p => p.Id == id && p.RestauranteId == restauranteId);
 
@@ -155,14 +151,14 @@ public class ProductosController : Controller
         if (id != modelo.Id || !ModelState.IsValid)
         {
             var categoriasError = await _context.Categorias
-                .Where(c => c.RestauranteId == GetRestauranteId() && c.Activa)
+                .Where(c => c.RestauranteId == RestauranteId && c.Activa)
                 .OrderBy(c => c.Orden)
                 .ToListAsync();
             ViewBag.Categorias = new SelectList(categoriasError, "Id", "Nombre");
             return View(modelo);
         }
 
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var producto = await _context.Productos
             .FirstOrDefaultAsync(p => p.Id == id && p.RestauranteId == restauranteId);
 
@@ -206,7 +202,7 @@ public class ProductosController : Controller
     [HttpGet]
     public async Task<IActionResult> Ingredientes(int productoId)
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var producto = await _context.Productos
             .FirstOrDefaultAsync(p => p.Id == productoId && p.RestauranteId == restauranteId);
 
@@ -243,7 +239,7 @@ public class ProductosController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AñadirIngrediente(int productoId, int ingredienteId, string tipo, decimal precioExtra)
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var producto = await _context.Productos
             .FirstOrDefaultAsync(p => p.Id == productoId && p.RestauranteId == restauranteId);
 
@@ -288,7 +284,7 @@ public class ProductosController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RemoverIngrediente(int productoId, int ingredienteId)
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var producto = await _context.Productos
             .FirstOrDefaultAsync(p => p.Id == productoId && p.RestauranteId == restauranteId);
 
@@ -312,7 +308,7 @@ public class ProductosController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Activar(int id)
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var producto = await _context.Productos
             .FirstOrDefaultAsync(p => p.Id == id && p.RestauranteId == restauranteId);
 
