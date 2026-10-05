@@ -31,6 +31,15 @@ public class PedidoResumenViewModel
     public DateTime FechaCreacion { get; set; }
 
     public List<DetallePedidoResumenViewModel> Detalles { get; set; } = new();
+    public List<HistorialPedidoResumenViewModel> Historial { get; set; } = new();
+}
+
+public class HistorialPedidoResumenViewModel
+{
+    public string? EstadoAnterior { get; set; }
+    public string EstadoNuevo { get; set; } = string.Empty;
+    public DateTime Fecha { get; set; }
+    public string Actor { get; set; } = "Sistema";
 }
 
 public class DetallePedidoResumenViewModel
