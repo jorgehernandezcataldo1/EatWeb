@@ -84,6 +84,7 @@ public class MiMesaViewModel
     public bool CuentaSolicitada { get; set; }
     public decimal TotalConsumido { get; set; }
     public List<MiPedidoViewModel> Pedidos { get; set; } = new();
+    public List<SolicitudMesaResumenViewModel> Solicitudes { get; set; } = new();
 }
 
 public class MiPedidoViewModel
