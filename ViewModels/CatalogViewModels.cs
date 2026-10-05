@@ -14,6 +14,9 @@ public class CategoriaViewModel
     public int Orden { get; set; }
 
     public bool Activa { get; set; } = true;
+    public int? EstacionId { get; set; }
+    public string? EstacionNombre { get; set; }
+    public List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> Estaciones { get; set; } = new();
 }
 
 public class IngredienteViewModel
