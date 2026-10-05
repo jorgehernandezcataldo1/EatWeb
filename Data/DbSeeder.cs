@@ -254,27 +254,20 @@ public class DbSeeder
     }
 
 
-
-    private async Task AsegurarEstacionesAsync(int restauranteId)
-    {
-        var nombres = await _context.Estaciones
-            .Where(e => e.RestauranteId == restauranteId)
-            .Select(e => e.Nombre)
-            .ToListAsync();
-
-        if (!nombres.Contains("Cocina"))
-            _context.Estaciones.Add(new Estacion { RestauranteId = restauranteId, Nombre = "Cocina", Orden = 1 });
-
-        if (!nombres.Contains("Bar"))
-            _context.Estaciones.Add(new Estacion { RestauranteId = restauranteId, Nombre = "Bar", Orden = 2 });
-
-        await _context.SaveChangesAsync();
-    }
-
     // ============ Catálogo + mesas ============
 
     private async Task SembrarCatalogoDemoAsync(int restauranteId)
     {
+        await _defaults.AsegurarEstacionesAsync(restauranteId);
+
+        var estaciones = await _context.Estaciones
+            .AsNoTracking()
+            .Where(e => e.RestauranteId == restauranteId && (e.Nombre == "Cocina" || e.Nombre == "Bar"))
+            .ToDictionaryAsync(e => e.Nombre, e => e.Id);
+
+        var cocinaId = estaciones["Cocina"];
+        var barId = estaciones["Bar"];
+
         var categorias = new Dictionary<string, int>
         {
             { "Pizzas", 1 },
@@ -290,6 +283,7 @@ public class DbSeeder
             var categoria = new Categoria
             {
                 RestauranteId = restauranteId,
+                EstacionId = kvp.Key == "Bebidas" ? barId : cocinaId,
                 Nombre = kvp.Key,
                 Orden = kvp.Value,
                 Activa = true
