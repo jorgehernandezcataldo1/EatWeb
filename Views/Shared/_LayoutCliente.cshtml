@@ -7,13 +7,16 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - EatWeb</title>
+    <title>@ViewData["Title"] - Comidita</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
 </head>
 <body class="d-flex flex-column min-vh-100">
     <header class="bg-light border-bottom py-2">
         <div class="container d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">@ViewData["RestauranteNombre"]</h5>
+            <div>
+                <div class="small text-muted">Comidita</div>
+                <h5 class="mb-0 text-truncate">@ViewData["RestauranteNombre"]</h5>
+            </div>
             @if (enMesa)
             {
                 <span class="badge bg-primary">Mesa @ViewData["MesaNumero"] – @ViewData["ComensalNombre"]</span>
