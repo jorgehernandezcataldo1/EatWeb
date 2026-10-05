@@ -35,6 +35,7 @@ public class CartaProductoViewModel
     public string Nombre { get; set; } = string.Empty;
     public string? Descripcion { get; set; }
     public decimal Precio { get; set; }
+    public string? ImagenKey { get; set; }
     public string? ImagenUrl { get; set; }
     public bool Disponible { get; set; }
 }
@@ -46,6 +47,7 @@ public class ProductoDetalleViewModel
     public string Nombre { get; set; } = string.Empty;
     public string? Descripcion { get; set; }
     public decimal Precio { get; set; }
+    public string? ImagenKey { get; set; }
     public string? ImagenUrl { get; set; }
     public bool Disponible { get; set; }
     public List<IngredienteOpcionViewModel> Incluidos { get; set; } = new();
