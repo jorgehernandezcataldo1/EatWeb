@@ -1,0 +1,53 @@
+@model List<EstacionViewModel>
+
+@{
+    ViewData["Title"] = "Estaciones";
+}
+
+<div class="row mb-3">
+    <div class="col">
+        <h2>Estaciones</h2>
+        <p class="text-muted mb-0">Define dónde se prepara cada categoría, por ejemplo Cocina o Bar.</p>
+    </div>
+    <div class="col text-end">
+        <a asp-action="Crear" class="btn btn-primary">+ Nueva estación</a>
+    </div>
+</div>
+
+<table class="table table-striped table-hover">
+    <thead class="table-dark">
+        <tr>
+            <th>Nombre</th>
+            <th>Orden</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var estacion in Model)
+        {
+            <tr>
+                <td>@estacion.Nombre</td>
+                <td>@estacion.Orden</td>
+                <td>
+                    <span class="badge @(estacion.Activa ? "bg-success" : "bg-secondary")">
+                        @(estacion.Activa ? "Activa" : "Inactiva")
+                    </span>
+                </td>
+                <td>
+                    <a asp-action="Editar" asp-route-id="@estacion.Id" class="btn btn-sm btn-warning">Editar</a>
+                    <form asp-action="Activar" asp-route-id="@estacion.Id" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-sm @(estacion.Activa ? "btn-outline-danger" : "btn-outline-success")">
+                            @(estacion.Activa ? "Desactivar" : "Activar")
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (Model.Count == 0)
+{
+    <div class="alert alert-info">No hay estaciones configuradas.</div>
+}
