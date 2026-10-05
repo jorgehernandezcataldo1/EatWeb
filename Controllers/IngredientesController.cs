@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace EatWeb.Controllers;
 
 [Authorize(Roles = Roles.Admin)]
-public class IngredientesController : Controller
+public class IngredientesController : RestauranteControllerBase
 {
     private readonly ApplicationDbContext _context;
 
@@ -17,14 +17,10 @@ public class IngredientesController : Controller
         _context = context;
     }
 
-    private int GetRestauranteId()
-    {
-        return int.Parse(User.FindFirst("RestauranteId")?.Value ?? "0");
-    }
 
     public async Task<IActionResult> Index()
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var ingredientes = await _context.Ingredientes
             .AsNoTracking()
             .Where(i => i.RestauranteId == restauranteId)
@@ -53,7 +49,7 @@ public class IngredientesController : Controller
         if (!ModelState.IsValid)
             return View(modelo);
 
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
 
         var existe = await _context.Ingredientes
             .AnyAsync(i => i.RestauranteId == restauranteId && i.Nombre == modelo.Nombre);
@@ -81,7 +77,7 @@ public class IngredientesController : Controller
     [HttpGet]
     public async Task<IActionResult> Editar(int id)
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var ingrediente = await _context.Ingredientes
             .FirstOrDefaultAsync(i => i.Id == id && i.RestauranteId == restauranteId);
 
@@ -105,7 +101,7 @@ public class IngredientesController : Controller
         if (id != modelo.Id || !ModelState.IsValid)
             return View(modelo);
 
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var ingrediente = await _context.Ingredientes
             .FirstOrDefaultAsync(i => i.Id == id && i.RestauranteId == restauranteId);
 
@@ -134,7 +130,7 @@ public class IngredientesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Activar(int id)
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
         var ingrediente = await _context.Ingredientes
             .FirstOrDefaultAsync(i => i.Id == id && i.RestauranteId == restauranteId);
 
