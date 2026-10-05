@@ -97,3 +97,45 @@ El dashboard administrativo incluye métricas del día:
 - solicitudes pendientes;
 - disponibilidad de catálogo;
 - checklist de preparación para piloto.
+
+## Almacenamiento de imágenes
+
+Comidita usa una abstracción propia `IStorageService`. La implementación actual habla el protocolo S3, por lo que el resto de la aplicación no depende de Supabase directamente.
+
+Las imágenes de productos se guardan en PostgreSQL como una clave neutral, por ejemplo:
+
+```text
+restaurantes/12/productos/45/0f4c8d....webp
+```
+
+La URL pública se construye desde configuración. Esto permite migrar a otro proveedor S3/CDN sin reescribir controladores ni vistas.
+
+### Supabase Storage
+
+1. Crea un bucket público llamado `comidita-media`.
+2. En Supabase, habilita/configura el acceso S3 y obtén región, Access Key ID y Secret Access Key.
+3. No guardes esas credenciales en Git.
+
+Configuración local:
+
+```powershell
+dotnet user-secrets set "Storage:ServiceUrl" "https://<project-ref>.storage.supabase.co/storage/v1/s3"
+dotnet user-secrets set "Storage:Region" "<REGION>"
+dotnet user-secrets set "Storage:AccessKey" "<ACCESS_KEY>"
+dotnet user-secrets set "Storage:SecretKey" "<SECRET_KEY>"
+dotnet user-secrets set "Storage:Bucket" "comidita-media"
+dotnet user-secrets set "Storage:PublicBaseUrl" "https://<project-ref>.supabase.co/storage/v1/object/public/comidita-media"
+```
+
+En Render usa las mismas claves como variables de entorno:
+
+- `Storage__ServiceUrl`
+- `Storage__Region`
+- `Storage__AccessKey`
+- `Storage__SecretKey`
+- `Storage__Bucket=comidita-media`
+- `Storage__PublicBaseUrl`
+
+El formulario de productos acepta JPG, PNG y WebP, con un máximo predeterminado de 5 MB. El límite puede ajustarse con `Storage__MaxImageBytes`.
+
+Las credenciales S3 son exclusivamente de servidor. No deben exponerse en JavaScript, HTML, URLs públicas ni commits.
