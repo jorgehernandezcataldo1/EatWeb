@@ -15,7 +15,7 @@
 <div class="card mb-3 border-warning">
     <div class="card-header d-flex justify-content-between align-items-center">
         <strong>Solicitudes de clientes</strong>
-        <span class="badge bg-warning text-dark">@Model.SolicitudesPendientes.Count</span>
+        <span class="badge bg-warning text-dark" id="solicitudesPendientesCount">@Model.SolicitudesPendientes.Count</span>
     </div>
     <div class="card-body" id="solicitudesPendientesPanel">
         <partial name="_SolicitudesPendientes" model="Model.SolicitudesPendientes" />
@@ -315,8 +315,15 @@ else
                 });
                 if (!response.ok) return;
 
-                document.getElementById('solicitudesPendientesPanel').innerHTML =
-                    await response.text();
+                const html = await response.text();
+                document.getElementById('solicitudesPendientesPanel').innerHTML = html;
+
+                const contenedor = document.getElementById('solicitudesPendientesPanel')
+                    .querySelector('[data-solicitud-count]');
+                if (contenedor) {
+                    document.getElementById('solicitudesPendientesCount').textContent =
+                        contenedor.dataset.solicitudCount;
+                }
             } catch {
                 // La próxima iteración vuelve a intentar.
             }
