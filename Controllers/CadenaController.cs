@@ -15,13 +15,16 @@ public class CadenasController : Controller
 {
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly RestauranteDefaultsService _defaults;
 
     public CadenasController(
         ApplicationDbContext context,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        RestauranteDefaultsService defaults)
     {
         _context = context;
         _userManager = userManager;
+        _defaults = defaults;
     }
 
     private string UsuarioId =>
