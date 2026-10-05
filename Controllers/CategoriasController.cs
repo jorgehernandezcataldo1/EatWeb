@@ -73,7 +73,7 @@ public class CategoriasController : RestauranteControllerBase
             Nombre = modelo.Nombre,
             Orden = modelo.Orden,
             Activa = modelo.Activa,
-            EstacionId = modelo.EstacionId
+            EstacionId = modelo.EstacionId ?? 0
         };
 
         _context.Categorias.Add(categoria);
@@ -143,7 +143,7 @@ public class CategoriasController : RestauranteControllerBase
         categoria.Nombre = modelo.Nombre;
         categoria.Orden = modelo.Orden;
         categoria.Activa = modelo.Activa;
-        categoria.EstacionId = modelo.EstacionId;
+        categoria.EstacionId = modelo.EstacionId ?? 0;
 
         await _context.SaveChangesAsync();
 
