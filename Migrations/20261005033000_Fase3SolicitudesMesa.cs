@@ -59,6 +59,13 @@ namespace EatWeb.Migrations
                 columns: new[] { "ComensalId", "Estado" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_SolicitudesMesa_ComensalId_Tipo",
+                table: "SolicitudesMesa",
+                columns: new[] { "ComensalId", "Tipo" },
+                unique: true,
+                filter: "\"Estado\" = 'Pendiente'");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_SolicitudesMesa_MesaSesionId_Estado_FechaCreacion",
                 table: "SolicitudesMesa",
                 columns: new[] { "MesaSesionId", "Estado", "FechaCreacion" });
