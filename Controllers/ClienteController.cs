@@ -175,7 +175,7 @@ public class ClienteController : Controller
                 Nombre = p.Nombre,
                 Descripcion = p.Descripcion,
                 Precio = p.Precio,
-                ImagenUrl = p.ImagenUrl,
+                ImagenKey = p.ImagenKey,
                 Disponible = p.Disponible,
                 Incluidos = p.Ingredientes
                     .Where(pi => pi.Tipo == TipoIngrediente.Incluido && pi.Ingrediente!.Activo)
