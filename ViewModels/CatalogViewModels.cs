@@ -2,6 +2,18 @@ using System.ComponentModel.DataAnnotations;
 
 namespace EatWeb.ViewModels;
 
+public class EstacionViewModel
+{
+    public int Id { get; set; }
+
+    [Required(ErrorMessage = "El nombre es requerido")]
+    [StringLength(80)]
+    public string Nombre { get; set; } = string.Empty;
+
+    public int Orden { get; set; }
+    public bool Activa { get; set; } = true;
+}
+
 public class CategoriaViewModel
 {
     public int Id { get; set; }
@@ -14,6 +26,8 @@ public class CategoriaViewModel
     public int Orden { get; set; }
 
     public bool Activa { get; set; } = true;
+
+    [Required(ErrorMessage = "La estación es requerida")]
     public int? EstacionId { get; set; }
     public string? EstacionNombre { get; set; }
     public List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> Estaciones { get; set; } = new();
