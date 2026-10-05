@@ -131,6 +131,19 @@ public class EstacionesController : RestauranteControllerBase
         if (estacion == null)
             return NotFound();
 
+        if (estacion.Activa)
+        {
+            var enUso = await _context.Categorias
+                .AsNoTracking()
+                .AnyAsync(c => c.RestauranteId == RestauranteId && c.EstacionId == estacion.Id);
+
+            if (enUso)
+            {
+                TempData["Error"] = "No puedes desactivar una estación mientras existan categorías asignadas. Reasigna esas categorías primero.";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
         estacion.Activa = !estacion.Activa;
         await _context.SaveChangesAsync();
 
