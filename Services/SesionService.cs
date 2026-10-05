@@ -140,34 +140,6 @@ public class SesionService
     }
 
     /// <summary>
-    /// Solicita la cuenta
-    /// </summary>
-    public async Task SolicitarCuentaAsync(int sesionId)
-    {
-        var sesion = await _context.MesaSesiones.FindAsync(sesionId);
-        if (sesion != null && !sesion.CuentaSolicitadaEn.HasValue)
-        {
-            sesion.CuentaSolicitadaEn = DateTime.UtcNow;
-            sesion.Estado = EstadoSesion.CuentaSolicitada;
-            await _context.SaveChangesAsync();
-        }
-    }
-
-    /// <summary>
-    /// Anula la solicitud de cuenta
-    /// </summary>
-    public async Task AnularCuentaAsync(int sesionId)
-    {
-        var sesion = await _context.MesaSesiones.FindAsync(sesionId);
-        if (sesion != null)
-        {
-            sesion.CuentaSolicitadaEn = null;
-            sesion.Estado = EstadoSesion.Abierta;
-            await _context.SaveChangesAsync();
-        }
-    }
-
-    /// <summary>
     /// Cierra una sesión
     /// </summary>
     public async Task<(bool Success, string? Error)> CerrarSesionAsync(
