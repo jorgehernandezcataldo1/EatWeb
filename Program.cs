@@ -10,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 //builder.Services.AddDbContext<ApplicationDbContext>(options =>
 //    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// TODO: mover DefaultConnection a user-secrets o variables de entorno antes de producción.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 
