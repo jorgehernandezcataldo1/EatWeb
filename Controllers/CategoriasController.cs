@@ -73,7 +73,7 @@ public class CategoriasController : RestauranteControllerBase
             Nombre = modelo.Nombre,
             Orden = modelo.Orden,
             Activa = modelo.Activa,
-            EstacionId = modelo.EstacionId ?? 0
+            EstacionId = modelo.EstacionId
         };
 
         _context.Categorias.Add(categoria);
@@ -143,7 +143,7 @@ public class CategoriasController : RestauranteControllerBase
         categoria.Nombre = modelo.Nombre;
         categoria.Orden = modelo.Orden;
         categoria.Activa = modelo.Activa;
-        categoria.EstacionId = modelo.EstacionId ?? 0;
+        categoria.EstacionId = modelo.EstacionId;
 
         await _context.SaveChangesAsync();
 
@@ -184,10 +184,9 @@ public class CategoriasController : RestauranteControllerBase
         return modelo;
     }
 
-    private async Task<bool> EstacionValidaAsync(int? estacionId) =>
-        estacionId.HasValue &&
-        await _context.Estaciones.AnyAsync(e =>
-            e.Id == estacionId.Value &&
+    private Task<bool> EstacionValidaAsync(int estacionId) =>
+        _context.Estaciones.AnyAsync(e =>
+            e.Id == estacionId &&
             e.RestauranteId == RestauranteId &&
             e.Activa);
 
