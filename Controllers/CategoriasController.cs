@@ -9,35 +9,19 @@ using Microsoft.EntityFrameworkCore;
 namespace EatWeb.Controllers;
 
 [Authorize(Roles = Roles.Admin)]
-public class CategoriasController : Controller
+public class CategoriasController : RestauranteControllerBase
 {
     private readonly ApplicationDbContext _context;
-    private readonly RestauranteContextService _restauranteContext;
-
-    public CategoriasController(
-        ApplicationDbContext context,
-        RestauranteContextService restauranteContext)
+    public CategoriasController(ApplicationDbContext context)
     {
         _context = context;
-        _restauranteContext = restauranteContext;
-    }
-
-    private async Task<int?> GetRestauranteIdAsync()
-    {
-        var restaurante = await _restauranteContext.ObtenerActualAsync();
-        return restaurante?.Id;
     }
 
     public async Task<IActionResult> Index()
     {
-        var restauranteId = await GetRestauranteIdAsync();
-
-        if (!restauranteId.HasValue)
-            return RedirectToAction("Index", "Admin");
-
         var categorias = await _context.Categorias
             .AsNoTracking()
-            .Where(c => c.RestauranteId == restauranteId.Value)
+            .Where(c => c.RestauranteId == RestauranteId)
             .OrderBy(c => c.Orden)
             .Select(c => new CategoriaViewModel
             {
@@ -54,11 +38,6 @@ public class CategoriasController : Controller
     [HttpGet]
     public async Task<IActionResult> Crear()
     {
-        var restauranteId = await GetRestauranteIdAsync();
-
-        if (!restauranteId.HasValue)
-            return RedirectToAction("Index", "Admin");
-
         return View();
     }
 
@@ -66,17 +45,12 @@ public class CategoriasController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Crear(CategoriaViewModel modelo)
     {
-        var restauranteId = await GetRestauranteIdAsync();
-
-        if (!restauranteId.HasValue)
-            return Forbid();
-
         if (!ModelState.IsValid)
             return View(modelo);
 
         var existe = await _context.Categorias
             .AnyAsync(c =>
-                c.RestauranteId == restauranteId.Value &&
+                c.RestauranteId == RestauranteId &&
                 c.Nombre == modelo.Nombre);
 
         if (existe)
@@ -90,7 +64,7 @@ public class CategoriasController : Controller
 
         var categoria = new Categoria
         {
-            RestauranteId = restauranteId.Value,
+            RestauranteId = RestauranteId,
             Nombre = modelo.Nombre,
             Orden = modelo.Orden,
             Activa = modelo.Activa
@@ -108,15 +82,10 @@ public class CategoriasController : Controller
     [HttpGet]
     public async Task<IActionResult> Editar(int id)
     {
-        var restauranteId = await GetRestauranteIdAsync();
-
-        if (!restauranteId.HasValue)
-            return Forbid();
-
         var categoria = await _context.Categorias
             .FirstOrDefaultAsync(c =>
                 c.Id == id &&
-                c.RestauranteId == restauranteId.Value);
+                c.RestauranteId == RestauranteId);
 
         if (categoria == null)
             return NotFound();
@@ -139,22 +108,17 @@ public class CategoriasController : Controller
         if (id != modelo.Id || !ModelState.IsValid)
             return View(modelo);
 
-        var restauranteId = await GetRestauranteIdAsync();
-
-        if (!restauranteId.HasValue)
-            return Forbid();
-
         var categoria = await _context.Categorias
             .FirstOrDefaultAsync(c =>
                 c.Id == id &&
-                c.RestauranteId == restauranteId.Value);
+                c.RestauranteId == RestauranteId);
 
         if (categoria == null)
             return NotFound();
 
         var existe = await _context.Categorias
             .AnyAsync(c =>
-                c.RestauranteId == restauranteId.Value &&
+                c.RestauranteId == RestauranteId &&
                 c.Nombre == modelo.Nombre &&
                 c.Id != id);
 
@@ -182,15 +146,10 @@ public class CategoriasController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Activar(int id)
     {
-        var restauranteId = await GetRestauranteIdAsync();
-
-        if (!restauranteId.HasValue)
-            return Forbid();
-
         var categoria = await _context.Categorias
             .FirstOrDefaultAsync(c =>
                 c.Id == id &&
-                c.RestauranteId == restauranteId.Value);
+                c.RestauranteId == RestauranteId);
 
         if (categoria != null)
         {
