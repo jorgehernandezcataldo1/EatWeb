@@ -431,6 +431,12 @@ public class PedidoService
 
     private Task RecalcularPedidoAsync(Pedido pedido, string usuarioId)
     {
+        // El total operacional excluye ítems cancelados. El snapshot de Subtotal
+        // se mantiene en el detalle para auditoría, pero no se cobra.
+        pedido.Total = pedido.Detalles
+            .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+            .Sum(d => d.Subtotal);
+
         var anterior = pedido.Estado;
         var nuevo = CalcularEstadoPedido(pedido.Detalles);
 
