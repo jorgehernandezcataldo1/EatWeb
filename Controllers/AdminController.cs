@@ -119,6 +119,7 @@ public class AdminController : Controller
 
         ViewBag.Restaurante = restaurante;
         ViewBag.Stats = stats;
+        ViewData["RestauranteNombre"] = restaurante.Nombre;
 
         return View("Restaurante", restaurante);
     }
