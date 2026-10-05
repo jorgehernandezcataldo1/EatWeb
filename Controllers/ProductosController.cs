@@ -131,6 +131,8 @@ public class ProductosController : RestauranteControllerBase
             }
             catch (Exception ex)
             {
+                await EliminarStorageSinInterrumpirAsync(key);
+
                 _logger.LogError(ex,
                     "No se pudo subir la imagen del producto {ProductoId} del restaurante {RestauranteId}",
                     producto.Id, restauranteId);
