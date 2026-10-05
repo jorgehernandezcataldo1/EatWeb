@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace EatWeb.Controllers;
 
 [Authorize(Roles = Roles.Admin)]
-public class GarzonesController : Controller
+public class GarzonesController : RestauranteControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
@@ -21,12 +21,10 @@ public class GarzonesController : Controller
         _userManager = userManager;
     }
 
-    private int GetRestauranteId() =>
-        int.Parse(User.FindFirst("RestauranteId")?.Value ?? "0");
 
     public async Task<IActionResult> Index()
     {
-        var garzones = await GarzonesDelRestaurante(GetRestauranteId())
+        var garzones = await GarzonesDelRestaurante(RestauranteId)
             .AsNoTracking()
             .OrderBy(u => u.NombreCompleto)
             .Select(u => new GarzonViewModel
@@ -61,7 +59,7 @@ public class GarzonesController : Controller
             return View(modelo);
         }
 
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
 
         var garzon = new ApplicationUser
         {
@@ -210,7 +208,7 @@ public class GarzonesController : Controller
     /// <summary>Solo devuelve usuarios GARZÓN de MI restaurante (un admin no se edita aquí).</summary>
     private async Task<ApplicationUser?> BuscarGarzonAsync(string id)
     {
-        var restauranteId = GetRestauranteId();
+        var restauranteId = RestauranteId;
 
         var user = await _userManager.FindByIdAsync(id);
 

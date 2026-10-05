@@ -58,6 +58,8 @@ public class DbSeeder
             await _context.SaveChangesAsync();
         }
 
+        await AsegurarEstacionesAsync(restaurante.Id);
+
         // ===== 3. Admin Restaurante =====
         var adminEmail = _configuration["SeedAdmin:Email"]
                          ?? "admin@restaurante.local";
@@ -249,6 +251,22 @@ public class DbSeeder
     }
 
 
+
+    private async Task AsegurarEstacionesAsync(int restauranteId)
+    {
+        var nombres = await _context.Estaciones
+            .Where(e => e.RestauranteId == restauranteId)
+            .Select(e => e.Nombre)
+            .ToListAsync();
+
+        if (!nombres.Contains("Cocina"))
+            _context.Estaciones.Add(new Estacion { RestauranteId = restauranteId, Nombre = "Cocina", Orden = 1 });
+
+        if (!nombres.Contains("Bar"))
+            _context.Estaciones.Add(new Estacion { RestauranteId = restauranteId, Nombre = "Bar", Orden = 2 });
+
+        await _context.SaveChangesAsync();
+    }
 
     // ============ Catálogo + mesas ============
 

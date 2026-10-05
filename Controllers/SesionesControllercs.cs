@@ -10,38 +10,24 @@ using Microsoft.EntityFrameworkCore;
 namespace EatWeb.Controllers;
 
 [Authorize(Roles = Roles.Admin)]
-public class SesionesController : Controller
+public class SesionesController : RestauranteControllerBase
 {
     private readonly ApplicationDbContext _context;
-    private readonly RestauranteContextService _restauranteContext;
-
-    public SesionesController(
-        ApplicationDbContext context,
-        RestauranteContextService restauranteContext)
+    public SesionesController(ApplicationDbContext context)
     {
         _context = context;
-        _restauranteContext = restauranteContext;
-    }
-
-    private async Task<int?> GetRestauranteIdAsync()
-    {
-        var r = await _restauranteContext.ObtenerActualAsync();
-        return r?.Id;
     }
 
     [HttpGet]
     public async Task<IActionResult> Index(DateTime? desde, DateTime? hasta)
     {
-        var restauranteId = await GetRestauranteIdAsync();
-        if (!restauranteId.HasValue) return Forbid();
-
         // Default: últimos 7 días
         var fin = (hasta ?? DateTime.UtcNow).Date.AddDays(1);
         var inicio = (desde ?? fin.AddDays(-7)).Date;
 
         var sesiones = await _context.MesaSesiones
             .AsNoTracking()
-            .Where(s => s.Mesa!.RestauranteId == restauranteId.Value
+            .Where(s => s.Mesa!.RestauranteId == RestauranteId
                         && s.FechaCierre != null
                         && s.FechaApertura >= inicio
                         && s.FechaApertura < fin)
@@ -74,9 +60,6 @@ public class SesionesController : Controller
     [HttpGet]
     public async Task<IActionResult> Detalle(int id)
     {
-        var restauranteId = await GetRestauranteIdAsync();
-        if (!restauranteId.HasValue) return Forbid();
-
         var sesion = await _context.MesaSesiones
             .AsNoTracking()
             .Include(s => s.Mesa)
@@ -85,7 +68,7 @@ public class SesionesController : Controller
                     .ThenInclude(p => p.Detalles)
                         .ThenInclude(d => d.Ingredientes)
             .FirstOrDefaultAsync(s => s.Id == id
-                                       && s.Mesa!.RestauranteId == restauranteId.Value);
+                                       && s.Mesa!.RestauranteId == RestauranteId);
 
         if (sesion == null) return NotFound();
 

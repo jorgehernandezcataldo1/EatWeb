@@ -1,6 +1,7 @@
 ﻿using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
+using EatWeb.Services;
 using EatWeb.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -15,13 +16,16 @@ public class CadenasController : Controller
 {
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly RestauranteDefaultsService _defaults;
 
     public CadenasController(
         ApplicationDbContext context,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        RestauranteDefaultsService defaults)
     {
         _context = context;
         _userManager = userManager;
+        _defaults = defaults;
     }
 
     private string UsuarioId =>
@@ -87,6 +91,12 @@ public class CadenasController : Controller
         }
         else
         {
+            if (string.IsNullOrWhiteSpace(modelo.AdminPassword))
+            {
+                ModelState.AddModelError(nameof(modelo.AdminPassword), "La contraseña es requerida para un administrador nuevo.");
+                return View(modelo);
+            }
+
             adminUser = new ApplicationUser
             {
                 UserName = modelo.AdminEmail,
@@ -95,7 +105,7 @@ public class CadenasController : Controller
                 Activo = true
             };
 
-            var result = await _userManager.CreateAsync(adminUser, modelo.AdminPassword!);
+            var result = await _userManager.CreateAsync(adminUser, modelo.AdminPassword);
 
             if (!result.Succeeded)
             {

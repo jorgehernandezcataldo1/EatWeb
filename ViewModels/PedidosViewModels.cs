@@ -35,6 +35,9 @@ public class PedidoResumenViewModel
 
 public class DetallePedidoResumenViewModel
 {
+    public int Id { get; set; }
+    public string Estado { get; set; } = string.Empty;
+    public string Estacion { get; set; } = string.Empty;
     public string Producto { get; set; } = string.Empty;
 
     public int Cantidad { get; set; }

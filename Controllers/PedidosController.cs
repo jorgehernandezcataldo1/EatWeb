@@ -88,6 +88,9 @@ public class PedidosController : Controller
 
                         Detalles = p.Detalles.Select(d => new DetallePedidoResumenViewModel
                         {
+                            Id = d.Id,
+                            Estado = d.Estado,
+                            Estacion = d.EstacionNombre,
                             Producto = d.NombreProducto,
                             Cantidad = d.Cantidad,
                             Subtotal = d.Subtotal,
@@ -154,6 +157,48 @@ public class PedidosController : Controller
         if (!resultado.Ok)
             TempData["Error"] = string.Join(" ", resultado.Errores);
 
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CambiarEstadoDetalle(int id, string nuevoEstado)
+    {
+        if (!EstadoDetallePedido.Todos().Contains(nuevoEstado)) return BadRequest();
+
+        var restauranteId = await GetRestauranteIdAsync();
+        if (!restauranteId.HasValue) return Forbid();
+
+        var permitido = await _context.DetallesPedidos
+            .AnyAsync(d => d.Id == id &&
+                           d.Pedido!.MesaSesion!.Mesa!.RestauranteId == restauranteId.Value &&
+                           (User.EsAdmin() || d.Pedido.MesaSesion.GarzonId == GetUserId()));
+
+        if (!permitido) return NotFound();
+
+        var resultado = await _pedidoService.CambiarEstadoDetalleAsync(id, nuevoEstado, GetUserId() ?? string.Empty);
+        if (!resultado.Ok) TempData["Error"] = string.Join(" ", resultado.Errores);
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CambiarEstadoMesa(int id, string nuevoEstado)
+    {
+        if (!EstadoDetallePedido.Todos().Contains(nuevoEstado)) return BadRequest();
+
+        var restauranteId = await GetRestauranteIdAsync();
+        if (!restauranteId.HasValue) return Forbid();
+
+        var permitido = await _context.MesaSesiones
+            .AnyAsync(s => s.Id == id && s.FechaCierre == null &&
+                           s.Mesa!.RestauranteId == restauranteId.Value &&
+                           (User.EsAdmin() || s.GarzonId == GetUserId()));
+
+        if (!permitido) return NotFound();
+
+        var resultado = await _pedidoService.CambiarEstadoMesaAsync(id, nuevoEstado, GetUserId() ?? string.Empty);
+        if (!resultado.Ok) TempData["Error"] = string.Join(" ", resultado.Errores);
         return RedirectToAction(nameof(Index));
     }
 

@@ -9,42 +9,29 @@ using Microsoft.EntityFrameworkCore;
 namespace EatWeb.Controllers;
 
 [Authorize(Roles = Roles.Admin)]
-public class CategoriasController : Controller
+public class CategoriasController : RestauranteControllerBase
 {
     private readonly ApplicationDbContext _context;
-    private readonly RestauranteContextService _restauranteContext;
-
-    public CategoriasController(
-        ApplicationDbContext context,
-        RestauranteContextService restauranteContext)
+    public CategoriasController(ApplicationDbContext context)
     {
         _context = context;
-        _restauranteContext = restauranteContext;
-    }
-
-    private async Task<int?> GetRestauranteIdAsync()
-    {
-        var restaurante = await _restauranteContext.ObtenerActualAsync();
-        return restaurante?.Id;
     }
 
     public async Task<IActionResult> Index()
     {
-        var restauranteId = await GetRestauranteIdAsync();
-
-        if (!restauranteId.HasValue)
-            return RedirectToAction("Index", "Admin");
-
         var categorias = await _context.Categorias
             .AsNoTracking()
-            .Where(c => c.RestauranteId == restauranteId.Value)
+            .Where(c => c.RestauranteId == RestauranteId)
+            .Include(c => c.Estacion)
             .OrderBy(c => c.Orden)
             .Select(c => new CategoriaViewModel
             {
                 Id = c.Id,
                 Nombre = c.Nombre,
                 Orden = c.Orden,
-                Activa = c.Activa
+                Activa = c.Activa,
+                EstacionId = c.EstacionId,
+                EstacionNombre = c.Estacion != null ? c.Estacion.Nombre : null
             })
             .ToListAsync();
 
@@ -54,29 +41,19 @@ public class CategoriasController : Controller
     [HttpGet]
     public async Task<IActionResult> Crear()
     {
-        var restauranteId = await GetRestauranteIdAsync();
-
-        if (!restauranteId.HasValue)
-            return RedirectToAction("Index", "Admin");
-
-        return View();
+        return View(await PrepararEstacionesAsync(new CategoriaViewModel()));
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Crear(CategoriaViewModel modelo)
     {
-        var restauranteId = await GetRestauranteIdAsync();
-
-        if (!restauranteId.HasValue)
-            return Forbid();
-
         if (!ModelState.IsValid)
-            return View(modelo);
+            return View(await PrepararEstacionesAsync(modelo));
 
         var existe = await _context.Categorias
             .AnyAsync(c =>
-                c.RestauranteId == restauranteId.Value &&
+                c.RestauranteId == RestauranteId &&
                 c.Nombre == modelo.Nombre);
 
         if (existe)
@@ -85,15 +62,18 @@ public class CategoriasController : Controller
                 nameof(modelo.Nombre),
                 "Ya existe una categoría con este nombre");
 
-            return View(modelo);
+            return View(await PrepararEstacionesAsync(modelo));
         }
+
+        if (!await EstacionValidaAsync(modelo.EstacionId)) return BadRequest();
 
         var categoria = new Categoria
         {
-            RestauranteId = restauranteId.Value,
+            RestauranteId = RestauranteId,
             Nombre = modelo.Nombre,
             Orden = modelo.Orden,
-            Activa = modelo.Activa
+            Activa = modelo.Activa,
+            EstacionId = modelo.EstacionId
         };
 
         _context.Categorias.Add(categoria);
@@ -108,15 +88,10 @@ public class CategoriasController : Controller
     [HttpGet]
     public async Task<IActionResult> Editar(int id)
     {
-        var restauranteId = await GetRestauranteIdAsync();
-
-        if (!restauranteId.HasValue)
-            return Forbid();
-
         var categoria = await _context.Categorias
             .FirstOrDefaultAsync(c =>
                 c.Id == id &&
-                c.RestauranteId == restauranteId.Value);
+                c.RestauranteId == RestauranteId);
 
         if (categoria == null)
             return NotFound();
@@ -126,7 +101,8 @@ public class CategoriasController : Controller
             Id = categoria.Id,
             Nombre = categoria.Nombre,
             Orden = categoria.Orden,
-            Activa = categoria.Activa
+            Activa = categoria.Activa,
+            EstacionId = categoria.EstacionId
         });
     }
 
@@ -137,24 +113,19 @@ public class CategoriasController : Controller
         CategoriaViewModel modelo)
     {
         if (id != modelo.Id || !ModelState.IsValid)
-            return View(modelo);
-
-        var restauranteId = await GetRestauranteIdAsync();
-
-        if (!restauranteId.HasValue)
-            return Forbid();
+            return View(await PrepararEstacionesAsync(modelo));
 
         var categoria = await _context.Categorias
             .FirstOrDefaultAsync(c =>
                 c.Id == id &&
-                c.RestauranteId == restauranteId.Value);
+                c.RestauranteId == RestauranteId);
 
         if (categoria == null)
             return NotFound();
 
         var existe = await _context.Categorias
             .AnyAsync(c =>
-                c.RestauranteId == restauranteId.Value &&
+                c.RestauranteId == RestauranteId &&
                 c.Nombre == modelo.Nombre &&
                 c.Id != id);
 
@@ -164,12 +135,15 @@ public class CategoriasController : Controller
                 nameof(modelo.Nombre),
                 "Ya existe otra categoría con este nombre");
 
-            return View(modelo);
+            return View(await PrepararEstacionesAsync(modelo));
         }
+
+        if (!await EstacionValidaAsync(modelo.EstacionId)) return BadRequest();
 
         categoria.Nombre = modelo.Nombre;
         categoria.Orden = modelo.Orden;
         categoria.Activa = modelo.Activa;
+        categoria.EstacionId = modelo.EstacionId;
 
         await _context.SaveChangesAsync();
 
@@ -182,15 +156,10 @@ public class CategoriasController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Activar(int id)
     {
-        var restauranteId = await GetRestauranteIdAsync();
-
-        if (!restauranteId.HasValue)
-            return Forbid();
-
         var categoria = await _context.Categorias
             .FirstOrDefaultAsync(c =>
                 c.Id == id &&
-                c.RestauranteId == restauranteId.Value);
+                c.RestauranteId == RestauranteId);
 
         if (categoria != null)
         {
@@ -204,4 +173,17 @@ public class CategoriasController : Controller
 
         return RedirectToAction(nameof(Index));
     }
+    private async Task<CategoriaViewModel> PrepararEstacionesAsync(CategoriaViewModel modelo)
+    {
+        modelo.Estaciones = await _context.Estaciones
+            .Where(e => e.RestauranteId == RestauranteId && e.Activa)
+            .OrderBy(e => e.Orden)
+            .Select(e => new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem(e.Nombre, e.Id.ToString()))
+            .ToListAsync();
+        return modelo;
+    }
+
+    private async Task<bool> EstacionValidaAsync(int? estacionId) =>
+        !estacionId.HasValue || await _context.Estaciones.AnyAsync(e => e.Id == estacionId && e.RestauranteId == RestauranteId && e.Activa);
+
 }

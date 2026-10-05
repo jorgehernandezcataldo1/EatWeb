@@ -26,4 +26,6 @@ public class Restaurante
 
     public ICollection<Ingrediente> Ingredientes { get; set; }
         = new List<Ingrediente>();
+
+    public ICollection<Estacion> Estaciones { get; set; } = new List<Estacion>();
 }

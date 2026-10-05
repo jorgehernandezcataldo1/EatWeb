@@ -10,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 //builder.Services.AddDbContext<ApplicationDbContext>(options =>
 //    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// TODO: mover DefaultConnection a user-secrets o variables de entorno antes de producción.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 
@@ -77,6 +78,7 @@ builder.Services.AddScoped<SesionService>();
 builder.Services.AddScoped<CarritoService>();
 builder.Services.AddScoped<PedidoService>();
 builder.Services.AddScoped<CuentaService>();
+builder.Services.AddScoped<RestauranteDefaultsService>();
 builder.Services.AddScoped<DbSeeder>();
 builder.Services.AddScoped<AccesoRestauranteService>();
 builder.Services.AddScoped<RestauranteContextService>();
