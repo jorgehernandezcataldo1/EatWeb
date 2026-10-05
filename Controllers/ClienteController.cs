@@ -293,6 +293,7 @@ public class ClienteController : Controller
                 Total = p.Total,
                 Fecha = p.FechaCreacion,
                 Items = p.Detalles
+                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
                     .Select(d => d.Cantidad + "x " + d.NombreProducto)
                     .ToList()
             })
