@@ -1,10 +1,16 @@
-﻿@model CarritoViewModel
+@model CarritoViewModel
 @{
     ViewData["Title"] = "Carrito";
     var clp = new System.Globalization.CultureInfo("es-CL");
 }
 
-<h3 class="mb-3">🛒 Tu pedido</h3>
+<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+    <div>
+        <h1 class="cliente-title h3 mb-1">Tu pedido</h1>
+        <div class="cliente-muted small">Puedes editar todo antes de enviarlo a cocina.</div>
+    </div>
+    <a asp-action="Carta" class="btn btn-outline-secondary">Seguir pidiendo</a>
+</div>
 
 @if (Model.Errores.Any())
 {
@@ -18,80 +24,89 @@
 
 @if (Model.Lineas.Count == 0)
 {
-    <div class="alert alert-info">Tu carrito está vacío.</div>
-    <a asp-action="Carta" class="btn btn-primary">Ir a la carta</a>
+    <div class="cliente-card text-center p-4 p-md-5">
+        <div class="display-6 mb-2">◫</div>
+        <h2 class="h5">Tu carrito está vacío</h2>
+        <p class="cliente-muted">Agrega productos desde la carta.</p>
+        <a asp-action="Carta" class="btn cliente-primary">Ir a la carta</a>
+    </div>
 }
 else
 {
-    <div class="list-group mb-3">
+    <div class="mb-3">
         @foreach (var l in Model.Lineas)
         {
-            <div class="list-group-item">
-                <div class="d-flex justify-content-between align-items-start">
-                    <strong>@l.NombreProducto</strong>
-                    <span>@l.Subtotal.ToString("C0", clp)</span>
+            <article class="cliente-cart-line">
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                    <div class="flex-grow-1">
+                        <div class="fw-bold">@l.NombreProducto</div>
+                        <div class="small cliente-muted">@l.EstacionNombre</div>
+
+                        @if (l.Personalizaciones.Any())
+                        {
+                            <div class="small text-muted mt-2">
+                                @string.Join(" · ", l.Personalizaciones.Select(p => $"{p.TipoAccion} {p.NombreIngrediente}"))
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(l.Observacion))
+                        {
+                            <div class="small fst-italic mt-1">“@l.Observacion”</div>
+                        }
+                    </div>
+
+                    <div class="text-end">
+                        <div class="fw-bold">@l.Subtotal.ToString("C0", clp)</div>
+                        <a asp-action="EditarLinea" asp-route-lineaId="@l.LineaId"
+                           class="small text-decoration-none">Editar</a>
+                    </div>
                 </div>
 
-                @if (l.Personalizaciones.Any())
-                {
-                    <ul class="small text-muted mb-1 mt-1">
-                        @foreach (var p in l.Personalizaciones)
-                        {
-                            <li>
-                                @p.TipoAccion @p.NombreIngrediente
-                                @if (p.PrecioExtra > 0)
-                                {
-                                    <span>(+@p.PrecioExtra.ToString("C0", clp))</span>
-                                }
-                            </li>
-                        }
-                    </ul>
-                }
+                <div class="d-flex align-items-center gap-2 mt-3">
+                    <div class="cliente-stepper">
+                        <form asp-action="CambiarCantidad" method="post">
+                            <input type="hidden" name="lineaId" value="@l.LineaId" />
+                            <input type="hidden" name="delta" value="-1" />
+                            <button type="submit" class="btn btn-sm btn-outline-secondary" aria-label="Quitar uno">−</button>
+                        </form>
+                        <strong>@l.Cantidad</strong>
+                        <form asp-action="CambiarCantidad" method="post">
+                            <input type="hidden" name="lineaId" value="@l.LineaId" />
+                            <input type="hidden" name="delta" value="1" />
+                            <button type="submit" class="btn btn-sm btn-outline-secondary" aria-label="Agregar uno">+</button>
+                        </form>
+                    </div>
 
-                @if (!string.IsNullOrWhiteSpace(l.Observacion))
-                {
-                    <p class="small mb-1"><em>💬 @l.Observacion</em></p>
-                }
-
-                <div class="d-flex align-items-center gap-2 mt-2">
-                    <form asp-action="CambiarCantidad" method="post" class="d-inline">
+                    <form asp-action="QuitarLinea" method="post" class="ms-auto">
                         <input type="hidden" name="lineaId" value="@l.LineaId" />
-                        <input type="hidden" name="delta" value="-1" />
-                        <button type="submit" class="btn btn-sm btn-outline-secondary">−</button>
-                    </form>
-                    <span class="fw-bold">@l.Cantidad</span>
-                    <form asp-action="CambiarCantidad" method="post" class="d-inline">
-                        <input type="hidden" name="lineaId" value="@l.LineaId" />
-                        <input type="hidden" name="delta" value="1" />
-                        <button type="submit" class="btn btn-sm btn-outline-secondary">+</button>
-                    </form>
-                    <form asp-action="QuitarLinea" method="post" class="d-inline ms-auto">
-                        <input type="hidden" name="lineaId" value="@l.LineaId" />
-                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                            🗑 Quitar
+                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                onclick="return confirm('¿Quitar este producto del carrito?');">
+                            Quitar
                         </button>
                     </form>
                 </div>
-            </div>
+            </article>
         }
     </div>
 
-    <div class="card bg-light mb-3">
-        <div class="card-body">
-            <h4 class="text-end mb-0">Total: @Model.Total.ToString("C0", clp)</h4>
+    <div class="cliente-card p-3 mb-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <span class="cliente-muted">Total</span>
+            <strong class="fs-4">@Model.Total.ToString("C0", clp)</strong>
         </div>
     </div>
 
-    <form asp-action="EnviarPedido" method="post">
-        <div class="mb-2">
-            <label class="form-label">Observación general (opcional)</label>
-            <input type="text" name="observacionGeneral" class="form-control"
-                   maxlength="300" placeholder="Ej: traer todo junto" />
+    <form asp-action="EnviarPedido" method="post" class="cliente-card p-3 p-md-4">
+        <label class="form-label fw-semibold">Nota general para cocina</label>
+        <input type="text" name="observacionGeneral" class="form-control"
+               maxlength="300" placeholder="Ej: traer todo junto" />
+
+        <div class="alert alert-light border mt-3 mb-3 small">
+            Al enviar el pedido ya no podrás modificar sus productos desde la app.
         </div>
-        <button type="submit" class="btn btn-success btn-lg w-100">
-            ✅ Enviar pedido a cocina
+
+        <button type="submit" class="btn cliente-primary btn-lg w-100">
+            Enviar pedido a cocina
         </button>
     </form>
-
-    <a asp-action="Carta" class="btn btn-link mt-2">← Seguir pidiendo</a>
 }

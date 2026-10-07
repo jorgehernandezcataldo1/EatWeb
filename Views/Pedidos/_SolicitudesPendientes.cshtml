@@ -1,57 +1,64 @@
-<div data-solicitud-count="@Model.Count">
 @model IReadOnlyList<SolicitudMesaResumenViewModel>
 
-@if (!Model.Any())
-{
-    <div class="text-muted small">Sin solicitudes pendientes.</div>
-}
-else
-{
-    <div class="row g-2">
-        @foreach (var s in Model)
-        {
-            var titulo = s.Tipo switch
+<div data-solicitud-count="@Model.Count">
+    @if (!Model.Any())
+    {
+        <div class="text-center text-muted small py-4">
+            Sin solicitudes pendientes.
+        </div>
+    }
+    else
+    {
+        <div class="d-grid gap-2">
+            @foreach (var s in Model)
             {
-                TipoSolicitudMesa.PedirCuenta => "💰 Cuenta",
-                TipoSolicitudMesa.LlamarGarzon => "🙋 Llamada",
-                TipoSolicitudMesa.SolicitarAlgo => "📝 Solicitud",
-                _ => s.Tipo
-            };
+                var titulo = s.Tipo switch
+                {
+                    TipoSolicitudMesa.PedirCuenta => "Solicita la cuenta",
+                    TipoSolicitudMesa.LlamarGarzon => "Llama al garzón",
+                    TipoSolicitudMesa.SolicitarAlgo => s.Mensaje ?? "Solicitud del cliente",
+                    _ => s.Mensaje ?? s.Tipo
+                };
 
-            var minutos = Math.Max(0, (int)(DateTime.UtcNow - s.FechaCreacion).TotalMinutes);
+                var minutos = Math.Max(0, (int)(DateTime.UtcNow - s.FechaCreacion).TotalMinutes);
 
-            <div class="col-md-6 col-xl-4">
-                <div class="border rounded p-2 h-100 @(minutos >= 5 ? "border-danger" : "border-warning")">
-                    <div class="d-flex justify-content-between align-items-start gap-2">
-                        <div>
-                            <strong>@titulo · Mesa @s.MesaNumero</strong>
-                            <div class="small text-muted">@s.ComensalNombre · hace @minutos min</div>
+                <div class="ops-notification-item @(minutos >= 5 ? "is-urgent" : "")">
+                    <div class="d-flex justify-content-between gap-2">
+                        <div class="min-w-0">
+                            <div class="fw-semibold small">Mesa @s.MesaNumero</div>
+                            <div class="ops-notification-type text-break mt-1">@titulo</div>
+                            <div class="ops-notification-time mt-1">
+                                @s.ComensalNombre · hace @minutos min
+                            </div>
                         </div>
-                        @if (minutos >= 5)
-                        {
-                            <span class="badge bg-danger">Demorada</span>
-                        }
-                        else
-                        {
-                            <span class="badge bg-warning text-dark">Pendiente</span>
-                        }
+                        <span class="mesa-alert-dot mt-2 flex-shrink-0"></span>
                     </div>
 
-                    @if (!string.IsNullOrWhiteSpace(s.Mensaje))
+                    @if (s.Tipo != TipoSolicitudMesa.SolicitarAlgo && !string.IsNullOrWhiteSpace(s.Mensaje))
                     {
-                        <div class="small mt-2">@s.Mensaje</div>
+                        <div class="small text-muted mt-2">@s.Mensaje</div>
                     }
 
-                    <form asp-action="AtenderSolicitud" method="post" class="mt-2">
-                        <input type="hidden" name="id" value="@s.Id" />
-                        <button type="submit" class="btn btn-sm btn-success">
-                            ✓ Marcar atendida
-                        </button>
-                    </form>
+                    <div class="d-flex gap-2 mt-3">
+                        <a asp-controller="Pedidos"
+                           asp-action="Index"
+                           asp-route-sesionId="@s.SesionId"
+                           asp-fragment="mesa-@s.SesionId"
+                           class="btn btn-sm btn-outline-secondary flex-fill">
+                            Ver mesa
+                        </a>
+                        <form asp-controller="Pedidos"
+                              asp-action="AtenderSolicitud"
+                              method="post"
+                              class="flex-fill">
+                            <input type="hidden" name="id" value="@s.Id" />
+                            <button type="submit" class="btn btn-sm btn-comidita w-100">
+                                Atendida
+                            </button>
+                        </form>
+                    </div>
                 </div>
-            </div>
-        }
-    </div>
-}
-
+            }
+        </div>
+    }
 </div>

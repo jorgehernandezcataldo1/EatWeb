@@ -1,64 +1,68 @@
 @{
-    // El controller solo llena estos datos cuando hay un comensal identificado
     var enMesa = ViewData["ComensalNombre"] != null;
+    var restaurante = ViewData["RestauranteNombre"]?.ToString();
+    var mesaNumero = ViewData["MesaNumero"]?.ToString();
+    var comensal = ViewData["ComensalNombre"]?.ToString();
+    var carritoCantidad = ViewData["CarritoCantidad"] is int cantidad ? cantidad : 0;
+    var actionActual = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
 }
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
     <title>@ViewData["Title"] - Comidita</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
-<body class="d-flex flex-column min-vh-100">
-    <header class="bg-light border-bottom py-2">
-        <div class="container d-flex justify-content-between align-items-center">
-            <div>
-                <div class="small text-muted">Comidita</div>
-                <h5 class="mb-0 text-truncate">@ViewData["RestauranteNombre"]</h5>
-            </div>
-            @if (enMesa)
+<body class="cliente-body">
+    <header class="cliente-topbar bg-white border-bottom">
+        <div class="container cliente-topbar-inner">
+            <a class="cliente-brand text-decoration-none text-dark"
+               href="@(enMesa ? Url.Action("Carta", "Cliente") : Url.Action("Index", "Home"))">
+                Comidita
+            </a>
+
+            @if (!string.IsNullOrWhiteSpace(restaurante))
             {
-                <span class="badge bg-primary">Mesa @ViewData["MesaNumero"] – @ViewData["ComensalNombre"]</span>
+                <div class="cliente-place text-end ms-auto">
+                    <div class="fw-semibold text-truncate">@restaurante</div>
+                    @if (enMesa)
+                    {
+                        <div class="small text-muted">Mesa @mesaNumero · @comensal</div>
+                    }
+                </div>
             }
         </div>
     </header>
 
-    @if (TempData["Ok"] != null)
-    {
-        <div class="alert alert-success alert-dismissible fade show m-3" role="alert">
-            @TempData["Ok"]
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    }
-
-    @if (TempData["Error"] != null)
-    {
-        <div class="alert alert-danger alert-dismissible fade show m-3" role="alert">
-            @TempData["Error"]
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    }
-
-    <main role="main" class="flex-grow-1 pb-5 mb-5">
-        <div class="container py-3">
+    <main role="main" class="cliente-main">
+        <div class="container cliente-container">
             @RenderBody()
         </div>
     </main>
 
     @if (enMesa)
     {
-        <nav class="navbar navbar-light bg-light border-top fixed-bottom">
-            <div class="container-fluid">
-                <div class="d-flex gap-2 w-100">
-                    <a href="@Url.Action("Carta", "Cliente")"
-                       class="btn btn-outline-primary flex-grow-1">📋 Carta</a>
-                    <a href="@Url.Action("Carrito", "Cliente")"
-                       class="btn btn-outline-warning flex-grow-1">🛒 Carrito</a>
-                    <a href="@Url.Action("MiMesa", "Cliente")"
-                       class="btn btn-outline-info flex-grow-1">🪑 Mi Mesa</a>
-                </div>
-            </div>
+        <nav class="cliente-bottom-nav bg-white border-top" aria-label="Navegación cliente">
+            <a asp-controller="Cliente" asp-action="Carta"
+               class="cliente-bottom-link @(actionActual is "Carta" or "Producto" ? "active" : "")">
+                <span class="cliente-nav-icon">⌑</span>
+                <small>Carta</small>
+            </a>
+            <a asp-controller="Cliente" asp-action="Carrito"
+               class="cliente-bottom-link position-relative @(actionActual is "Carrito" or "EditarLinea" ? "active" : "")">
+                <span class="cliente-nav-icon">◫</span>
+                <small>Carrito</small>
+                <span id="clienteCartBadge"
+                      class="cliente-cart-badge @(carritoCantidad > 0 ? "" : "d-none")">@carritoCantidad</span>
+            </a>
+            <a asp-controller="Cliente" asp-action="MiMesa"
+               class="cliente-bottom-link @(actionActual == "MiMesa" ? "active" : "")">
+                <span class="cliente-nav-icon">◉</span>
+                <small>Mi mesa</small>
+            </a>
         </nav>
     }
 
@@ -66,7 +70,63 @@
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+
+    <script>
+        window.comiditaSwal = function (options) {
+            if (typeof Swal === 'undefined') return;
+            Swal.fire({
+                confirmButtonColor: '#ff5b1f',
+                ...options
+            });
+        };
+    </script>
+
+    @if (TempData["SwalTitle"] != null)
+    {
+        var swalIcon = TempData["SwalIcon"]?.ToString() ?? "success";
+        var swalTitle = TempData["SwalTitle"]?.ToString() ?? string.Empty;
+        var swalText = TempData["SwalText"]?.ToString() ?? string.Empty;
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                window.comiditaSwal({
+                    icon: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(swalIcon)),
+                    title: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(swalTitle)),
+                    text: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(swalText))
+                });
+            });
+        </script>
+    }
+    else if (TempData["Error"] != null)
+    {
+        var errorText = TempData["Error"]?.ToString() ?? string.Empty;
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                window.comiditaSwal({
+                    icon: 'error',
+                    title: 'No pudimos hacerlo',
+                    text: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(errorText))
+                });
+            });
+        </script>
+    }
+    else if (TempData["Ok"] != null)
+    {
+        var okText = TempData["Ok"]?.ToString() ?? string.Empty;
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                window.comiditaSwal({
+                    icon: 'success',
+                    title: 'Listo',
+                    text: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(okText)),
+                    timer: 1800,
+                    showConfirmButton: false
+                });
+            });
+        </script>
+    }
+
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

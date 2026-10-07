@@ -1,0 +1,408 @@
+@model PedidosIndexViewModel
+@{
+    ViewData["Title"] = "Detalle de mesa";
+    var clp = new System.Globalization.CultureInfo("es-CL");
+}
+
+<div class="ops-page">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+        <div>
+            @{
+                var mesaActual = Model.Mesas.First();
+            }
+            <h1 class="ops-title h3 mb-1">Mesa @mesaActual.MesaNumero</h1>
+            <div class="ops-subtitle small">
+                Detalle operativo · @mesaActual.Pedidos.Count pedido(s)
+            </div>
+        </div>
+
+        <a asp-controller="Mesas" asp-action="Index" class="btn btn-outline-secondary align-self-start align-self-md-auto">
+            ← Volver a mesas
+        </a>
+    </div>
+
+    <div class="row g-3">
+        <section class="col-xl-9 order-2 order-xl-1">
+            <div id="pedidosActivosPanel">
+                @if (!Model.Mesas.Any())
+                {
+                    <div class="card ops-table-card">
+                        <div class="card-body py-5 text-center">
+                            <h2 class="h5 mb-1">No hay pedidos activos</h2>
+                            <p class="text-muted mb-0">Cuando una de tus mesas haga un pedido aparecerá aquí.</p>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="row g-3">
+                        @foreach (var m in Model.Mesas)
+                        {
+                            var estacionesMesa = m.Pedidos
+                                .SelectMany(p => p.Detalles)
+                                .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                                .GroupBy(d => new { d.EstacionId, d.Estacion })
+                                .OrderBy(g => g.Key.Estacion)
+                                .ToList();
+
+                            var totalMesa = m.Pedidos.Sum(p => p.Total);
+                            var personas = m.Pedidos
+                                .Select(p => p.ComensalNombre)
+                                .Where(n => !string.IsNullOrWhiteSpace(n))
+                                .Distinct()
+                                .Count();
+
+                            <div class="col-12" id="mesa-@m.SesionId">
+                                <article class="card ops-table-card shadow-sm">
+                                    <div class="card-header">
+                                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                                            <div class="d-flex align-items-center flex-wrap gap-2">
+                                                <h2 class="h5 fw-bold mb-0">Mesa @m.MesaNumero</h2>
+                                                @if (m.CuentaSolicitada)
+                                                {
+                                                    <span class="ops-status-pill status-danger">Cuenta solicitada</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="ops-status-pill">@m.Pedidos.Count pedido(s)</span>
+                                                }
+                                            </div>
+
+                                            <div class="d-flex align-items-center gap-3 small text-muted">
+                                                <span>♙ @personas</span>
+                                                <strong class="text-dark">@totalMesa.ToString("C0", clp)</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="card-body">
+                                        @if (estacionesMesa.Any())
+                                        {
+                                            <div class="rounded-3 border bg-light p-2 p-md-3 mb-3">
+                                                <div class="small text-uppercase text-muted fw-semibold mb-2">Por estación</div>
+
+                                                <div class="d-grid gap-2">
+                                                    @foreach (var estacion in estacionesMesa)
+                                                    {
+                                                        var pendientes = estacion.Count(d => d.Estado == EstadoDetallePedido.Pendiente);
+                                                        var preparando = estacion.Count(d => d.Estado == EstadoDetallePedido.EnPreparacion);
+                                                        var listos = estacion.Count(d => d.Estado == EstadoDetallePedido.Listo);
+                                                        var entregados = estacion.Count(d => d.Estado == EstadoDetallePedido.Entregado);
+
+                                                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                                                            <div>
+                                                                <strong class="small">@estacion.Key.Estacion</strong>
+                                                                <div class="small text-muted">
+                                                                    Pend. @pendientes · Prep. @preparando · Listos @listos · Ent. @entregados
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="d-flex flex-wrap gap-1 ops-actions">
+                                                                @if (pendientes > 0)
+                                                                {
+                                                                    <form asp-action="CambiarEstadoMesa" method="post">
+                                                                        <input type="hidden" name="id" value="@m.SesionId" />
+                                                                        <input type="hidden" name="estacionId" value="@estacion.Key.EstacionId" />
+                                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
+                                                                        <button class="btn btn-sm btn-outline-warning">Preparar @estacion.Key.Estacion</button>
+                                                                    </form>
+                                                                }
+
+                                                                @if (preparando > 0)
+                                                                {
+                                                                    <form asp-action="CambiarEstadoMesa" method="post">
+                                                                        <input type="hidden" name="id" value="@m.SesionId" />
+                                                                        <input type="hidden" name="estacionId" value="@estacion.Key.EstacionId" />
+                                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Listo" />
+                                                                        <button class="btn btn-sm btn-outline-success">Marcar listo</button>
+                                                                    </form>
+                                                                }
+
+                                                                @if (listos > 0)
+                                                                {
+                                                                    <form asp-action="CambiarEstadoMesa" method="post">
+                                                                        <input type="hidden" name="id" value="@m.SesionId" />
+                                                                        <input type="hidden" name="estacionId" value="@estacion.Key.EstacionId" />
+                                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Entregado" />
+                                                                        <button class="btn btn-sm btn-outline-secondary">Entregar</button>
+                                                                    </form>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+
+                                        @foreach (var p in m.Pedidos)
+                                        {
+                                            <section class="ops-order-block">
+                                                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                                    <div>
+                                                        <div class="fw-semibold">@p.ComensalNombre</div>
+                                                        <div class="small text-muted">
+                                                            Pedido #@p.Id · @ZonaHorariaService.ALocal(p.FechaCreacion).ToString("HH:mm")
+                                                        </div>
+                                                    </div>
+                                                    <partial name="_EstadoPedidoBadge" model="p.Estado" />
+                                                </div>
+
+                                                <div class="d-grid gap-2">
+                                                    @foreach (var d in p.Detalles)
+                                                    {
+                                                        <div class="ops-item @(d.Estado == EstadoDetallePedido.Cancelado ? "opacity-50" : "")">
+                                                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                                                <div class="flex-grow-1">
+                                                                    <div class="fw-semibold">
+                                                                        <span class="me-1">@d.Cantidad×</span>@d.Producto
+                                                                    </div>
+
+                                                                    <div class="d-flex flex-wrap gap-1 mt-1">
+                                                                        <span class="badge text-bg-light border">@d.Estacion</span>
+                                                                        <span class="badge @(d.Estado == EstadoDetallePedido.Cancelado ? "text-bg-danger" : d.Estado == EstadoDetallePedido.Listo ? "text-bg-success" : d.Estado == EstadoDetallePedido.EnPreparacion ? "text-bg-warning" : "text-bg-secondary")">
+                                                                            @d.Estado
+                                                                        </span>
+                                                                    </div>
+
+                                                                    @if (d.Personalizaciones.Any())
+                                                                    {
+                                                                        <div class="small text-muted mt-2">
+                                                                            @string.Join(" · ", d.Personalizaciones)
+                                                                        </div>
+                                                                    }
+
+                                                                    @if (!string.IsNullOrWhiteSpace(d.Observacion))
+                                                                    {
+                                                                        <div class="small fst-italic text-secondary mt-1">“@d.Observacion”</div>
+                                                                    }
+                                                                </div>
+
+                                                                <strong class="small text-nowrap">@d.Subtotal.ToString("C0", clp)</strong>
+                                                            </div>
+
+                                                            @if (d.FechaInicioPreparacion.HasValue || d.FechaListo.HasValue || d.FechaEntregado.HasValue)
+                                                            {
+                                                                <div class="small text-muted mt-2">
+                                                                    @if (d.FechaInicioPreparacion.HasValue)
+                                                                    {
+                                                                        <span class="me-2">Inicio @ZonaHorariaService.ALocal(d.FechaInicioPreparacion.Value).ToString("HH:mm")</span>
+                                                                    }
+                                                                    @if (d.FechaListo.HasValue)
+                                                                    {
+                                                                        <span class="me-2">Listo @ZonaHorariaService.ALocal(d.FechaListo.Value).ToString("HH:mm")</span>
+                                                                    }
+                                                                    @if (d.FechaEntregado.HasValue)
+                                                                    {
+                                                                        <span>Entregado @ZonaHorariaService.ALocal(d.FechaEntregado.Value).ToString("HH:mm")</span>
+                                                                    }
+                                                                </div>
+                                                            }
+
+                                                            <div class="d-flex flex-wrap gap-1 mt-2 ops-actions">
+                                                                @if (d.Estado == EstadoDetallePedido.Pendiente)
+                                                                {
+                                                                    <form asp-action="CambiarEstadoDetalle" method="post">
+                                                                        <input type="hidden" name="id" value="@d.Id" />
+                                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
+                                                                        <button class="btn btn-sm btn-outline-warning">Preparar</button>
+                                                                    </form>
+                                                                    <form asp-action="CambiarEstadoDetalle" method="post">
+                                                                        <input type="hidden" name="id" value="@d.Id" />
+                                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Cancelado" />
+                                                                        <button class="btn btn-sm btn-outline-danger"
+                                                                                onclick="return confirm('¿Cancelar este ítem?')">
+                                                                            Cancelar
+                                                                        </button>
+                                                                    </form>
+                                                                }
+                                                                else if (d.Estado == EstadoDetallePedido.EnPreparacion)
+                                                                {
+                                                                    <form asp-action="CambiarEstadoDetalle" method="post">
+                                                                        <input type="hidden" name="id" value="@d.Id" />
+                                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Listo" />
+                                                                        <button class="btn btn-sm btn-outline-success">Listo</button>
+                                                                    </form>
+                                                                    <form asp-action="CambiarEstadoDetalle" method="post">
+                                                                        <input type="hidden" name="id" value="@d.Id" />
+                                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Cancelado" />
+                                                                        <button class="btn btn-sm btn-outline-danger"
+                                                                                onclick="return confirm('¿Cancelar este ítem en preparación?')">
+                                                                            Cancelar
+                                                                        </button>
+                                                                    </form>
+                                                                }
+                                                                else if (d.Estado == EstadoDetallePedido.Listo)
+                                                                {
+                                                                    <form asp-action="CambiarEstadoDetalle" method="post">
+                                                                        <input type="hidden" name="id" value="@d.Id" />
+                                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Entregado" />
+                                                                        <button class="btn btn-sm btn-comidita">Entregar</button>
+                                                                    </form>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+
+                                                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3">
+                                                    <div class="d-flex flex-wrap gap-1 ops-actions">
+                                                        @if (p.Estado == EstadoPedido.Pendiente)
+                                                        {
+                                                            <form asp-action="CambiarEstado" method="post">
+                                                                <input type="hidden" name="id" value="@p.Id" />
+                                                                <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
+                                                                <button class="btn btn-sm btn-outline-warning">Pedido → preparación</button>
+                                                            </form>
+                                                            <form asp-action="CambiarEstado" method="post">
+                                                                <input type="hidden" name="id" value="@p.Id" />
+                                                                <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Cancelado" />
+                                                                <button class="btn btn-sm btn-outline-danger"
+                                                                        onclick="return confirm('¿Cancelar los ítems cancelables de este pedido?')">
+                                                                    Cancelar pedido
+                                                                </button>
+                                                            </form>
+                                                        }
+                                                        else if (p.Estado == EstadoPedido.EnPreparacion)
+                                                        {
+                                                            <form asp-action="CambiarEstado" method="post">
+                                                                <input type="hidden" name="id" value="@p.Id" />
+                                                                <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Listo" />
+                                                                <button class="btn btn-sm btn-outline-success">Pedido → listo</button>
+                                                            </form>
+                                                        }
+                                                        else if (p.Estado == EstadoPedido.Listo)
+                                                        {
+                                                            <form asp-action="CambiarEstado" method="post">
+                                                                <input type="hidden" name="id" value="@p.Id" />
+                                                                <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Entregado" />
+                                                                <button class="btn btn-sm btn-comidita">Pedido → entregado</button>
+                                                            </form>
+                                                        }
+                                                    </div>
+
+                                                    <strong>@p.Total.ToString("C0", clp)</strong>
+                                                </div>
+
+                                                @if (p.Historial.Any())
+                                                {
+                                                    <details class="mt-2">
+                                                        <summary class="small text-muted">Historial</summary>
+                                                        <div class="small mt-1">
+                                                            @foreach (var h in p.Historial)
+                                                            {
+                                                                <div class="text-muted">
+                                                                    @ZonaHorariaService.ALocal(h.Fecha).ToString("HH:mm")
+                                                                    · @(h.EstadoAnterior ?? "Creado") → @h.EstadoNuevo
+                                                                    · @h.Actor
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    </details>
+                                                }
+                                            </section>
+                                        }
+
+                                        <div class="pt-3 mt-2 border-top">
+                                            <div class="d-flex flex-column flex-lg-row justify-content-between gap-2">
+                                                <div class="d-flex flex-wrap gap-1 ops-actions">
+                                                    <form asp-action="CambiarEstadoMesa" method="post">
+                                                        <input type="hidden" name="id" value="@m.SesionId" />
+                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
+                                                        <button class="btn btn-sm btn-outline-warning">Mesa → preparación</button>
+                                                    </form>
+                                                    <form asp-action="CambiarEstadoMesa" method="post">
+                                                        <input type="hidden" name="id" value="@m.SesionId" />
+                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Listo" />
+                                                        <button class="btn btn-sm btn-outline-success">Mesa → listo</button>
+                                                    </form>
+                                                    <form asp-action="CambiarEstadoMesa" method="post">
+                                                        <input type="hidden" name="id" value="@m.SesionId" />
+                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Entregado" />
+                                                        <button class="btn btn-sm btn-outline-secondary">Mesa → entregado</button>
+                                                    </form>
+                                                </div>
+
+                                                <div class="d-flex flex-wrap gap-2 ops-actions">
+                                                    <a asp-action="Cuenta" asp-route-id="@m.SesionId"
+                                                       class="btn btn-comidita btn-sm">
+                                                        Ver cuenta
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </article>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </section>
+
+        <aside class="col-xl-3 order-1 order-xl-2" id="solicitudes">
+            <div class="ops-notifications ops-sticky-panel">
+                <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+                    <div class="d-flex align-items-center gap-2">
+                        <h2 class="h6 mb-0 fw-bold">Notificaciones</h2>
+                        <span class="badge rounded-pill text-bg-danger" id="solicitudesPendientesCount">
+                            @Model.SolicitudesPendientes.Count
+                        </span>
+                    </div>
+                    <span class="small text-muted">En vivo</span>
+                </div>
+
+                <div class="p-2 p-md-3" id="solicitudesPendientesPanel">
+                    <partial name="_SolicitudesPendientes" model="Model.SolicitudesPendientes" />
+                </div>
+            </div>
+        </aside>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        async function actualizarSolicitudes() {
+            try {
+                const response = await fetch('@Url.Action("SolicitudesPendientes", "Pedidos", new { sesionId = Model.Mesas.First().SesionId })', {
+                    cache: 'no-store'
+                });
+                if (!response.ok) return;
+
+                const html = await response.text();
+                document.getElementById('solicitudesPendientesPanel').innerHTML = html;
+
+                const contenedor = document.getElementById('solicitudesPendientesPanel')
+                    .querySelector('[data-solicitud-count]');
+                if (contenedor) {
+                    document.getElementById('solicitudesPendientesCount').textContent =
+                        contenedor.dataset.solicitudCount;
+                }
+            } catch {
+                // La próxima iteración vuelve a intentar.
+            }
+        }
+
+        async function actualizarPedidos() {
+            try {
+                const response = await fetch(window.location.href, {
+                    cache: 'no-store',
+                    headers: { 'X-Partial-Refresh': '1' }
+                });
+                if (!response.ok) return;
+
+                const html = await response.text();
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const nuevoPanel = doc.getElementById('pedidosActivosPanel');
+
+                if (nuevoPanel) {
+                    document.getElementById('pedidosActivosPanel').innerHTML = nuevoPanel.innerHTML;
+                }
+            } catch {
+                // La próxima iteración vuelve a intentar.
+            }
+        }
+
+        setInterval(actualizarSolicitudes, 5000);
+        setInterval(actualizarPedidos, 15000);
+    </script>
+}

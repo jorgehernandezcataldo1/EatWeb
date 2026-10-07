@@ -144,19 +144,72 @@ public class ClienteController : Controller
                         Descripcion = p.Descripcion,
                         Precio = p.Precio,
                         ImagenKey = p.ImagenKey,
-                        Disponible = p.Disponible
+                        Disponible = p.Disponible,
+                        TienePersonalizaciones = p.Ingredientes.Any(pi => pi.Ingrediente!.Activo)
                     })
                     .ToList()
             })
             .ToListAsync();
 
+        var carrito = _carrito.Obtener(ctx.ComensalId);
+        var cantidadesEstandar = carrito.Lineas
+            .Where(l =>
+                l.IngredientesQuitar.Count == 0 &&
+                l.IngredientesAgregar.Count == 0 &&
+                string.IsNullOrWhiteSpace(l.Observacion))
+            .GroupBy(l => l.ProductoId)
+            .ToDictionary(g => g.Key, g => g.Sum(l => l.Cantidad));
+
         foreach (var categoria in categorias)
         {
             foreach (var producto in categoria.Productos)
+            {
                 producto.ImagenUrl = _storage.ObtenerUrlPublica(producto.ImagenKey);
+                producto.CantidadEstandarEnCarrito =
+                    cantidadesEstandar.GetValueOrDefault(producto.Id);
+            }
         }
 
         return View(new CartaViewModel { Categorias = categorias });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AjustarCarritoRapido(int productoId, int delta)
+    {
+        var ctx = await ObtenerContextoAsync();
+        if (ctx == null)
+            return Json(new { ok = false, mensaje = "Tu sesión de mesa terminó." });
+
+        if (delta != 1 && delta != -1)
+            return BadRequest();
+
+        var disponible = await _context.Productos
+            .AsNoTracking()
+            .AnyAsync(p =>
+                p.Id == productoId &&
+                p.RestauranteId == ctx.RestauranteId &&
+                p.Activo &&
+                p.Disponible &&
+                p.Categoria != null &&
+                p.Categoria.Activa &&
+                p.Categoria.Estacion != null &&
+                p.Categoria.Estacion.Activa);
+
+        if (!disponible)
+            return Json(new { ok = false, mensaje = "Este producto ya no está disponible." });
+
+        var cantidadProducto = _carrito.AjustarProductoEstandar(
+            ctx.ComensalId,
+            productoId,
+            delta);
+
+        return Json(new
+        {
+            ok = true,
+            cantidadProducto,
+            cantidadCarrito = _carrito.CantidadTotal(ctx.ComensalId)
+        });
     }
 
     // ---------- 3b) Detalle del producto ----------
@@ -269,6 +322,88 @@ public class ClienteController : Controller
         return RedirectToAction(nameof(Carrito));
     }
 
+    [HttpGet]
+    public async Task<IActionResult> EditarLinea(Guid lineaId)
+    {
+        var ctx = await ObtenerContextoAsync();
+        if (ctx == null) return RedirectToAction(nameof(SinSesion));
+
+        var linea = _carrito.ObtenerLinea(ctx.ComensalId, lineaId);
+        if (linea == null)
+            return RedirectToAction(nameof(Carrito));
+
+        var producto = await _context.Productos
+            .AsNoTracking()
+            .Where(p =>
+                p.Id == linea.ProductoId &&
+                p.RestauranteId == ctx.RestauranteId &&
+                p.Activo)
+            .Select(p => new EditarLineaCarritoViewModel
+            {
+                ProductoId = p.Id,
+                Nombre = p.Nombre,
+                Descripcion = p.Descripcion,
+                Precio = p.Precio,
+                ImagenUrl = p.ImagenKey,
+                Incluidos = p.Ingredientes
+                    .Where(pi => pi.Tipo == TipoIngrediente.Incluido && pi.Ingrediente!.Activo)
+                    .Select(pi => new IngredienteOpcionViewModel
+                    {
+                        IngredienteId = pi.IngredienteId,
+                        Nombre = pi.Ingrediente!.Nombre
+                    }).ToList(),
+                Extras = p.Ingredientes
+                    .Where(pi => pi.Tipo == TipoIngrediente.Extra && pi.Ingrediente!.Activo)
+                    .Select(pi => new IngredienteOpcionViewModel
+                    {
+                        IngredienteId = pi.IngredienteId,
+                        Nombre = pi.Ingrediente!.Nombre,
+                        PrecioExtra = pi.PrecioExtra
+                    }).ToList()
+            })
+            .FirstOrDefaultAsync();
+
+        if (producto == null)
+            return RedirectToAction(nameof(Carrito));
+
+        producto.LineaId = linea.LineaId;
+        producto.Cantidad = linea.Cantidad;
+        producto.Observacion = linea.Observacion;
+        producto.IngredientesQuitar = linea.IngredientesQuitar.ToList();
+        producto.IngredientesAgregar = linea.IngredientesAgregar.ToList();
+        producto.ImagenUrl = _storage.ObtenerUrlPublica(producto.ImagenUrl);
+        return View(producto);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditarLinea(EditarLineaCarritoViewModel modelo)
+    {
+        var ctx = await ObtenerContextoAsync();
+        if (ctx == null) return RedirectToAction(nameof(SinSesion));
+
+        var linea = _carrito.ObtenerLinea(ctx.ComensalId, modelo.LineaId);
+        if (linea == null || linea.ProductoId != modelo.ProductoId)
+            return RedirectToAction(nameof(Carrito));
+
+        if (modelo.Cantidad < 1 || modelo.Cantidad > 20)
+        {
+            TempData["Error"] = "Cantidad inválida.";
+            return RedirectToAction(nameof(EditarLinea), new { lineaId = modelo.LineaId });
+        }
+
+        _carrito.ActualizarLinea(
+            ctx.ComensalId,
+            modelo.LineaId,
+            modelo.Cantidad,
+            modelo.IngredientesQuitar ?? new List<int>(),
+            modelo.IngredientesAgregar ?? new List<int>(),
+            modelo.Observacion ?? string.Empty);
+
+        TempData["Ok"] = "Producto actualizado en tu carrito.";
+        return RedirectToAction(nameof(Carrito));
+    }
+
     // ---------- 3e) Enviar pedido ----------
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -288,7 +423,9 @@ public class ClienteController : Controller
         }
 
         _carrito.Vaciar(ctx.ComensalId);
-        TempData["Ok"] = "Pedido enviado a cocina";
+        TempData["SwalIcon"] = "success";
+        TempData["SwalTitle"] = "Pedido enviado";
+        TempData["SwalText"] = "Tu pedido ya fue enviado. Desde ahora no puedes modificar sus productos; si necesitas un cambio, llama al garzón.";
         return RedirectToAction(nameof(MiMesa));
     }
 
@@ -299,37 +436,62 @@ public class ClienteController : Controller
         var ctx = await ObtenerContextoAsync();
         if (ctx == null) return RedirectToAction(nameof(SinSesion));
 
-        var pedidos = await _context.Pedidos
-            .AsNoTracking()
-            .Where(p => p.ComensalId == ctx.ComensalId
-                        && p.Estado != EstadoPedido.Cancelado)
-            .OrderByDescending(p => p.FechaCreacion)
-            .Select(p => new MiPedidoViewModel
-            {
-                Id = p.Id,
-                Estado = p.Estado,
-                Total = p.Detalles
-                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
-                    .Sum(d => d.Subtotal),
-                Fecha = p.FechaCreacion,
-                Items = p.Detalles
-                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
-                    .Select(d => d.Cantidad + "x " + d.NombreProducto)
-                    .ToList()
-            })
-            .ToListAsync();
+        var pedidosMesa = await ObtenerPedidosMesaAsync(ctx);
 
         var solicitudes = await ObtenerSolicitudesAsync(ctx);
+        var propios = pedidosMesa.Where(p => p.EsPropio).ToList();
 
         return View(new MiMesaViewModel
         {
             MesaNumero = ctx.MesaNumero,
             ComensalNombre = ctx.Nombre,
             CuentaSolicitada = ctx.CuentaSolicitada,
-            TotalConsumido = pedidos.Sum(p => p.Total),
-            Pedidos = pedidos,
+            PuedePedirCuenta = pedidosMesa.Any(p => p.Detalles.Count > 0),
+            TotalConsumido = propios.Sum(p => p.Total),
+            TotalMesa = pedidosMesa.Sum(p => p.Total),
+            Pedidos = propios,
+            PedidosMesa = pedidosMesa,
             Solicitudes = solicitudes
         });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> PedidosMesa()
+    {
+        var ctx = await LeerContextoAsync();
+        if (ctx == null)
+            return Unauthorized();
+
+        Response.Headers.CacheControl = "no-store";
+        var pedidos = await ObtenerPedidosMesaAsync(ctx);
+        return PartialView("_PedidosMesa", pedidos);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> EstadoMisPedidos()
+    {
+        var ctx = await LeerContextoAsync();
+        if (ctx == null)
+            return Unauthorized();
+
+        Response.Headers.CacheControl = "no-store";
+
+        var detalles = await _context.DetallesPedidos
+            .AsNoTracking()
+            .Where(d =>
+                d.Pedido!.MesaSesionId == ctx.SesionId &&
+                d.Pedido.Estado != EstadoPedido.Cancelado &&
+                d.Estado != EstadoDetallePedido.Cancelado)
+            .Select(d => new
+            {
+                id = d.Id,
+                producto = d.NombreProducto,
+                estado = d.Estado,
+                esPropio = d.Pedido!.ComensalId == ctx.ComensalId
+            })
+            .ToListAsync();
+
+        return Json(detalles);
     }
 
     [HttpPost]
@@ -398,6 +560,45 @@ public class ClienteController : Controller
         return PartialView("_MisSolicitudes", solicitudes);
     }
 
+    private Task<List<MiPedidoViewModel>> ObtenerPedidosMesaAsync(ContextoComensal ctx)
+    {
+        return _context.Pedidos
+            .AsNoTracking()
+            .Where(p =>
+                p.MesaSesionId == ctx.SesionId &&
+                p.Estado != EstadoPedido.Cancelado)
+            .OrderByDescending(p => p.FechaCreacion)
+            .Select(p => new MiPedidoViewModel
+            {
+                Id = p.Id,
+                ComensalId = p.ComensalId,
+                ComensalNombre = p.Comensal!.Nombre,
+                EsPropio = p.ComensalId == ctx.ComensalId,
+                Estado = p.Estado,
+                Total = p.Detalles
+                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                    .Sum(d => d.Subtotal),
+                Fecha = p.FechaCreacion,
+                Observacion = p.ObservacionGeneral,
+                Items = p.Detalles
+                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                    .Select(d => d.Cantidad + "x " + d.NombreProducto)
+                    .ToList(),
+                Detalles = p.Detalles
+                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                    .Select(d => new MiPedidoDetalleViewModel
+                    {
+                        Id = d.Id,
+                        Producto = d.NombreProducto,
+                        Cantidad = d.Cantidad,
+                        Estado = d.Estado,
+                        Subtotal = d.Subtotal
+                    })
+                    .ToList()
+            })
+            .ToListAsync();
+    }
+
     private Task<List<SolicitudMesaResumenViewModel>> ObtenerSolicitudesAsync(ContextoComensal ctx)
     {
         return _context.SolicitudesMesa
@@ -454,6 +655,7 @@ public class ClienteController : Controller
             ViewData["RestauranteNombre"] = ctx.RestauranteNombre;
             ViewData["MesaNumero"] = ctx.MesaNumero;
             ViewData["ComensalNombre"] = ctx.Nombre;
+            ViewData["CarritoCantidad"] = _carrito.CantidadTotal(ctx.ComensalId);
         }
         return ctx;
     }

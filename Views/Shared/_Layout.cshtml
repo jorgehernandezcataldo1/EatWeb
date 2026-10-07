@@ -1,12 +1,158 @@
-﻿<!DOCTYPE html>
+@{
+    var esGarzon = User.Identity?.IsAuthenticated == true && User.IsInRole(Roles.Garzon);
+    var controllerActual = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+    var restauranteNombre = ViewData["RestauranteNombre"] as string;
+    var usuarioNombre = User.Identity?.Name ?? "Garzón";
+    var inicialUsuario = string.IsNullOrWhiteSpace(usuarioNombre)
+        ? "G"
+        : usuarioNombre.Trim().Substring(0, 1).ToUpperInvariant();
+}
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Comidita</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
-<body>
+<body class="@(esGarzon ? "garzon-body" : "")">
+@if (esGarzon)
+{
+    <header class="garzon-topbar border-bottom bg-white">
+        <div class="d-flex align-items-center h-100 px-3 px-lg-4">
+            <button class="btn btn-link text-dark p-0 me-3 d-lg-none"
+                    type="button"
+                    data-bs-toggle="offcanvas"
+                    data-bs-target="#garzonMenu"
+                    aria-controls="garzonMenu"
+                    aria-label="Abrir menú">
+                <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+            </button>
+
+            <a class="garzon-brand text-decoration-none text-dark" asp-controller="Mesas" asp-action="Index">
+                Comidita
+            </a>
+
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <a class="garzon-icon-button position-relative d-lg-none"
+                   asp-controller="Pedidos" asp-action="Index" asp-fragment="solicitudes">
+                    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"
+                              fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </a>
+
+                <div class="d-none d-lg-flex align-items-center gap-2">
+                    <div class="garzon-avatar">@inicialUsuario</div>
+                    <div class="lh-sm">
+                        <div class="small fw-semibold text-truncate garzon-user-name">@usuarioNombre</div>
+                        <div class="text-muted garzon-user-role">Garzón</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <aside class="garzon-sidebar d-none d-lg-flex flex-column bg-white border-end">
+        <nav class="nav nav-pills flex-column gap-1 p-3">
+            <a class="nav-link garzon-nav-link @(controllerActual == "Mesas" ? "active" : "")"
+               asp-controller="Mesas" asp-action="Index">
+                <span class="garzon-nav-icon">▦</span>
+                <span>Mesas</span>
+            </a>
+            <a class="nav-link garzon-nav-link @(controllerActual == "Pedidos" ? "active" : "")"
+               asp-controller="Pedidos" asp-action="Index">
+                <span class="garzon-nav-icon">☷</span>
+                <span>Pedidos</span>
+            </a>
+            <a class="nav-link garzon-nav-link"
+               asp-controller="Pedidos" asp-action="Index" asp-fragment="solicitudes">
+                <span class="garzon-nav-icon">◉</span>
+                <span>Notificaciones</span>
+            </a>
+        </nav>
+
+        <div class="mt-auto p-3 border-top">
+            @if (!string.IsNullOrWhiteSpace(restauranteNombre))
+            {
+                <div class="small text-muted mb-2 text-truncate">@restauranteNombre</div>
+            }
+            <form asp-controller="Account" asp-action="Logout" method="post">
+                <button type="submit" class="btn btn-outline-secondary btn-sm w-100">Cerrar sesión</button>
+            </form>
+        </div>
+    </aside>
+
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="garzonMenu" aria-labelledby="garzonMenuLabel">
+        <div class="offcanvas-header border-bottom">
+            <h5 class="offcanvas-title garzon-brand" id="garzonMenuLabel">Comidita</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+        </div>
+        <div class="offcanvas-body d-flex flex-column">
+            <nav class="nav nav-pills flex-column gap-2">
+                <a class="nav-link garzon-nav-link @(controllerActual == "Mesas" ? "active" : "")"
+                   asp-controller="Mesas" asp-action="Index" data-bs-dismiss="offcanvas">Mesas</a>
+                <a class="nav-link garzon-nav-link @(controllerActual == "Pedidos" ? "active" : "")"
+                   asp-controller="Pedidos" asp-action="Index" data-bs-dismiss="offcanvas">Pedidos</a>
+                <a class="nav-link garzon-nav-link"
+                   asp-controller="Pedidos" asp-action="Index" asp-fragment="solicitudes" data-bs-dismiss="offcanvas">
+                    Notificaciones
+                </a>
+            </nav>
+
+            <div class="mt-auto pt-3 border-top">
+                <div class="fw-semibold">@usuarioNombre</div>
+                <div class="small text-muted mb-3">@(restauranteNombre ?? "Garzón")</div>
+                <form asp-controller="Account" asp-action="Logout" method="post">
+                    <button type="submit" class="btn btn-outline-secondary w-100">Cerrar sesión</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    @if (TempData["Ok"] != null)
+    {
+        <div class="garzon-flash alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["Ok"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="garzon-flash alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
+    }
+
+    <main role="main" class="garzon-main">
+        @RenderBody()
+    </main>
+
+    <nav class="garzon-bottom-nav d-lg-none bg-white border-top">
+        <a class="garzon-bottom-link @(controllerActual == "Mesas" ? "active" : "")"
+           asp-controller="Mesas" asp-action="Index">
+            <span>▦</span>
+            <small>Mesas</small>
+        </a>
+        <a class="garzon-bottom-link @(controllerActual == "Pedidos" ? "active" : "")"
+           asp-controller="Pedidos" asp-action="Index">
+            <span>☷</span>
+            <small>Pedidos</small>
+        </a>
+        <a class="garzon-bottom-link"
+           asp-controller="Pedidos" asp-action="Index" asp-fragment="solicitudes">
+            <span>◉</span>
+            <small>Alertas</small>
+        </a>
+    </nav>
+}
+else
+{
     <header>
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
             <div class="container-fluid">
@@ -20,15 +166,10 @@
                         {
                             @if (User.EsAdmin())
                             {
-                                <li class="nav-item">
-                                    <a class="nav-link" asp-controller="Admin" asp-action="Index">Dashboard</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" asp-controller="Mesas" asp-action="Administrar">Mesas</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" asp-controller="Pedidos" asp-action="Index">Pedidos</a>
-                                </li>
+                                <li class="nav-item"><a class="nav-link" asp-controller="Admin" asp-action="Index">Dashboard</a></li>
+                                <li class="nav-item"><a class="nav-link" asp-controller="Mesas" asp-action="Administrar">Mesas</a></li>
+                                <li class="nav-item"><a class="nav-link" asp-controller="Sectores" asp-action="Index">Sectores</a></li>
+                                <li class="nav-item"><a class="nav-link" asp-controller="Pedidos" asp-action="Index">Pedidos</a></li>
                                 <li class="nav-item dropdown">
                                     <a class="nav-link dropdown-toggle" href="#" id="catalogoDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Catálogo</a>
                                     <ul class="dropdown-menu" aria-labelledby="catalogoDropdown">
@@ -38,35 +179,21 @@
                                         <li><a class="dropdown-item" asp-controller="Ingredientes" asp-action="Index">Ingredientes</a></li>
                                     </ul>
                                 </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" asp-controller="Garzones" asp-action="Index">Garzones</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" asp-controller="Sesiones" asp-action="Index">Historial</a>
-                                </li>
+                                <li class="nav-item"><a class="nav-link" asp-controller="Garzones" asp-action="Index">Garzones</a></li>
+                                <li class="nav-item"><a class="nav-link" asp-controller="Sesiones" asp-action="Index">Historial</a></li>
                             }
-                            else if (User.IsInRole(Roles.Garzon))
+
+                            @if (User.IsInRole(Roles.AdminRestaurante) && restauranteNombre is not null)
                             {
-                                <li class="nav-item">
-                                    <a class="nav-link" asp-controller="Mesas" asp-action="Index">Mesas</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" asp-controller="Pedidos" asp-action="Index">Pedidos</a>
-                                </li>
+                                <li class="nav-item"><span class="navbar-text me-2">@restauranteNombre</span></li>
                             }
-                            @if (User.IsInRole(Roles.AdminRestaurante) && ViewData["RestauranteNombre"] is string restauranteNombre)
-                            {
-                                <li class="nav-item">
-                                    <span class="navbar-text me-2">@restauranteNombre</span>
-                                </li>
-                            }
+
                             @if (User.IsInRole(Roles.AdminCadena))
                             {
                                 @await Component.InvokeAsync("RestauranteSelector")
-                                <li class="nav-item">
-                                    <a class="nav-link" asp-controller="Cadenas" asp-action="Index">Mi Cadena</a>
-                                </li>
+                                <li class="nav-item"><a class="nav-link" asp-controller="Cadenas" asp-action="Index">Mi Cadena</a></li>
                             }
+
                             <li class="nav-item">
                                 <form class="d-inline" asp-controller="Account" asp-action="Logout" method="post">
                                     <button type="submit" class="nav-link btn btn-link">Logout</button>
@@ -106,12 +233,13 @@
             &copy; 2026 - Comidita · Gestión y autogestión para restaurantes
         </div>
     </footer>
+}
 
-    @Html.AntiForgeryToken()
+@Html.AntiForgeryToken()
 
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
-    @await RenderSectionAsync("Scripts", required: false)
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+@await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

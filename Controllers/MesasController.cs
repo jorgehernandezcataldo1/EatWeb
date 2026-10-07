@@ -30,17 +30,24 @@ public class MesasController : RestauranteControllerBase
     public async Task<IActionResult> Index()
     {
         var restauranteId = RestauranteId;
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         var query = _context.Mesas.Where(m => m.RestauranteId == restauranteId);
 
         if (User.IsInRole(Roles.Garzon))
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             query = query.Where(m =>
                 m.GarzonId == userId ||
                 m.Sesiones.Any(s => s.FechaCierre == null && s.GarzonId == userId));
         }
 
-        return View(await ConstruirTableroAsync(query));
+        var mesas = await ConstruirTableroAsync(query);
+        var solicitudes = await ObtenerSolicitudesPendientesAsync(userId);
+
+        return View(new MesasIndexViewModel
+        {
+            Mesas = mesas,
+            SolicitudesPendientes = solicitudes
+        });
     }
 
     // ---------- Gestión (solo Admin) ----------
@@ -62,7 +69,7 @@ public class MesasController : RestauranteControllerBase
             .Where(m => m.RestauranteId == restauranteId)
             .MaxAsync(m => (int?)m.Numero) ?? 0;
 
-        await CargarGarzonesAsync(restauranteId);
+        await CargarOpcionesMesaAsync(restauranteId);
         return View(new MesaFormViewModel { Numero = ultimo + 1 });
     }
 
@@ -79,9 +86,12 @@ public class MesasController : RestauranteControllerBase
         if (!await GarzonEsValidoAsync(modelo.GarzonId, restauranteId))
             ModelState.AddModelError(nameof(modelo.GarzonId), "Garzón inválido");
 
+        if (!await SectorEsValidoAsync(modelo.SectorId, restauranteId))
+            ModelState.AddModelError(nameof(modelo.SectorId), "Sector inválido");
+
         if (!ModelState.IsValid)
         {
-            await CargarGarzonesAsync(restauranteId);
+            await CargarOpcionesMesaAsync(restauranteId, modelo.SectorId);
             return View(modelo);
         }
 
@@ -91,7 +101,9 @@ public class MesasController : RestauranteControllerBase
             Numero = modelo.Numero,
             CodigoQr = QrHelper.GenerarCodigo(),
             Activa = modelo.Activa,
-            GarzonId = string.IsNullOrEmpty(modelo.GarzonId) ? null : modelo.GarzonId
+            GarzonId = string.IsNullOrEmpty(modelo.GarzonId) ? null : modelo.GarzonId,
+            SectorId = modelo.SectorId,
+            OrdenEnSector = modelo.OrdenEnSector
         };
 
         _context.Mesas.Add(mesa);
@@ -108,13 +120,15 @@ public class MesasController : RestauranteControllerBase
         var mesa = await BuscarMesaAsync(id);
         if (mesa == null) return NotFound();
 
-        await CargarGarzonesAsync(mesa.RestauranteId);
+        await CargarOpcionesMesaAsync(mesa.RestauranteId, mesa.SectorId);
         return View(new MesaFormViewModel
         {
             Id = mesa.Id,
             Numero = mesa.Numero,
             Activa = mesa.Activa,
-            GarzonId = mesa.GarzonId
+            GarzonId = mesa.GarzonId,
+            SectorId = mesa.SectorId,
+            OrdenEnSector = mesa.OrdenEnSector
         });
     }
 
@@ -134,6 +148,9 @@ public class MesasController : RestauranteControllerBase
 
         if (!await GarzonEsValidoAsync(modelo.GarzonId, restauranteId))
             ModelState.AddModelError(nameof(modelo.GarzonId), "Garzón inválido");
+ 
+        if (!await SectorEsValidoAsync(modelo.SectorId, restauranteId))
+            ModelState.AddModelError(nameof(modelo.SectorId), "Sector inválido");
 
         if (!modelo.Activa && await TieneSesionAbiertaAsync(id))
             ModelState.AddModelError(nameof(modelo.Activa),
@@ -141,13 +158,15 @@ public class MesasController : RestauranteControllerBase
 
         if (!ModelState.IsValid)
         {
-            await CargarGarzonesAsync(restauranteId);
+            await CargarOpcionesMesaAsync(restauranteId, modelo.SectorId);
             return View(modelo);
         }
 
         mesa.Numero = modelo.Numero;
         mesa.Activa = modelo.Activa;
         mesa.GarzonId = string.IsNullOrEmpty(modelo.GarzonId) ? null : modelo.GarzonId;
+        mesa.SectorId = modelo.SectorId;
+        mesa.OrdenEnSector = modelo.OrdenEnSector;
         await _context.SaveChangesAsync();
 
         TempData["Ok"] = "Mesa actualizada";
@@ -255,7 +274,17 @@ public class MesasController : RestauranteControllerBase
         return await GarzonesActivos(restauranteId).AnyAsync(u => u.Id == garzonId);
     }
 
-    private async Task CargarGarzonesAsync(int restauranteId)
+    private Task<bool> SectorEsValidoAsync(int? sectorId, int restauranteId)
+    {
+        if (!sectorId.HasValue) return Task.FromResult(true);
+
+        return _context.Sectores.AnyAsync(s =>
+            s.Id == sectorId.Value &&
+            s.RestauranteId == restauranteId &&
+            s.Activo);
+    }
+
+    private async Task CargarOpcionesMesaAsync(int restauranteId, int? sectorId = null)
     {
         var garzones = await GarzonesActivos(restauranteId)
             .AsNoTracking()
@@ -263,23 +292,64 @@ public class MesasController : RestauranteControllerBase
             .Select(u => new { u.Id, u.NombreCompleto })
             .ToListAsync();
 
+        var sectores = await _context.Sectores
+            .AsNoTracking()
+            .Where(s => s.RestauranteId == restauranteId && s.Activo)
+            .OrderBy(s => s.Orden)
+            .ThenBy(s => s.Nombre)
+            .ToListAsync();
+
         ViewBag.Garzones = new SelectList(garzones, "Id", "NombreCompleto");
+        ViewBag.Sectores = new SelectList(sectores, "Id", "Nombre", sectorId);
+    }
+
+    private Task<List<SolicitudMesaResumenViewModel>> ObtenerSolicitudesPendientesAsync(string? userId)
+    {
+        return _context.SolicitudesMesa
+            .AsNoTracking()
+            .Where(s =>
+                s.Estado == EstadoSolicitudMesa.Pendiente &&
+                s.MesaSesion!.FechaCierre == null &&
+                s.MesaSesion.Mesa!.RestauranteId == RestauranteId &&
+                (User.EsAdmin() ||
+                 s.MesaSesion.GarzonId == userId ||
+                 s.MesaSesion.Mesa.GarzonId == userId))
+            .OrderBy(s => s.FechaCreacion)
+            .Select(s => new SolicitudMesaResumenViewModel
+            {
+                Id = s.Id,
+                SesionId = s.MesaSesionId,
+                MesaNumero = s.MesaSesion!.Mesa!.Numero,
+                ComensalNombre = s.Comensal!.Nombre,
+                Tipo = s.Tipo,
+                Mensaje = s.Mensaje,
+                Estado = s.Estado,
+                FechaCreacion = s.FechaCreacion,
+                FechaResolucion = s.FechaResolucion
+            })
+            .ToListAsync();
     }
 
     /// <summary>
-    /// Arma el tablero con 3 consultas pequeñas (mesas, sesiones abiertas, pedidos)
+    /// Arma el tablero con consultas pequeñas (mesas, sesiones abiertas, pedidos)
     /// y combina en memoria. Es más claro que un Include gigante y trae solo lo necesario.
     /// </summary>
     private async Task<List<MesaViewModel>> ConstruirTableroAsync(IQueryable<Mesa> query)
     {
         var mesas = await query
             .AsNoTracking()
-            .OrderBy(m => m.Numero)
+            .OrderBy(m => m.Sector != null ? m.Sector.Orden : int.MaxValue)
+            .ThenBy(m => m.OrdenEnSector)
+            .ThenBy(m => m.Numero)
             .Select(m => new
             {
                 m.Id,
                 m.Numero,
                 m.Activa,
+                m.SectorId,
+                m.OrdenEnSector,
+                SectorNombre = m.Sector != null ? m.Sector.Nombre : "Sin sector",
+                SectorOrden = m.Sector != null ? m.Sector.Orden : int.MaxValue,
                 GarzonNombre = m.Garzon != null ? m.Garzon.NombreCompleto : null
             })
             .ToListAsync();
@@ -293,6 +363,7 @@ public class MesasController : RestauranteControllerBase
             {
                 s.Id,
                 s.MesaId,
+                s.FechaApertura,
                 CuentaSolicitada = s.CuentaSolicitadaEn != null,
                 Comensales = s.Comensales.Count()
             })
@@ -305,6 +376,15 @@ public class MesasController : RestauranteControllerBase
             .Where(p => sesionIds.Contains(p.MesaSesionId))
             .Select(p => new { p.MesaSesionId, p.Estado, p.Total })
             .ToListAsync();
+
+        var solicitudesPorSesion = await _context.SolicitudesMesa
+            .AsNoTracking()
+            .Where(s =>
+                sesionIds.Contains(s.MesaSesionId) &&
+                s.Estado == EstadoSolicitudMesa.Pendiente)
+            .GroupBy(s => s.MesaSesionId)
+            .Select(g => new { SesionId = g.Key, Cantidad = g.Count() })
+            .ToDictionaryAsync(x => x.SesionId, x => x.Cantidad);
 
         return mesas.Select(m =>
         {
@@ -320,7 +400,15 @@ public class MesasController : RestauranteControllerBase
                 Activa = m.Activa,
                 GarzonNombre = m.GarzonNombre,
                 TieneSesionAbierta = sesion != null,
+                SesionId = sesion?.Id,
+                SectorId = m.SectorId,
+                SectorNombre = m.SectorNombre,
+                OrdenEnSector = m.OrdenEnSector,
+                FechaApertura = sesion?.FechaApertura,
                 Comensales = sesion?.Comensales ?? 0,
+                SolicitudesPendientes = sesion == null
+                    ? 0
+                    : solicitudesPorSesion.GetValueOrDefault(sesion.Id),
                 TotalAcumulado = pedidosMesa
                     .Where(p => p.Estado != EstadoPedido.Cancelado)
                     .Sum(p => p.Total),

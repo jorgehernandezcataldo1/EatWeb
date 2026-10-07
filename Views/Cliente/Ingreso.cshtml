@@ -1,33 +1,39 @@
-﻿@model IngresoViewModel
+@model IngresoViewModel
 
 @{
     ViewData["Title"] = $"Mesa {Model.MesaNumero}";
-    ViewData["RestauranteNombre"] = Model.RestauranteNombre; // lo muestra el layout
+    ViewData["RestauranteNombre"] = Model.RestauranteNombre;
 }
 
-<div class="row justify-content-center mt-4">
-    <div class="col-12 col-sm-8 col-md-5">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h4 class="text-center">Bienvenido a @Model.RestauranteNombre</h4>
-                <p class="text-center text-muted">Estás en la <strong>Mesa @Model.MesaNumero</strong></p>
+<div class="cliente-login-shell">
+    <div class="text-center mb-4">
+        <div class="cliente-login-mark">C</div>
+        <h1 class="cliente-title h3 mb-1">@Model.RestauranteNombre</h1>
+        <div class="cliente-muted">Mesa @Model.MesaNumero</div>
+    </div>
 
-                @* Sin action: envía al mismo /m/{codigo}. asp-antiforgery agrega el token. *@
-                <form method="post" asp-antiforgery="true">
-                    <div class="mb-3">
-                        <label asp-for="Nombre" class="form-label">¿Cómo te llamas?</label>
-                        <input asp-for="Nombre" class="form-control form-control-lg"
-                               maxlength="40" required autofocus autocomplete="given-name" />
-                        <span asp-validation-for="Nombre" class="text-danger"></span>
-                    </div>
+    <div class="cliente-hero-card p-3 p-md-4">
+        <h2 class="h5 fw-bold mb-1">Bienvenido a tu mesa</h2>
+        <p class="cliente-muted small mb-4">Ingresa tu nombre para abrir la carta y pedir desde tu teléfono.</p>
 
-                    <button type="submit" class="btn btn-primary btn-lg w-100">Entrar a la carta</button>
-                </form>
+        <form method="post" asp-antiforgery="true">
+            <label asp-for="Nombre" class="form-label fw-semibold">¿Cómo te llamas?</label>
+            <input asp-for="Nombre"
+                   class="form-control form-control-lg"
+                   maxlength="40"
+                   required
+                   autofocus
+                   autocomplete="given-name"
+                   placeholder="Tu nombre" />
+            <span asp-validation-for="Nombre" class="text-danger small"></span>
 
-                <p class="small text-muted mt-3 mb-0">
-                    Tu nombre lo verá el restaurante y quienes estén en tu mesa.
-                </p>
-            </div>
-        </div>
+            <button type="submit" class="btn cliente-primary btn-lg w-100 mt-4">
+                Entrar a la carta
+            </button>
+        </form>
+
+        <p class="small cliente-muted mt-3 mb-0">
+            Tu nombre lo verá el restaurante y las personas que están en esta mesa.
+        </p>
     </div>
 </div>

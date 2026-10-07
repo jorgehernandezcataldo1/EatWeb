@@ -1,204 +1,358 @@
-@model CuentaViewModel
+@model DivisionCuentaViewModel
 @{
-    ViewData["Title"] = $"Cuenta Mesa {Model.MesaNumero}";
+    ViewData["Title"] = $"Cuenta - Mesa {Model.MesaNumero}";
     var clp = new System.Globalization.CultureInfo("es-CL");
+    var partesIniciales = Math.Max(1, Model.CantidadPartes);
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0">Cuenta Mesa @Model.MesaNumero</h2>
-    <div>
-        @if (Model.CuentaSolicitada)
-        {
-            <span class="badge bg-warning text-dark me-2">💰 Solicitada</span>
-        }
-        <a asp-action="Index" class="btn btn-outline-secondary btn-sm">← Volver</a>
-    </div>
-</div>
+<div class="ops-page">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <h1 class="ops-title h3 mb-0">Cuenta · Mesa @Model.MesaNumero</h1>
+                @if (Model.CuentaSolicitada)
+                {
+                    <span class="ops-status-pill status-danger">Solicitada</span>
+                }
+            </div>
+            <div class="ops-subtitle small mt-1">
+                Abierta @ZonaHorariaService.ALocal(Model.FechaApertura).ToString("HH:mm") · @Model.Personas.Count persona(s)
+            </div>
+        </div>
 
-@if (!Model.PuedeCobrar)
-{
-    <div class="alert alert-warning">
-        Todavía hay pedidos pendientes, en preparación o listos. El cobro se habilita cuando todos los pedidos estén entregados o cancelados.
+        <a asp-action="Mesa" asp-route-id="@Model.SesionId" class="btn btn-outline-secondary align-self-start align-self-md-auto">
+            ← Volver a la mesa
+        </a>
     </div>
-}
 
-<div class="row">
-    <div class="col-md-8">
-        @foreach (var persona in Model.Personas)
-        {
-            <div class="card mb-3">
-                <div class="card-header bg-light d-flex justify-content-between align-items-start">
-                    <div>
-                        <strong>@persona.Nombre</strong>
-                        <small class="text-muted ms-2">
-                            desde @ZonaHorariaService.ALocal(persona.FechaIngreso).ToString("HH:mm")
-                        </small>
-                    </div>
-                    <div class="text-end">
-                        <strong>@persona.TotalConsumido.ToString("C0", clp)</strong>
-                        @if (persona.TotalPagado > 0)
-                        {
-                            <div class="small text-success">Pagado @persona.TotalPagado.ToString("C0", clp)</div>
-                        }
-                        @if (persona.SaldoPendiente > 0)
-                        {
-                            <div class="small text-danger">Pendiente @persona.SaldoPendiente.ToString("C0", clp)</div>
-                        }
+    @if (!Model.PuedeCobrar)
+    {
+        <div class="alert alert-warning border-0 shadow-sm">
+            Aún hay pedidos pendientes, en preparación o listos. Puedes revisar la cuenta, pero el pago se habilitará cuando estén resueltos.
+        </div>
+    }
+
+    <div class="row g-3">
+        <section class="col-xl-7">
+            <div class="card ops-table-card mb-3">
+                <div class="card-body">
+                    <div class="row g-2 text-center">
+                        <div class="col-4">
+                            <div class="small text-muted">Total</div>
+                            <div class="fs-5 fw-bold">@Model.Total.ToString("C0", clp)</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="small text-muted">Pagado</div>
+                            <div class="fs-5 fw-bold text-success">@Model.TotalPagado.ToString("C0", clp)</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="small text-muted">Pendiente</div>
+                            <div class="fs-5 fw-bold text-danger">@Model.SaldoPendiente.ToString("C0", clp)</div>
+                        </div>
                     </div>
                 </div>
-                <div class="card-body p-0">
-                    @if (!persona.Items.Any())
-                    {
-                        <p class="text-muted p-3 mb-0">Sin consumos</p>
-                    }
-                    else
-                    {
-                        <table class="table table-sm mb-0 align-middle">
+            </div>
+
+            <div class="d-grid gap-3">
+                @foreach (var persona in Model.Personas)
+                {
+                    <article class="card ops-table-card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                <div>
+                                    <h2 class="h6 fw-bold mb-1">@persona.Nombre</h2>
+                                    <div class="small text-muted">
+                                        Ingresó @ZonaHorariaService.ALocal(persona.FechaIngreso).ToString("HH:mm")
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="fw-semibold">@persona.TotalConsumido.ToString("C0", clp)</div>
+                                    @if (persona.SaldoPendiente > 0)
+                                    {
+                                        <div class="small text-danger">Pendiente @persona.SaldoPendiente.ToString("C0", clp)</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="small text-success">Pagado</div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card-body p-0">
+                            @if (!persona.Items.Any())
+                            {
+                                <div class="p-3 text-muted small">Sin consumos.</div>
+                            }
+                            else
+                            {
+                                <div class="list-group list-group-flush">
+                                    @foreach (var item in persona.Items)
+                                    {
+                                        <div class="list-group-item py-3">
+                                            <div class="d-flex justify-content-between align-items-start gap-3">
+                                                <div class="flex-grow-1">
+                                                    <div class="fw-semibold">@item.Cantidad× @item.Producto</div>
+
+                                                    @if (item.Personalizaciones.Any())
+                                                    {
+                                                        <div class="small text-muted mt-1">@string.Join(" · ", item.Personalizaciones)</div>
+                                                    }
+
+                                                    @if (!string.IsNullOrWhiteSpace(item.Observacion))
+                                                    {
+                                                        <div class="small fst-italic text-secondary mt-1">“@item.Observacion”</div>
+                                                    }
+
+                                                    <div class="small text-muted mt-1">@item.EstadoPedido</div>
+                                                </div>
+                                                <div class="text-end">
+                                                    <div class="fw-semibold">@item.Subtotal.ToString("C0", clp)</div>
+                                                    @if (item.SaldoPendiente == 0)
+                                                    {
+                                                        <span class="badge text-bg-success">Pagado</span>
+                                                    }
+                                                    else if (item.MontoPagado > 0)
+                                                    {
+                                                        <div class="small text-success">Pagado @item.MontoPagado.ToString("C0", clp)</div>
+                                                        <div class="small text-danger">Saldo @item.SaldoPendiente.ToString("C0", clp)</div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+
+            @if (Model.Pagos.Any())
+            {
+                <div class="card ops-table-card mt-3">
+                    <div class="card-header">
+                        <h2 class="h6 fw-bold mb-0">Pagos registrados</h2>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
                             <thead>
                                 <tr class="small text-muted">
-                                    <th>Cant.</th>
-                                    <th>Producto</th>
-                                    <th class="text-end">Total</th>
-                                    <th class="text-end">Saldo</th>
+                                    <th>Hora</th>
+                                    <th>Método</th>
+                                    <th>Persona</th>
+                                    <th class="text-end">Consumo</th>
+                                    <th class="text-end">Propina</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var item in persona.Items)
+                                @foreach (var pago in Model.Pagos)
                                 {
                                     <tr>
-                                        <td>@item.Cantidad×</td>
-                                        <td>
-                                            @item.Producto
-                                            @if (item.Personalizaciones.Any())
-                                            {
-                                                <ul class="small text-muted mb-0">
-                                                    @foreach (var p in item.Personalizaciones)
-                                                    {
-                                                        <li>@p</li>
-                                                    }
-                                                </ul>
-                                            }
-                                            @if (!string.IsNullOrWhiteSpace(item.Observacion))
-                                            {
-                                                <div class="small fst-italic text-secondary">
-                                                    💬 @item.Observacion
-                                                </div>
-                                            }
-                                            <partial name="_EstadoPedidoBadge" model="item.EstadoPedido" />
-                                        </td>
-                                        <td class="text-end">@item.Subtotal.ToString("C0", clp)</td>
-                                        <td class="text-end">
-                                            @if (item.SaldoPendiente == 0)
-                                            {
-                                                <span class="badge bg-success">Pagado</span>
-                                            }
-                                            else
-                                            {
-                                                <span>@item.SaldoPendiente.ToString("C0", clp)</span>
-                                            }
-                                        </td>
+                                        <td>@ZonaHorariaService.ALocal(pago.Fecha).ToString("HH:mm")</td>
+                                        <td>@pago.Metodo</td>
+                                        <td>@(pago.ComensalNombre ?? "Mesa")</td>
+                                        <td class="text-end">@pago.Monto.ToString("C0", clp)</td>
+                                        <td class="text-end">@pago.Propina.ToString("C0", clp)</td>
                                     </tr>
                                 }
                             </tbody>
                         </table>
-                    }
+                    </div>
                 </div>
-            </div>
-        }
+            }
+        </section>
 
-        @if (Model.Pagos.Any())
-        {
-            <div class="card mb-3">
-                <div class="card-header"><strong>Pagos registrados</strong></div>
-                <div class="table-responsive">
-                    <table class="table table-sm mb-0 align-middle">
-                        <thead>
-                            <tr class="small text-muted">
-                                <th>Hora</th>
-                                <th>Método</th>
-                                <th>Persona</th>
-                                <th class="text-end">Consumo</th>
-                                <th class="text-end">Propina</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var pago in Model.Pagos)
+        <aside class="col-xl-5">
+            <div class="card ops-table-card ops-sticky-panel">
+                <div class="card-header">
+                    <h2 class="h5 fw-bold mb-1">¿Cómo van a pagar?</h2>
+                    <div class="small text-muted">Elige división, persona o ítems y luego el método de pago.</div>
+                </div>
+
+                @if (Model.SaldoPendiente > 0)
+                {
+                    <form asp-action="CerrarConDivision" method="post" id="formPago">
+                        <div class="card-body">
+                            <input type="hidden" name="SesionId" value="@Model.SesionId" />
+                            <input type="hidden" name="Modo" id="inputModo" value="Todo" />
+                            <input type="hidden" name="IdempotencyKey" value="@Guid.NewGuid().ToString("N")" />
+
+                            <div class="row g-2 mb-3" role="group" aria-label="Forma de dividir la cuenta">
+                                <div class="col-6">
+                                    <input type="radio" class="btn-check" name="modoVisual" id="modoTodo"
+                                           checked onchange="cambiarModo('Todo')" />
+                                    <label class="btn btn-outline-secondary w-100 h-100" for="modoTodo">Todo</label>
+                                </div>
+                                <div class="col-6">
+                                    <input type="radio" class="btn-check" name="modoVisual" id="modoIgual"
+                                           onchange="cambiarModo('Igual')" />
+                                    <label class="btn btn-outline-secondary w-100 h-100" for="modoIgual">Partes iguales</label>
+                                </div>
+                                <div class="col-6">
+                                    <input type="radio" class="btn-check" name="modoVisual" id="modoConsumo"
+                                           onchange="cambiarModo('PorConsumo')" />
+                                    <label class="btn btn-outline-secondary w-100 h-100" for="modoConsumo">Por persona</label>
+                                </div>
+                                <div class="col-6">
+                                    <input type="radio" class="btn-check" name="modoVisual" id="modoPersonalizado"
+                                           onchange="cambiarModo('Personalizado')" />
+                                    <label class="btn btn-outline-secondary w-100 h-100" for="modoPersonalizado">Por ítems</label>
+                                </div>
+                            </div>
+
+                            <div id="panelTodo" class="payment-mode-panel mb-3">
+                                <div class="rounded-3 bg-light border p-3">
+                                    Se registrará el saldo completo:
+                                    <strong>@Model.SaldoPendiente.ToString("C0", clp)</strong>.
+                                </div>
+                            </div>
+
+                            <div id="panelIgual" class="payment-mode-panel mb-3 d-none">
+                                <label for="cantidadPartes" class="form-label">Dividir entre</label>
+                                <input type="number" name="CantidadPartes" id="cantidadPartes"
+                                       class="form-control" value="@partesIniciales" min="1" max="20"
+                                       oninput="actualizarParte()" />
+                                <div class="mt-2 small">
+                                    Se registrará una parte de aproximadamente
+                                    <strong id="montoParte"></strong>.
+                                </div>
+                            </div>
+
+                            <div id="panelConsumo" class="payment-mode-panel mb-3 d-none">
+                                <label class="form-label">Persona que paga</label>
+                                <select name="ComensalId" class="form-select">
+                                    <option value="">Seleccionar...</option>
+                                    @foreach (var p in Model.Personas.Where(p => p.SaldoPendiente > 0))
+                                    {
+                                        <option value="@p.ComensalId">
+                                            @p.Nombre — @p.SaldoPendiente.ToString("C0", clp)
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div id="panelPersonalizado" class="payment-mode-panel mb-3 d-none">
+                                <label class="form-label">Ítems que se pagarán</label>
+                                <div class="border rounded-3 p-2" style="max-height: 280px; overflow:auto;">
+                                    @foreach (var item in Model.Items)
+                                    {
+                                        <div class="form-check py-1">
+                                            <input class="form-check-input"
+                                                   type="checkbox"
+                                                   name="DetallePedidoIds"
+                                                   value="@item.DetallePedidoId"
+                                                   id="detalle-@item.DetallePedidoId" />
+                                            <label class="form-check-label small" for="detalle-@item.DetallePedidoId">
+                                                <strong>@item.ComensalNombre:</strong>
+                                                @item.Cantidad× @item.Producto · @item.SaldoPendiente.ToString("C0", clp)
+                                            </label>
+                                        </div>
+                                    }
+                                </div>
+                                <button type="button" class="btn btn-sm btn-link px-0 mt-1" onclick="seleccionarTodo()">
+                                    Seleccionar todos
+                                </button>
+                            </div>
+
+                            <hr />
+
+                            <label class="form-label fw-semibold">Método de pago</label>
+                            <div class="row g-2 mb-3">
+                                @foreach (var metodo in new[] { "Efectivo", "Tarjeta", "Transferencia" })
+                                {
+                                    var idMetodo = $"metodo-{metodo.ToLowerInvariant()}";
+                                    <div class="col-4">
+                                        <input class="btn-check" type="radio" name="Metodo" value="@metodo"
+                                               id="@idMetodo" checked="@(metodo == "Efectivo")" />
+                                        <label class="btn btn-outline-secondary w-100 small" for="@idMetodo">@metodo</label>
+                                    </div>
+                                }
+                            </div>
+
+                            <label class="form-label fw-semibold">Propina</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="Propina" min="0" step="1" class="form-control" value="0" />
+                            </div>
+                            <div class="form-text">La propina se registra aparte del consumo.</div>
+                        </div>
+
+                        <div class="card-footer bg-white">
+                            @if (Model.PuedeCobrar)
                             {
-                                <tr>
-                                    <td>@ZonaHorariaService.ALocal(pago.Fecha).ToString("HH:mm")</td>
-                                    <td>@pago.Metodo</td>
-                                    <td>@(pago.ComensalNombre ?? "Mesa")</td>
-                                    <td class="text-end">@pago.Monto.ToString("C0", clp)</td>
-                                    <td class="text-end">@pago.Propina.ToString("C0", clp)</td>
-                                </tr>
+                                <button type="submit" class="btn btn-comidita w-100"
+                                        onclick="return confirm('¿Registrar este pago?');">
+                                    Registrar pago
+                                </button>
                             }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        }
-    </div>
-
-    <div class="col-md-4">
-        <div class="card sticky-top" style="top: 1rem;">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Resumen de la mesa</h5>
-            </div>
-            <div class="card-body">
-                <dl class="row mb-3">
-                    <dt class="col-6">Total</dt>
-                    <dd class="col-6 text-end fw-semibold">@Model.Total.ToString("C0", clp)</dd>
-
-                    <dt class="col-6 text-success">Pagado</dt>
-                    <dd class="col-6 text-end text-success">@Model.TotalPagado.ToString("C0", clp)</dd>
-
-                    <dt class="col-6 text-danger">Pendiente</dt>
-                    <dd class="col-6 text-end text-danger fw-bold">@Model.SaldoPendiente.ToString("C0", clp)</dd>
-                </dl>
-
-                <dl class="row small mb-0">
-                    <dt class="col-6">Apertura</dt>
-                    <dd class="col-6 text-end">@Model.FechaApertura.ToLocalTime().ToString("HH:mm")</dd>
-
-                    <dt class="col-6">Personas</dt>
-                    <dd class="col-6 text-end">@Model.Personas.Count</dd>
-                </dl>
-            </div>
-            <div class="card-footer">
-                @if (Model.SaldoPendiente > 0 && Model.PuedeCobrar)
-                {
-                    <a asp-action="Dividir" asp-route-id="@Model.SesionId"
-                       class="btn btn-success w-100">
-                        💰 Registrar pago
-                    </a>
-                }
-                else if (Model.SaldoPendiente > 0)
-                {
-                    <button type="button" class="btn btn-success w-100" disabled>
-                        💰 Registrar pago
-                    </button>
-                }
-                else if (Model.PuedeCobrar)
-                {
-                    <form asp-action="CerrarMesa" asp-route-id="@Model.SesionId"
-                          method="post"
-                          onsubmit="return confirm('¿Cerrar la mesa?');">
-                        <button type="submit" class="btn btn-success w-100">
-                            ✅ Cerrar mesa
-                        </button>
+                            else
+                            {
+                                <button type="button" class="btn btn-comidita w-100" disabled>
+                                    Pago pendiente de pedidos
+                                </button>
+                            }
+                        </div>
                     </form>
                 }
                 else
                 {
-                    <button type="button" class="btn btn-success w-100" disabled>
-                        ✅ Cerrar mesa
-                    </button>
-                }
+                    <div class="card-body text-center">
+                        <div class="display-6 text-success mb-2">✓</div>
+                        <h3 class="h5">Cuenta pagada</h3>
+                        <p class="text-muted small">No queda saldo pendiente.</p>
 
-                <a asp-action="Index" class="btn btn-outline-secondary w-100 mt-2">
-                    Seguir atendiendo
-                </a>
+                        @if (Model.PuedeCobrar)
+                        {
+                            <form asp-action="CerrarMesa" asp-route-id="@Model.SesionId" method="post"
+                                  onsubmit="return confirm('¿Cerrar la mesa?');">
+                                <button type="submit" class="btn btn-comidita w-100">Cerrar mesa</button>
+                            </form>
+                        }
+                    </div>
+                }
             </div>
-        </div>
+        </aside>
     </div>
 </div>
+
+@section Scripts {
+<script>
+    const totalCuenta = @Model.Total;
+    const saldoPendiente = @Model.SaldoPendiente;
+    const clp = new Intl.NumberFormat('es-CL', {
+        style: 'currency',
+        currency: 'CLP',
+        maximumFractionDigits: 0
+    });
+
+    function cambiarModo(modo) {
+        document.getElementById('inputModo').value = modo;
+
+        ['Todo', 'Igual', 'Consumo', 'Personalizado'].forEach(nombre => {
+            const panel = document.getElementById('panel' + nombre);
+            if (panel) panel.classList.add('d-none');
+        });
+
+        const id = modo === 'PorConsumo' ? 'panelConsumo' : 'panel' + modo;
+        document.getElementById(id)?.classList.remove('d-none');
+
+        if (modo === 'Igual') actualizarParte();
+    }
+
+    function actualizarParte() {
+        const input = document.getElementById('cantidadPartes');
+        if (!input) return;
+        const n = Math.max(1, parseInt(input.value) || 1);
+        const parte = Math.min(Math.ceil(totalCuenta / n), saldoPendiente);
+        const salida = document.getElementById('montoParte');
+        if (salida) salida.textContent = clp.format(parte);
+    }
+
+    function seleccionarTodo() {
+        document.querySelectorAll('input[name="DetallePedidoIds"]').forEach(x => x.checked = true);
+    }
+
+    document.addEventListener('DOMContentLoaded', actualizarParte);
+</script>
+}

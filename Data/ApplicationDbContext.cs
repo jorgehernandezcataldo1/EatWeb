@@ -17,6 +17,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<CadenaMiembro> CadenasMiembros { get; set; } = null!;
     public DbSet<RestauranteMiembro> RestaurantesMiembros { get; set; } = null!;
     public DbSet<Mesa> Mesas { get; set; } = null!;
+    public DbSet<Sector> Sectores { get; set; } = null!;
     public DbSet<MesaSesion> MesaSesiones { get; set; } = null!;
     public DbSet<Comensal> Comensales { get; set; } = null!;
     public DbSet<Categoria> Categorias { get; set; } = null!;
@@ -151,6 +152,31 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .WithMany(u => u.Mesas)
             .HasForeignKey(m => m.GarzonId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // Sector
+        modelBuilder.Entity<Sector>()
+            .Property(s => s.Nombre)
+            .HasMaxLength(80)
+            .IsRequired();
+
+        modelBuilder.Entity<Sector>()
+            .HasIndex(s => new { s.RestauranteId, s.Nombre })
+            .IsUnique();
+
+        modelBuilder.Entity<Sector>()
+            .HasOne(s => s.Restaurante)
+            .WithMany(r => r.Sectores)
+            .HasForeignKey(s => s.RestauranteId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Mesa>()
+            .HasOne(m => m.Sector)
+            .WithMany(s => s.Mesas)
+            .HasForeignKey(m => m.SectorId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Mesa>()
+            .HasIndex(m => new { m.SectorId, m.OrdenEnSector });
 
         // MesaSesion
         modelBuilder.Entity<MesaSesion>()

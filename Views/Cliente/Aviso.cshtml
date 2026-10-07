@@ -1,10 +1,12 @@
-﻿@model AvisoClienteViewModel
-
+@model AvisoClienteViewModel
 @{
     ViewData["Title"] = Model.Titulo;
 }
 
-<div class="text-center mt-5">
-    <h3>@Model.Titulo</h3>
-    <p class="text-muted">@Model.Mensaje</p>
+<div class="cliente-login-shell">
+    <div class="cliente-hero-card p-4 p-md-5 text-center">
+        <div class="cliente-login-mark">C</div>
+        <h1 class="cliente-title h4">@Model.Titulo</h1>
+        <p class="cliente-muted mb-0">@Model.Mensaje</p>
+    </div>
 </div>

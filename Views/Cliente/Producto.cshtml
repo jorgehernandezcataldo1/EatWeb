@@ -1,92 +1,109 @@
-﻿@model ProductoDetalleViewModel
+@model ProductoDetalleViewModel
 @{
     ViewData["Title"] = Model.Nombre;
     var clp = new System.Globalization.CultureInfo("es-CL");
 }
 
 <div class="row justify-content-center">
-    <div class="col-12 col-md-8">
-        <div class="card shadow-sm">
+    <div class="col-12 col-lg-8">
+        <a asp-action="Carta" class="btn btn-link px-0 text-decoration-none mb-2">← Volver a la carta</a>
+
+        <article class="cliente-hero-card">
             @if (!string.IsNullOrWhiteSpace(Model.ImagenUrl))
             {
-                <img src="@Model.ImagenUrl" class="card-img-top"
-                     style="max-height: 300px; object-fit: cover;" alt="@Model.Nombre" />
+                <img src="@Model.ImagenUrl"
+                     alt="@Model.Nombre"
+                     class="w-100"
+                     style="max-height: 360px; object-fit: cover;" />
             }
-            <div class="card-body">
-                <h4>@Model.Nombre</h4>
-                @if (!string.IsNullOrWhiteSpace(Model.Descripcion))
-                {
-                    <p class="text-muted">@Model.Descripcion</p>
-                }
-                <h5 class="text-primary">@Model.Precio.ToString("C0", clp)</h5>
+
+            <div class="p-3 p-md-4">
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                    <div>
+                        <h1 class="cliente-title h3 mb-1">@Model.Nombre</h1>
+                        @if (!string.IsNullOrWhiteSpace(Model.Descripcion))
+                        {
+                            <p class="cliente-muted mb-2">@Model.Descripcion</p>
+                        }
+                    </div>
+                    <strong class="fs-5 text-nowrap">@Model.Precio.ToString("C0", clp)</strong>
+                </div>
 
                 @if (!Model.Disponible)
                 {
-                    <div class="alert alert-warning">Producto no disponible</div>
+                    <div class="alert alert-warning mt-3 mb-0">Este producto no está disponible por ahora.</div>
                 }
                 else
                 {
-                    <form asp-action="AgregarAlCarrito" method="post">
+                    <form asp-action="AgregarAlCarrito" method="post" class="mt-3">
                         <input type="hidden" name="ProductoId" value="@Model.Id" />
 
                         @if (Model.Incluidos.Any())
                         {
-                            <h6 class="mt-3">Quitar ingredientes</h6>
-                            foreach (var ing in Model.Incluidos)
-                            {
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox"
-                                           name="IngredientesQuitar"
-                                           value="@ing.IngredienteId"
-                                           id="q-@ing.IngredienteId" />
-                                    <label class="form-check-label" for="q-@ing.IngredienteId">
-                                        Sin @ing.Nombre
-                                    </label>
+                            <div class="cliente-card p-3 mb-3">
+                                <div class="cliente-section-label mb-2">Quitar ingredientes</div>
+                                <div class="row g-2">
+                                    @foreach (var ing in Model.Incluidos)
+                                    {
+                                        <div class="col-12 col-sm-6">
+                                            <label class="form-check border rounded-3 p-2 ps-5 w-100">
+                                                <input class="form-check-input" type="checkbox"
+                                                       name="IngredientesQuitar"
+                                                       value="@ing.IngredienteId"
+                                                       id="q-@ing.IngredienteId" />
+                                                <span class="form-check-label">Sin @ing.Nombre</span>
+                                            </label>
+                                        </div>
+                                    }
                                 </div>
-                            }
+                            </div>
                         }
 
                         @if (Model.Extras.Any())
                         {
-                            <h6 class="mt-3">Agregar ingredientes</h6>
-                            foreach (var ing in Model.Extras)
-                            {
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox"
-                                           name="IngredientesAgregar"
-                                           value="@ing.IngredienteId"
-                                           id="a-@ing.IngredienteId" />
-                                    <label class="form-check-label" for="a-@ing.IngredienteId">
-                                        Agregar @ing.Nombre
-                                        @if (ing.PrecioExtra > 0)
-                                        {
-                                            <span>(+@ing.PrecioExtra.ToString("C0", clp))</span>
-                                        }
-                                    </label>
+                            <div class="cliente-card p-3 mb-3">
+                                <div class="cliente-section-label mb-2">Agregar extras</div>
+                                <div class="row g-2">
+                                    @foreach (var ing in Model.Extras)
+                                    {
+                                        <div class="col-12 col-sm-6">
+                                            <label class="form-check border rounded-3 p-2 ps-5 w-100">
+                                                <input class="form-check-input" type="checkbox"
+                                                       name="IngredientesAgregar"
+                                                       value="@ing.IngredienteId"
+                                                       id="a-@ing.IngredienteId" />
+                                                <span class="form-check-label">
+                                                    @ing.Nombre
+                                                    @if (ing.PrecioExtra > 0)
+                                                    {
+                                                        <small class="text-muted">+@ing.PrecioExtra.ToString("C0", clp)</small>
+                                                    }
+                                                </span>
+                                            </label>
+                                        </div>
+                                    }
                                 </div>
-                            }
+                            </div>
                         }
 
-                        <div class="mt-3">
-                            <label class="form-label">Observación (opcional)</label>
-                            <input type="text" name="Observacion" class="form-control"
-                                   maxlength="200" placeholder="Ej: sin sal, bien cocido..." />
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Observación</label>
+                                <input type="text" name="Observacion" class="form-control"
+                                       maxlength="200" placeholder="Ej: sin sal, bien cocido..." />
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label fw-semibold">Cantidad</label>
+                                <input type="number" name="Cantidad" value="1" min="1" max="20" class="form-control" />
+                            </div>
                         </div>
 
-                        <div class="mt-3">
-                            <label class="form-label">Cantidad</label>
-                            <input type="number" name="Cantidad" value="1" min="1" max="20"
-                                   class="form-control" />
-                        </div>
-
-                        <button type="submit" class="btn btn-primary btn-lg w-100 mt-3">
-                            🛒 Agregar al carrito
+                        <button type="submit" class="btn cliente-primary btn-lg w-100 mt-4">
+                            Agregar al carrito
                         </button>
                     </form>
                 }
             </div>
-        </div>
-
-        <a asp-action="Carta" class="btn btn-link mt-2">← Volver a la carta</a>
+        </article>
     </div>
 </div>

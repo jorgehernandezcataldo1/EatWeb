@@ -8,6 +8,7 @@
 <div class="row mb-3">
     <div class="col"><h2>Mesas</h2></div>
     <div class="col text-end">
+        <a asp-controller="Sectores" asp-action="Index" class="btn btn-outline-secondary me-2">Sectores</a>
         <a asp-action="Crear" class="btn btn-primary">+ Nueva Mesa</a>
     </div>
 </div>
@@ -18,6 +19,7 @@
             <tr>
                 <th>Mesa</th>
                 <th>Estado</th>
+                <th>Sector</th>
                 <th>Garzón</th>
                 <th>Comensales</th>
                 <th>Acumulado</th>
@@ -30,6 +32,7 @@
                 <tr>
                     <td><strong>Mesa @mesa.Numero</strong></td>
                     <td><partial name="_EstadoMesaBadge" model="mesa.Estado" /></td>
+                    <td>@mesa.SectorNombre</td>
                     <td>@(mesa.GarzonNombre ?? "Sin asignar")</td>
                     <td>@mesa.Comensales</td>
                     <td>@mesa.TotalAcumulado.ToString("C0", clp)</td>

@@ -52,6 +52,19 @@ public class SolicitudMesaService
         if (sesion.Estado == EstadoSesion.Pagando)
             return Error("La cuenta ya se está procesando.");
 
+        if (tipo == TipoSolicitudMesa.PedirCuenta)
+        {
+            var tieneConsumo = await _context.DetallesPedidos
+                .AsNoTracking()
+                .AnyAsync(d =>
+                    d.Pedido!.MesaSesionId == sesionId &&
+                    d.Pedido.Estado != EstadoPedido.Cancelado &&
+                    d.Estado != EstadoDetallePedido.Cancelado);
+
+            if (!tieneConsumo)
+                return Error("Para pedir la cuenta, la mesa debe haber enviado al menos un producto.");
+        }
+
         var existente = await _context.SolicitudesMesa
             .AsNoTracking()
             .Where(s =>

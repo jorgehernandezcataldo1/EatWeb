@@ -1,0 +1,47 @@
+@model List<SectorViewModel>
+
+@{
+    ViewData["Title"] = "Sectores";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-1">Sectores</h2>
+        <div class="text-muted small">Organiza las mesas por salón, terraza, barra u otra zona.</div>
+    </div>
+    <a asp-action="Crear" class="btn btn-primary">+ Nuevo sector</a>
+</div>
+
+<div class="row g-3">
+    @foreach (var sector in Model)
+    {
+        <div class="col-md-6 col-xl-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div>
+                            <h5 class="mb-1">@sector.Nombre</h5>
+                            <div class="text-muted small">Orden @sector.Orden · @sector.CantidadMesas mesa(s)</div>
+                        </div>
+                        <span class="badge @(sector.Activo ? "bg-success" : "bg-secondary")">
+                            @(sector.Activo ? "Activo" : "Inactivo")
+                        </span>
+                    </div>
+                </div>
+                <div class="card-footer bg-white d-flex gap-2">
+                    <a asp-action="Editar" asp-route-id="@sector.Id" class="btn btn-sm btn-outline-primary">Editar</a>
+                    <form asp-action="Activar" asp-route-id="@sector.Id" method="post">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                            @(sector.Activo ? "Desactivar" : "Activar")
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">Aún no hay sectores. Crea, por ejemplo, Terraza o Salón 1.</div>
+}

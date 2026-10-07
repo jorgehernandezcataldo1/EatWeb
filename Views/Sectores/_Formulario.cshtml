@@ -1,0 +1,61 @@
+@model SectorViewModel
+
+<div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+<div class="col-md-7">
+    <label asp-for="Nombre" class="form-label">Nombre</label>
+    <input asp-for="Nombre" class="form-control" placeholder="Ej. Terraza" />
+    <span asp-validation-for="Nombre" class="text-danger"></span>
+</div>
+
+<div class="col-md-3">
+    <label asp-for="Orden" class="form-label">Orden</label>
+    <input asp-for="Orden" type="number" min="0" class="form-control" />
+</div>
+
+<div class="col-md-2 d-flex align-items-end">
+    <div class="form-check mb-2">
+        <input asp-for="Activo" class="form-check-input" />
+        <label asp-for="Activo" class="form-check-label">Activo</label>
+    </div>
+</div>
+
+<div class="col-12">
+    <div class="card">
+        <div class="card-header">
+            <strong>Mesas del sector</strong>
+            <div class="small text-muted">Selecciona las mesas que pertenecen a este sector. Una mesa solo puede estar en un sector.</div>
+        </div>
+        <div class="card-body">
+            @if (!Model.MesasDisponibles.Any())
+            {
+                <div class="text-muted">No hay mesas creadas todavía.</div>
+            }
+            else
+            {
+                <div class="row g-2">
+                    @foreach (var mesa in Model.MesasDisponibles)
+                    {
+                        var seleccionada = Model.MesaIds.Contains(mesa.Id);
+                        <div class="col-6 col-md-4 col-xl-3">
+                            <label class="border rounded p-2 w-100 h-100">
+                                <span class="form-check">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           name="MesaIds"
+                                           value="@mesa.Id"
+                                           checked="@seleccionada" />
+                                    <span class="form-check-label fw-semibold">Mesa @mesa.Numero</span>
+                                </span>
+                                @if (!string.IsNullOrWhiteSpace(mesa.SectorActual) && !seleccionada)
+                                {
+                                    <small class="text-muted d-block mt-1">Actualmente: @mesa.SectorActual</small>
+                                }
+                            </label>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>

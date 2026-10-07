@@ -18,6 +18,9 @@ public class Restaurante
     public ICollection<Mesa> Mesas { get; set; }
         = new List<Mesa>();
 
+    public ICollection<Sector> Sectores { get; set; }
+        = new List<Sector>();
+
     public ICollection<Categoria> Categorias { get; set; }
         = new List<Categoria>();
 

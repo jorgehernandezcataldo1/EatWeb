@@ -1,61 +1,167 @@
-﻿@model CartaViewModel
+@model CartaViewModel
 
 @{
     ViewData["Title"] = "Carta";
     var clp = new CultureInfo("es-CL");
 }
 
+<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+    <div>
+        <h1 class="cliente-title h3 mb-1">Carta</h1>
+        <div class="cliente-muted small">Agrega rápido o personaliza cada producto.</div>
+    </div>
+    <a asp-action="Carrito" class="btn cliente-primary">Ver carrito</a>
+</div>
+
 @if (Model.Categorias.Count == 0)
 {
-    <div class="alert alert-info">La carta aún no tiene productos.</div>
+    <div class="cliente-card p-4 text-center text-muted">La carta aún no tiene productos.</div>
 }
 else
 {
-    @* Barra de categorías: se desliza horizontalmente en el teléfono *@
-    <nav class="d-flex flex-nowrap overflow-auto gap-2 py-2 mb-3 sticky-top bg-white border-bottom">
+    <nav class="cliente-category-nav d-flex flex-nowrap overflow-auto gap-2">
         @foreach (var cat in Model.Categorias)
         {
-            <a href="#cat-@cat.Id" class="btn btn-sm btn-outline-secondary text-nowrap">@cat.Nombre</a>
+            <a href="#cat-@cat.Id" class="btn btn-sm btn-outline-secondary">@cat.Nombre</a>
         }
     </nav>
 
     @foreach (var cat in Model.Categorias)
     {
-        <section id="cat-@cat.Id" class="mb-4" style="scroll-margin-top: 4rem;">
-            <h4 class="mb-3">@cat.Nombre</h4>
+        <section id="cat-@cat.Id" class="mb-4" style="scroll-margin-top: 130px;">
+            <h2 class="h5 fw-bold mb-3">@cat.Nombre</h2>
 
             <div class="row g-3">
                 @foreach (var p in cat.Productos)
                 {
                     <div class="col-12 col-md-6">
-    <a asp-action="Producto" asp-route-id="@p.Id"
-       class="text-decoration-none text-reset">
-        <div class="card h-100 @(p.Disponible ? "" : "opacity-50")">
-            <div class="card-body d-flex gap-3">
-                @if (!string.IsNullOrWhiteSpace(p.ImagenUrl))
-                {
-                    <img src="@p.ImagenUrl" alt="@p.Nombre" loading="lazy"
-                         class="rounded flex-shrink-0"
-                         style="width: 80px; height: 80px; object-fit: cover;" />
-                }
-                <div class="flex-grow-1">
-                    <h6 class="mb-1">@p.Nombre</h6>
-                    @if (!string.IsNullOrWhiteSpace(p.Descripcion))
-                    {
-                        <p class="small text-muted mb-1">@p.Descripcion</p>
-                    }
-                    <strong>@p.Precio.ToString("C0", clp)</strong>
-                    @if (!p.Disponible)
-                    {
-                        <span class="badge bg-secondary ms-2">Agotado</span>
-                    }
-                </div>
-            </div>
-        </div>
-    </a>
-</div>
+                        <article class="cliente-product-card @(p.Disponible ? "" : "opacity-50")">
+                            <div class="p-3 d-flex gap-3">
+                                <a asp-action="Producto" asp-route-id="@p.Id" class="text-decoration-none flex-shrink-0">
+                                    @if (!string.IsNullOrWhiteSpace(p.ImagenUrl))
+                                    {
+                                        <img src="@p.ImagenUrl" alt="@p.Nombre" loading="lazy" class="cliente-product-image" />
+                                    }
+                                    else
+                                    {
+                                        <div class="cliente-product-placeholder">⌑</div>
+                                    }
+                                </a>
+
+                                <div class="flex-grow-1 min-w-0">
+                                    <a asp-action="Producto" asp-route-id="@p.Id" class="text-decoration-none text-reset">
+                                        <div class="fw-bold">@p.Nombre</div>
+                                        @if (!string.IsNullOrWhiteSpace(p.Descripcion))
+                                        {
+                                            <div class="small cliente-muted mt-1 text-truncate">@p.Descripcion</div>
+                                        }
+                                    </a>
+
+                                    <div class="fw-semibold mt-2">@p.Precio.ToString("C0", clp)</div>
+
+                                    @if (!p.Disponible)
+                                    {
+                                        <span class="badge text-bg-secondary mt-2">Agotado</span>
+                                    }
+                                    else
+                                    {
+                                        <div class="cliente-product-actions">
+                                            <a asp-action="Producto" asp-route-id="@p.Id"
+                                               class="small text-decoration-none">
+                                                @(p.TienePersonalizaciones ? "Personalizar" : "Ver detalle")
+                                            </a>
+
+                                            <div class="cliente-quick-stepper"
+                                                 data-producto-id="@p.Id"
+                                                 aria-label="Cantidad de @p.Nombre en carrito">
+                                                <button type="button"
+                                                        class="quick-minus"
+                                                        data-quick-delta="-1"
+                                                        aria-label="Quitar uno"
+                                                        @(p.CantidadEstandarEnCarrito <= 0 ? "disabled" : null)>−</button>
+                                                <span class="quick-qty">@p.CantidadEstandarEnCarrito</span>
+                                                <button type="button"
+                                                        class="quick-plus"
+                                                        data-quick-delta="1"
+                                                        aria-label="Agregar uno">+</button>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </article>
+                    </div>
                 }
             </div>
         </section>
     }
+}
+
+@section Scripts {
+<script>
+(() => {
+    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+    document.querySelectorAll('[data-quick-delta]').forEach(button => {
+        button.addEventListener('click', async () => {
+            const stepper = button.closest('[data-producto-id]');
+            if (!stepper || !token) return;
+
+            const productoId = stepper.dataset.productoId;
+            const delta = button.dataset.quickDelta;
+            button.disabled = true;
+
+            try {
+                const body = new URLSearchParams({
+                    productoId,
+                    delta,
+                    __RequestVerificationToken: token
+                });
+
+                const response = await fetch('@Url.Action("AjustarCarritoRapido", "Cliente")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+                    body
+                });
+
+                if (!response.ok) throw new Error();
+                const data = await response.json();
+
+                if (!data.ok) {
+                    window.comiditaSwal?.({
+                        icon: 'warning',
+                        title: 'No se pudo agregar',
+                        text: data.mensaje
+                    });
+                    return;
+                }
+
+                const qty = stepper.querySelector('.quick-qty');
+                if (qty) qty.textContent = data.cantidadProducto;
+
+                const minus = stepper.querySelector('.quick-minus');
+                if (minus) minus.disabled = data.cantidadProducto <= 0;
+
+                const badge = document.getElementById('clienteCartBadge');
+                if (badge) {
+                    badge.textContent = data.cantidadCarrito;
+                    badge.classList.toggle('d-none', data.cantidadCarrito <= 0);
+                }
+            } catch {
+                window.comiditaSwal?.({
+                    icon: 'error',
+                    title: 'No pudimos actualizar el carrito',
+                    text: 'Intenta nuevamente.'
+                });
+            } finally {
+                if (button.classList.contains('quick-plus')) button.disabled = false;
+                else {
+                    const qty = Number(stepper.querySelector('.quick-qty')?.textContent || 0);
+                    button.disabled = qty <= 0;
+                }
+            }
+        });
+    });
+})();
+</script>
 }

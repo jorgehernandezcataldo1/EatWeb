@@ -114,6 +114,8 @@ public class DivisionCuentaViewModel
 {
     public int SesionId { get; set; }
     public int MesaNumero { get; set; }
+    public DateTime FechaApertura { get; set; }
+    public bool CuentaSolicitada { get; set; }
     public decimal Total { get; set; }
     public decimal TotalPagado { get; set; }
     public decimal SaldoPendiente { get; set; }
