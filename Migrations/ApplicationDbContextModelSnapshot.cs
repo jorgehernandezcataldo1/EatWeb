@@ -165,6 +165,9 @@ namespace EatWeb.Migrations
                     b.Property<int>("RestauranteId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("SectorId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EstacionId");
@@ -455,6 +458,9 @@ namespace EatWeb.Migrations
                     b.Property<int>("Numero")
                         .HasColumnType("integer");
 
+                    b.Property<int>("OrdenEnSector")
+                        .HasColumnType("integer");
+
                     b.Property<int>("RestauranteId")
                         .HasColumnType("integer");
 
@@ -468,7 +474,39 @@ namespace EatWeb.Migrations
                     b.HasIndex("RestauranteId", "Numero")
                         .IsUnique();
 
+                    b.HasIndex("SectorId", "OrdenEnSector");
+
                     b.ToTable("Mesas");
+                });
+
+            modelBuilder.Entity("EatWeb.Models.Sector", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RestauranteId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestauranteId", "Nombre")
+                        .IsUnique();
+
+                    b.ToTable("Sectores");
                 });
 
             modelBuilder.Entity("EatWeb.Models.MesaSesion", b =>
@@ -598,6 +636,17 @@ namespace EatWeb.Migrations
                     b.HasIndex("PagoId", "DetallePedidoId");
 
                     b.ToTable("PagoDetalles");
+                });
+
+            modelBuilder.Entity("EatWeb.Models.Sector", b =>
+                {
+                    b.HasOne("EatWeb.Models.Restaurante", "Restaurante")
+                        .WithMany("Sectores")
+                        .HasForeignKey("RestauranteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Restaurante");
                 });
 
             modelBuilder.Entity("EatWeb.Models.SolicitudMesa", b =>
@@ -764,6 +813,11 @@ namespace EatWeb.Migrations
                     b.HasIndex("IngredienteId");
 
                     b.ToTable("ProductoIngredientes");
+                });
+
+            modelBuilder.Entity("EatWeb.Models.Sector", b =>
+                {
+                    b.Navigation("Mesas");
                 });
 
             modelBuilder.Entity("EatWeb.Models.Restaurante", b =>
@@ -1108,9 +1162,16 @@ namespace EatWeb.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("EatWeb.Models.Sector", "Sector")
+                        .WithMany("Mesas")
+                        .HasForeignKey("SectorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Garzon");
 
                     b.Navigation("Restaurante");
+
+                    b.Navigation("Sector");
                 });
 
             modelBuilder.Entity("EatWeb.Models.MesaSesion", b =>
@@ -1437,6 +1498,8 @@ namespace EatWeb.Migrations
                     b.Navigation("Miembros");
 
                     b.Navigation("Productos");
+
+                    b.Navigation("Sectores");
                 });
 #pragma warning restore 612, 618
         }
