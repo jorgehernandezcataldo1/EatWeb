@@ -54,10 +54,14 @@ public class PedidosController : RestauranteControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> SolicitudesPendientes()
+    public async Task<IActionResult> SolicitudesPendientes(int? sesionId = null)
     {
         Response.Headers.CacheControl = "no-store";
         var solicitudes = await ObtenerSolicitudesPendientesAsync();
+
+        if (sesionId.HasValue)
+            solicitudes = solicitudes.Where(s => s.SesionId == sesionId.Value).ToList();
+
         return PartialView("_SolicitudesPendientes", solicitudes);
     }
 
@@ -235,7 +239,7 @@ public class PedidosController : RestauranteControllerBase
         }
 
         TempData["Ok"] = $"Mesa {sesion.Mesa!.Numero} cerrada y liberada";
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction("Index", "Mesas");
     }
 
     [HttpGet]
@@ -546,7 +550,7 @@ public class PedidosController : RestauranteControllerBase
         if (resultado.CuentaPagada)
         {
             TempData["Ok"] = "Cuenta pagada completamente. La mesa quedó liberada.";
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction("Index", "Mesas");
         }
 
         TempData["Ok"] = $"Pago registrado. Saldo pendiente: {resultado.SaldoPendiente:C0}.";
