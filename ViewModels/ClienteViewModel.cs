@@ -38,6 +38,8 @@ public class CartaProductoViewModel
     public string? ImagenKey { get; set; }
     public string? ImagenUrl { get; set; }
     public bool Disponible { get; set; }
+    public bool TienePersonalizaciones { get; set; }
+    public int CantidadEstandarEnCarrito { get; set; }
 }
 
 // ============ Detalle de producto ============
@@ -70,6 +72,17 @@ public class AgregarCarritoInputViewModel
     public string? Observacion { get; set; }
 }
 
+public class EditarLineaCarritoViewModel : AgregarCarritoInputViewModel
+{
+    public Guid LineaId { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public string? Descripcion { get; set; }
+    public decimal Precio { get; set; }
+    public string? ImagenUrl { get; set; }
+    public List<IngredienteOpcionViewModel> Incluidos { get; set; } = new();
+    public List<IngredienteOpcionViewModel> Extras { get; set; } = new();
+}
+
 // ============ Carrito ============
 public class CarritoViewModel
 {
@@ -84,18 +97,34 @@ public class MiMesaViewModel
     public int MesaNumero { get; set; }
     public string ComensalNombre { get; set; } = string.Empty;
     public bool CuentaSolicitada { get; set; }
+    public bool PuedePedirCuenta { get; set; }
     public decimal TotalConsumido { get; set; }
+    public decimal TotalMesa { get; set; }
     public List<MiPedidoViewModel> Pedidos { get; set; } = new();
+    public List<MiPedidoViewModel> PedidosMesa { get; set; } = new();
     public List<SolicitudMesaResumenViewModel> Solicitudes { get; set; } = new();
 }
 
 public class MiPedidoViewModel
 {
     public int Id { get; set; }
+    public int ComensalId { get; set; }
+    public string ComensalNombre { get; set; } = string.Empty;
+    public bool EsPropio { get; set; }
     public string Estado { get; set; } = string.Empty;
     public decimal Total { get; set; }
     public DateTime Fecha { get; set; }
     public List<string> Items { get; set; } = new();
+    public List<MiPedidoDetalleViewModel> Detalles { get; set; } = new();
     public List<string> Personalizaciones { get; set; } = new();
     public string? Observacion { get; set; }
+}
+
+public class MiPedidoDetalleViewModel
+{
+    public int Id { get; set; }
+    public string Producto { get; set; } = string.Empty;
+    public int Cantidad { get; set; }
+    public string Estado { get; set; } = string.Empty;
+    public decimal Subtotal { get; set; }
 }
