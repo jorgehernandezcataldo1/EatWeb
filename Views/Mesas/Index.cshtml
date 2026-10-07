@@ -87,6 +87,15 @@
                             }
                         </div>
                     }
+
+                    <div class="d-flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Disponibilidad">
+                        <button type="button" class="btn btn-outline-secondary ops-filter active"
+                                data-uso-filter="todas">Todas</button>
+                        <button type="button" class="btn btn-outline-secondary ops-filter"
+                                data-uso-filter="disponible">Disponibles</button>
+                        <button type="button" class="btn btn-outline-secondary ops-filter"
+                                data-uso-filter="usada">Usadas</button>
+                    </div>
                 </div>
             </div>
 
@@ -113,6 +122,7 @@
 
                             <div class="map-table-wrap mesa-filterable"
                                  data-sector="@sectorKey"
+                                 data-uso="@(mesa.TieneSesionAbierta ? "usada" : "disponible")"
                                  data-mesa-numero="@mesa.Numero">
                                 @if (href != null)
                                 {
@@ -169,7 +179,9 @@
                             ? Url.Action("Mesa", "Pedidos", new { id = mesa.SesionId.Value })
                             : null;
 
-                        <div class="col mesa-filterable" data-sector="@sectorKey" data-mesa-numero="@mesa.Numero">
+                        <div class="col mesa-filterable" data-sector="@sectorKey"
+                             data-uso="@(mesa.TieneSesionAbierta ? "usada" : "disponible")"
+                             data-mesa-numero="@mesa.Numero">
                             @if (href != null)
                             {
                                 <a href="@href" class="mesa-tile @ClaseMesa(mesa) d-block">
@@ -254,12 +266,14 @@
 (() => {
     const input = document.getElementById('buscarMesa');
     const sectorButtons = Array.from(document.querySelectorAll('[data-sector-filter]'));
+    const usoButtons = Array.from(document.querySelectorAll('[data-uso-filter]'));
     const items = Array.from(document.querySelectorAll('.mesa-filterable'));
     const mapa = document.getElementById('vistaMapa');
     const lista = document.getElementById('vistaLista');
     const btnMapa = document.getElementById('btnVistaMapa');
     const btnLista = document.getElementById('btnVistaLista');
     let sectorActual = 'todos';
+    let usoActual = 'todas';
 
     function aplicarFiltros() {
         const texto = (input?.value || '').trim().toLowerCase();
@@ -270,8 +284,10 @@
             const numero = item.dataset.mesaNumero || '';
             const sector = item.dataset.sector || '';
             const coincideTexto = !texto || numero.includes(texto) || ('mesa ' + numero).includes(texto);
+            const uso = item.dataset.uso || 'disponible';
             const coincideSector = sectorActual === 'todos' || sector === sectorActual;
-            const visible = coincideTexto && coincideSector;
+            const coincideUso = usoActual === 'todas' || uso === usoActual;
+            const visible = coincideTexto && coincideSector && coincideUso;
             item.classList.toggle('d-none', !visible);
 
             if (visible && item.closest('#vistaMapa')) visiblesMapa++;
@@ -286,6 +302,14 @@
         btn.addEventListener('click', () => {
             sectorActual = btn.dataset.sectorFilter || 'todos';
             sectorButtons.forEach(x => x.classList.toggle('active', x === btn));
+            aplicarFiltros();
+        });
+    });
+
+    usoButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            usoActual = btn.dataset.usoFilter || 'todas';
+            usoButtons.forEach(x => x.classList.toggle('active', x === btn));
             aplicarFiltros();
         });
     });
