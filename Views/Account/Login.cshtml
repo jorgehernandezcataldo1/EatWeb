@@ -1,39 +1,53 @@
 @{
-    ViewData["Title"] = "Iniciar Sesión";
+    Layout = "_LayoutCliente";
+    ViewData["Title"] = "Iniciar sesión";
+    ViewData["RestauranteNombre"] = "Administración";
 }
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-body">
-                    <h2 class="card-title text-center mb-4">Iniciar Sesión</h2>
+<div class="cliente-login-shell">
+    <div class="text-center mb-4">
+        <div class="cliente-login-mark">C</div>
+        <h1 class="cliente-title h3 mb-1">Comidita</h1>
+        <div class="cliente-muted">Acceso para el equipo del restaurante</div>
+    </div>
 
-                    <form asp-action="Login" method="post">
-                        <div class="mb-3">
-                            <label for="email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="email" name="email" required />
-                        </div>
+    <div class="cliente-hero-card p-3 p-md-4">
+        <h2 class="h5 fw-bold mb-4">Iniciar sesión</h2>
 
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Contraseña</label>
-                            <input type="password" class="form-control" id="password" name="password" required />
-                        </div>
-
-                        @if (!ViewData.ModelState.IsValid)
-                        {
-                            <div class="alert alert-danger">
-                                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
-                                {
-                                    <p>@error.ErrorMessage</p>
-                                }
-                            </div>
-                        }
-
-                        <button type="submit" class="btn btn-primary w-100">Iniciar Sesión</button>
-                    </form>
-                </div>
+        <form asp-action="Login" method="post">
+            <div class="mb-3">
+                <label for="email" class="form-label fw-semibold">Email</label>
+                <input type="email"
+                       class="form-control form-control-lg"
+                       id="email"
+                       name="email"
+                       autocomplete="username"
+                       required />
             </div>
-        </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label fw-semibold">Contraseña</label>
+                <input type="password"
+                       class="form-control form-control-lg"
+                       id="password"
+                       name="password"
+                       autocomplete="current-password"
+                       required />
+            </div>
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="alert alert-danger">
+                    @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                    {
+                        <div>@error.ErrorMessage</div>
+                    }
+                </div>
+            }
+
+            <button type="submit" class="btn cliente-primary btn-lg w-100">
+                Iniciar sesión
+            </button>
+        </form>
     </div>
 </div>
