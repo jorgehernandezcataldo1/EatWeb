@@ -16,13 +16,13 @@
     <div class="col-6">
         <div class="cliente-card p-3 h-100">
             <div class="small cliente-muted">Tu consumo</div>
-            <div class="fs-4 fw-bold mt-1">@Model.TotalConsumido.ToString("C0", clp)</div>
+            <div class="fs-4 fw-bold mt-1" id="totalConsumido">@Model.TotalConsumido.ToString("C0", clp)</div>
         </div>
     </div>
     <div class="col-6">
         <div class="cliente-card p-3 h-100">
             <div class="small cliente-muted">Total mesa</div>
-            <div class="fs-4 fw-bold mt-1">@Model.TotalMesa.ToString("C0", clp)</div>
+            <div class="fs-4 fw-bold mt-1" id="totalMesa">@Model.TotalMesa.ToString("C0", clp)</div>
         </div>
     </div>
 </div>
@@ -133,6 +133,20 @@
             const response = await fetch('@Url.Action("PedidosMesa", "Cliente")', { cache: 'no-store' });
             if (!response.ok) return;
             document.getElementById('pedidosMesaPanel').innerHTML = await response.text();
+
+            const root = document.querySelector('[data-pedidos-mesa-root]');
+            if (root) {
+                const clp = new Intl.NumberFormat('es-CL', {
+                    style: 'currency',
+                    currency: 'CLP',
+                    maximumFractionDigits: 0
+                });
+                document.getElementById('totalMesa').textContent =
+                    clp.format(Number(root.dataset.totalMesa || 0));
+                document.getElementById('totalConsumido').textContent =
+                    clp.format(Number(root.dataset.totalPropio || 0));
+            }
+
             registrarEstadosDOM();
         } catch {}
     }
