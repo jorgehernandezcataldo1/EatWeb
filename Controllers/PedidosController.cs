@@ -259,3 +259,538 @@ public class PedidosController : RestauranteControllerBase
 
         var sesion = await _context.MesaSesiones
             .Include(s => s.Mesa)
+            .FirstOrDefaultAsync(s =>
+                s.Id == id &&
+                s.FechaCierre == null &&
+                s.Mesa!.RestauranteId == RestauranteId &&
+                (User.EsAdmin() ||
+                 s.GarzonId == userId ||
+                 s.Mesa.GarzonId == userId));
+
+        if (sesion == null)
+            return NotFound();
+
+        var totalCuenta = await _context.DetallesPedidos
+            .AsNoTracking()
+            .Where(d =>
+                d.Pedido!.MesaSesionId == id &&
+                d.Pedido.Estado != EstadoPedido.Cancelado &&
+                d.Estado != EstadoDetallePedido.Cancelado)
+            .SumAsync(d => (decimal?)d.Subtotal) ?? 0;
+
+        var totalPagado = await _context.PagoDetalles
+            .AsNoTracking()
+            .Where(pd =>
+                pd.Pago!.Cuenta!.MesaSesionId == id &&
+                pd.Pago.Estado == EstadoPago.Confirmado)
+            .SumAsync(pd => (decimal?)pd.MontoAsignado) ?? 0;
+
+        if (totalPagado < totalCuenta)
+        {
+            TempData["Error"] = "La mesa tiene saldo pendiente. Registra el pago antes de cerrarla.";
+            return RedirectToAction(nameof(Cuenta), new { id });
+        }
+
+        var (ok, error) = await _sesionService.CerrarSesionAsync(
+            id,
+            forzar: false,
+            usuarioId: userId);
+
+        if (!ok)
+        {
+            TempData["Error"] = error ?? "No se pudo cerrar la mesa";
+            return RedirectToAction(nameof(Cuenta), new { id });
+        }
+
+        TempData["Ok"] = $"Mesa {sesion.Mesa!.Numero} cerrada y liberada";
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Cuenta(int id)
+    {
+        var userId = GetUserId();
+
+        var sesion = await _context.MesaSesiones
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Include(s => s.Mesa)
+            .Include(s => s.Comensales)
+                .ThenInclude(c => c.Pedidos)
+                    .ThenInclude(p => p.Detalles)
+                        .ThenInclude(d => d.Ingredientes)
+            .FirstOrDefaultAsync(s =>
+                s.Id == id &&
+                s.FechaCierre == null &&
+                s.Mesa!.RestauranteId == RestauranteId &&
+                (User.EsAdmin() ||
+                 s.GarzonId == userId ||
+                 s.Mesa.GarzonId == userId));
+
+        if (sesion == null)
+            return NotFound();
+
+        var pagadoPorDetalle = await _context.PagoDetalles
+            .AsNoTracking()
+            .Where(pd =>
+                pd.Pago!.Cuenta!.MesaSesionId == sesion.Id &&
+                pd.Pago.Estado == EstadoPago.Confirmado)
+            .GroupBy(pd => pd.DetallePedidoId)
+            .Select(g => new
+            {
+                DetalleId = g.Key,
+                Monto = g.Sum(x => x.MontoAsignado)
+            })
+            .ToDictionaryAsync(x => x.DetalleId, x => x.Monto);
+
+        var personas = sesion.Comensales
+            .OrderBy(c => c.FechaIngreso)
+            .Select(c =>
+            {
+                var items = c.Pedidos
+                    .Where(p => p.Estado != EstadoPedido.Cancelado)
+                    .SelectMany(p => p.Detalles
+                        .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                        .Select(d =>
+                        {
+                            var pagado = Math.Min(
+                                d.Subtotal,
+                                pagadoPorDetalle.GetValueOrDefault(d.Id));
+
+                            return new CuentaItemViewModel
+                            {
+                                PedidoId = p.Id,
+                                DetallePedidoId = d.Id,
+                                ComensalId = c.Id,
+                                ComensalNombre = c.Nombre,
+                                Producto = d.NombreProducto,
+                                Cantidad = d.Cantidad,
+                                PrecioUnitario = d.PrecioUnitario,
+                                Subtotal = d.Subtotal,
+                                MontoPagado = pagado,
+                                SaldoPendiente = Math.Max(0, d.Subtotal - pagado),
+                                Observacion = d.Observacion,
+                                EstadoPedido = p.Estado,
+                                Personalizaciones = d.Ingredientes
+                                    .Select(i =>
+                                        $"{(i.Accion == AccionIngrediente.Quitar ? "Sin" : "Agregar")} {i.NombreIngrediente}" +
+                                        (i.PrecioExtra > 0 ? $" (+{i.PrecioExtra:C0})" : ""))
+                                    .ToList()
+                            };
+                        }))
+                    .ToList();
+
+                return new CuentaPersonaViewModel
+                {
+                    ComensalId = c.Id,
+                    Nombre = c.Nombre,
+                    FechaIngreso = c.FechaIngreso,
+                    TotalConsumido = items.Sum(i => i.Subtotal),
+                    TotalPagado = items.Sum(i => i.MontoPagado),
+                    SaldoPendiente = items.Sum(i => i.SaldoPendiente),
+                    Items = items
+                };
+            })
+            .ToList();
+
+        var pagos = await _context.Pagos
+            .AsNoTracking()
+            .Where(p =>
+                p.Cuenta!.MesaSesionId == sesion.Id &&
+                p.Estado == EstadoPago.Confirmado)
+            .OrderByDescending(p => p.FechaConfirmacion ?? p.FechaCreacion)
+            .Select(p => new PagoResumenViewModel
+            {
+                Id = p.Id,
+                Metodo = p.Metodo,
+                Monto = p.Monto,
+                Propina = p.Propina,
+                Fecha = p.FechaConfirmacion ?? p.FechaCreacion,
+                ComensalNombre = p.Comensal != null ? p.Comensal.Nombre : null
+            })
+            .ToListAsync();
+
+        var total = personas.Sum(p => p.TotalConsumido);
+        var totalPagado = personas.Sum(p => p.TotalPagado);
+        var puedeCobrar = !sesion.Comensales
+            .SelectMany(c => c.Pedidos)
+            .Any(p =>
+                p.Estado == EstadoPedido.Pendiente ||
+                p.Estado == EstadoPedido.EnPreparacion ||
+                p.Estado == EstadoPedido.Listo);
+
+        return View(new CuentaViewModel
+        {
+            SesionId = sesion.Id,
+            MesaNumero = sesion.Mesa!.Numero,
+            FechaApertura = sesion.FechaApertura,
+            CuentaSolicitada = sesion.CuentaSolicitadaEn.HasValue,
+            CuentaSolicitadaEn = sesion.CuentaSolicitadaEn,
+            Total = total,
+            TotalVerificado = total,
+            TotalPagado = totalPagado,
+            SaldoPendiente = Math.Max(0, total - totalPagado),
+            PuedeCobrar = puedeCobrar,
+            Personas = personas,
+            Items = personas.SelectMany(p => p.Items).ToList(),
+            Pagos = pagos
+        });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Dividir(int id)
+    {
+        var userId = GetUserId();
+
+        var sesion = await _context.MesaSesiones
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Include(s => s.Mesa)
+            .Include(s => s.Comensales)
+                .ThenInclude(c => c.Pedidos)
+                    .ThenInclude(p => p.Detalles)
+            .FirstOrDefaultAsync(s =>
+                s.Id == id &&
+                s.FechaCierre == null &&
+                s.Mesa!.RestauranteId == RestauranteId &&
+                (User.EsAdmin() ||
+                 s.GarzonId == userId ||
+                 s.Mesa.GarzonId == userId));
+
+        if (sesion == null)
+            return NotFound();
+
+        var pagadoPorDetalle = await _context.PagoDetalles
+            .AsNoTracking()
+            .Where(pd =>
+                pd.Pago!.Cuenta!.MesaSesionId == sesion.Id &&
+                pd.Pago.Estado == EstadoPago.Confirmado)
+            .GroupBy(pd => pd.DetallePedidoId)
+            .Select(g => new
+            {
+                DetalleId = g.Key,
+                Monto = g.Sum(x => x.MontoAsignado)
+            })
+            .ToDictionaryAsync(x => x.DetalleId, x => x.Monto);
+
+        var items = sesion.Comensales
+            .SelectMany(c => c.Pedidos
+                .Where(p => p.Estado != EstadoPedido.Cancelado)
+                .SelectMany(p => p.Detalles
+                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                    .Select(d =>
+                    {
+                        var pagado = Math.Min(
+                            d.Subtotal,
+                            pagadoPorDetalle.GetValueOrDefault(d.Id));
+
+                        return new CuentaItemViewModel
+                        {
+                            PedidoId = p.Id,
+                            DetallePedidoId = d.Id,
+                            ComensalId = c.Id,
+                            ComensalNombre = c.Nombre,
+                            Producto = d.NombreProducto,
+                            Cantidad = d.Cantidad,
+                            PrecioUnitario = d.PrecioUnitario,
+                            Subtotal = d.Subtotal,
+                            MontoPagado = pagado,
+                            SaldoPendiente = Math.Max(0, d.Subtotal - pagado),
+                            EstadoPedido = p.Estado
+                        };
+                    })))
+            .ToList();
+
+        var personas = sesion.Comensales
+            .OrderBy(c => c.FechaIngreso)
+            .Select(c =>
+            {
+                var itemsPersona = items.Where(i => i.ComensalId == c.Id).ToList();
+                return new CuentaPersonaViewModel
+                {
+                    ComensalId = c.Id,
+                    Nombre = c.Nombre,
+                    FechaIngreso = c.FechaIngreso,
+                    TotalConsumido = itemsPersona.Sum(i => i.Subtotal),
+                    TotalPagado = itemsPersona.Sum(i => i.MontoPagado),
+                    SaldoPendiente = itemsPersona.Sum(i => i.SaldoPendiente)
+                };
+            })
+            .ToList();
+
+        var pagos = await _context.Pagos
+            .AsNoTracking()
+            .Where(p =>
+                p.Cuenta!.MesaSesionId == sesion.Id &&
+                p.Estado == EstadoPago.Confirmado)
+            .OrderByDescending(p => p.FechaConfirmacion ?? p.FechaCreacion)
+            .Select(p => new PagoResumenViewModel
+            {
+                Id = p.Id,
+                Metodo = p.Metodo,
+                Monto = p.Monto,
+                Propina = p.Propina,
+                Fecha = p.FechaConfirmacion ?? p.FechaCreacion,
+                ComensalNombre = p.Comensal != null ? p.Comensal.Nombre : null
+            })
+            .ToListAsync();
+
+        var total = items.Sum(i => i.Subtotal);
+        var totalPagado = items.Sum(i => i.MontoPagado);
+        var puedeCobrar = !sesion.Comensales
+            .SelectMany(c => c.Pedidos)
+            .Any(p =>
+                p.Estado == EstadoPedido.Pendiente ||
+                p.Estado == EstadoPedido.EnPreparacion ||
+                p.Estado == EstadoPedido.Listo);
+
+        return View(new DivisionCuentaViewModel
+        {
+            SesionId = sesion.Id,
+            MesaNumero = sesion.Mesa!.Numero,
+            Total = total,
+            TotalPagado = totalPagado,
+            SaldoPendiente = Math.Max(0, total - totalPagado),
+            PuedeCobrar = puedeCobrar,
+            Personas = personas,
+            Items = items.Where(i => i.SaldoPendiente > 0).ToList(),
+            Pagos = pagos,
+            Modo = "Igual",
+            CantidadPartes = Math.Max(1, personas.Count(p => p.SaldoPendiente > 0))
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CerrarConDivision(CerrarConDivisionInputViewModel modelo)
+    {
+        var userId = GetUserId();
+
+        // Para reintentos idempotentes también se permite consultar una sesión ya cerrada.
+        var acceso = await _context.MesaSesiones
+            .AsNoTracking()
+            .Where(s =>
+                s.Id == modelo.SesionId &&
+                s.Mesa!.RestauranteId == RestauranteId &&
+                (User.EsAdmin() ||
+                 s.GarzonId == userId ||
+                 s.Mesa.GarzonId == userId))
+            .Select(s => new { s.FechaCierre })
+            .FirstOrDefaultAsync();
+
+        if (acceso == null)
+            return NotFound();
+
+        var repetido = await _cuentaService.ObtenerResultadoIdempotenteAsync(
+            modelo.SesionId,
+            modelo.IdempotencyKey);
+
+        if (repetido != null)
+        {
+            if (!repetido.Ok)
+            {
+                TempData["Error"] = string.Join(" ", repetido.Errores);
+                return acceso.FechaCierre.HasValue
+                    ? RedirectToAction(nameof(Index))
+                    : RedirectToAction(nameof(Dividir), new { id = modelo.SesionId });
+            }
+
+            TempData["Ok"] = repetido.CuentaPagada
+                ? "Pago ya registrado. La cuenta está pagada."
+                : $"Pago ya registrado. Saldo pendiente: {repetido.SaldoPendiente:C0}.";
+
+            return repetido.CuentaPagada || acceso.FechaCierre.HasValue
+                ? RedirectToAction(nameof(Index))
+                : RedirectToAction(nameof(Dividir), new { id = modelo.SesionId });
+        }
+
+        if (acceso.FechaCierre.HasValue)
+        {
+            TempData["Error"] = "La mesa ya está cerrada y no admite nuevos pagos.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var detalles = await _context.DetallesPedidos
+            .AsNoTracking()
+            .Where(d =>
+                d.Pedido!.MesaSesionId == modelo.SesionId &&
+                d.Pedido.Estado != EstadoPedido.Cancelado &&
+                d.Estado != EstadoDetallePedido.Cancelado)
+            .Select(d => new
+            {
+                d.Id,
+                d.Subtotal,
+                d.Pedido!.ComensalId
+            })
+            .ToListAsync();
+
+        var pagadoPorDetalle = await _context.PagoDetalles
+            .AsNoTracking()
+            .Where(pd =>
+                pd.Pago!.Cuenta!.MesaSesionId == modelo.SesionId &&
+                pd.Pago.Estado == EstadoPago.Confirmado)
+            .GroupBy(pd => pd.DetallePedidoId)
+            .Select(g => new
+            {
+                DetalleId = g.Key,
+                Monto = g.Sum(x => x.MontoAsignado)
+            })
+            .ToDictionaryAsync(x => x.DetalleId, x => x.Monto);
+
+        var pendientes = detalles
+            .Select(d => new SaldoDetallePago(
+                d.Id,
+                d.ComensalId,
+                Math.Max(0, d.Subtotal - pagadoPorDetalle.GetValueOrDefault(d.Id))))
+            .Where(d => d.Saldo > 0)
+            .ToList();
+
+        var modo = (modelo.Modo ?? string.Empty).Trim();
+        List<AsignacionPagoInput> asignaciones;
+        int? comensalPago = null;
+
+        switch (modo)
+        {
+            case "Todo":
+                asignaciones = pendientes
+                    .Select(d => new AsignacionPagoInput(d.DetalleId, d.Saldo))
+                    .ToList();
+                break;
+
+            case "Igual":
+                if (modelo.CantidadPartes < 1 || modelo.CantidadPartes > 20)
+                {
+                    TempData["Error"] = "La cantidad de partes debe estar entre 1 y 20.";
+                    return RedirectToAction(nameof(Dividir), new { id = modelo.SesionId });
+                }
+
+                var totalCuenta = detalles.Sum(d => d.Subtotal);
+                var montoParte = Math.Ceiling(totalCuenta / modelo.CantidadPartes);
+                var objetivo = Math.Min(montoParte, pendientes.Sum(d => d.Saldo));
+                asignaciones = ConstruirAsignacionesHastaMonto(pendientes, objetivo);
+                break;
+
+            case "PorConsumo":
+                if (!modelo.ComensalId.HasValue ||
+                    detalles.All(d => d.ComensalId != modelo.ComensalId.Value))
+                {
+                    TempData["Error"] = "Selecciona un comensal válido.";
+                    return RedirectToAction(nameof(Dividir), new { id = modelo.SesionId });
+                }
+
+                comensalPago = modelo.ComensalId.Value;
+                asignaciones = pendientes
+                    .Where(d => d.ComensalId == comensalPago.Value)
+                    .Select(d => new AsignacionPagoInput(d.DetalleId, d.Saldo))
+                    .ToList();
+                break;
+
+            case "Seleccion":
+            case "Personalizado":
+                var ids = modelo.DetallePedidoIds.Distinct().ToHashSet();
+                if (ids.Count == 0 ||
+                    ids.Any(id => pendientes.All(d => d.DetalleId != id)))
+                {
+                    TempData["Error"] = "Selecciona consumos pendientes válidos para registrar el pago.";
+                    return RedirectToAction(nameof(Dividir), new { id = modelo.SesionId });
+                }
+
+                asignaciones = pendientes
+                    .Where(d => ids.Contains(d.DetalleId))
+                    .Select(d => new AsignacionPagoInput(d.DetalleId, d.Saldo))
+                    .ToList();
+                break;
+
+            default:
+                TempData["Error"] = "Modo de división inválido.";
+                return RedirectToAction(nameof(Dividir), new { id = modelo.SesionId });
+        }
+
+        if (asignaciones.Count == 0)
+        {
+            TempData["Error"] = "No quedan consumos pendientes para este pago.";
+            return RedirectToAction(nameof(Dividir), new { id = modelo.SesionId });
+        }
+
+        var resultado = await _cuentaService.RegistrarPagoConfirmadoAsync(
+            modelo.SesionId,
+            comensalPago,
+            asignaciones,
+            modelo.Metodo,
+            modelo.Propina,
+            modelo.IdempotencyKey);
+
+        if (!resultado.Ok)
+        {
+            TempData["Error"] = string.Join(" ", resultado.Errores);
+            return RedirectToAction(nameof(Dividir), new { id = modelo.SesionId });
+        }
+
+        if (resultado.CuentaPagada)
+        {
+            TempData["Ok"] = "Cuenta pagada completamente. La mesa quedó liberada.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        TempData["Ok"] = $"Pago registrado. Saldo pendiente: {resultado.SaldoPendiente:C0}.";
+        return RedirectToAction(nameof(Dividir), new { id = modelo.SesionId });
+    }
+
+    private static List<AsignacionPagoInput> ConstruirAsignacionesHastaMonto(
+        IEnumerable<SaldoDetallePago> pendientes,
+        decimal montoObjetivo)
+    {
+        var restante = montoObjetivo;
+        var resultado = new List<AsignacionPagoInput>();
+
+        foreach (var detalle in pendientes.OrderBy(d => d.DetalleId))
+        {
+            if (restante <= 0)
+                break;
+
+            var monto = Math.Min(detalle.Saldo, restante);
+            if (monto <= 0)
+                continue;
+
+            resultado.Add(new AsignacionPagoInput(detalle.DetalleId, monto));
+            restante -= monto;
+        }
+
+        return resultado;
+    }
+
+    private sealed record SaldoDetallePago(
+        int DetalleId,
+        int ComensalId,
+        decimal Saldo);
+    private Task<List<SolicitudMesaResumenViewModel>> ObtenerSolicitudesPendientesAsync()
+    {
+        var userId = GetUserId();
+
+        return _context.SolicitudesMesa
+            .AsNoTracking()
+            .Where(s =>
+                s.Estado == EstadoSolicitudMesa.Pendiente &&
+                s.MesaSesion!.FechaCierre == null &&
+                s.MesaSesion.Mesa!.RestauranteId == RestauranteId &&
+                (User.EsAdmin() ||
+                 s.MesaSesion.GarzonId == userId ||
+                 s.MesaSesion.Mesa.GarzonId == userId))
+            .OrderBy(s => s.FechaCreacion)
+            .Select(s => new SolicitudMesaResumenViewModel
+            {
+                Id = s.Id,
+                SesionId = s.MesaSesionId,
+                MesaNumero = s.MesaSesion!.Mesa!.Numero,
+                ComensalNombre = s.Comensal!.Nombre,
+                Tipo = s.Tipo,
+                Mensaje = s.Mensaje,
+                Estado = s.Estado,
+                FechaCreacion = s.FechaCreacion,
+                FechaResolucion = s.FechaResolucion
+            })
+            .ToListAsync();
+    }
+
+
+}
