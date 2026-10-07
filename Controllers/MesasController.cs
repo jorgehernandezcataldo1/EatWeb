@@ -30,17 +30,24 @@ public class MesasController : RestauranteControllerBase
     public async Task<IActionResult> Index()
     {
         var restauranteId = RestauranteId;
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         var query = _context.Mesas.Where(m => m.RestauranteId == restauranteId);
 
         if (User.IsInRole(Roles.Garzon))
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             query = query.Where(m =>
                 m.GarzonId == userId ||
                 m.Sesiones.Any(s => s.FechaCierre == null && s.GarzonId == userId));
         }
 
-        return View(await ConstruirTableroAsync(query));
+        var mesas = await ConstruirTableroAsync(query);
+        var solicitudes = await ObtenerSolicitudesPendientesAsync(userId);
+
+        return View(new MesasIndexViewModel
+        {
+            Mesas = mesas,
+            SolicitudesPendientes = solicitudes
+        });
     }
 
     // ---------- Gestión (solo Admin) ----------
@@ -266,8 +273,35 @@ public class MesasController : RestauranteControllerBase
         ViewBag.Garzones = new SelectList(garzones, "Id", "NombreCompleto");
     }
 
+    private Task<List<SolicitudMesaResumenViewModel>> ObtenerSolicitudesPendientesAsync(string? userId)
+    {
+        return _context.SolicitudesMesa
+            .AsNoTracking()
+            .Where(s =>
+                s.Estado == EstadoSolicitudMesa.Pendiente &&
+                s.MesaSesion!.FechaCierre == null &&
+                s.MesaSesion.Mesa!.RestauranteId == RestauranteId &&
+                (User.EsAdmin() ||
+                 s.MesaSesion.GarzonId == userId ||
+                 s.MesaSesion.Mesa.GarzonId == userId))
+            .OrderBy(s => s.FechaCreacion)
+            .Select(s => new SolicitudMesaResumenViewModel
+            {
+                Id = s.Id,
+                SesionId = s.MesaSesionId,
+                MesaNumero = s.MesaSesion!.Mesa!.Numero,
+                ComensalNombre = s.Comensal!.Nombre,
+                Tipo = s.Tipo,
+                Mensaje = s.Mensaje,
+                Estado = s.Estado,
+                FechaCreacion = s.FechaCreacion,
+                FechaResolucion = s.FechaResolucion
+            })
+            .ToListAsync();
+    }
+
     /// <summary>
-    /// Arma el tablero con 3 consultas pequeñas (mesas, sesiones abiertas, pedidos)
+    /// Arma el tablero con consultas pequeñas (mesas, sesiones abiertas, pedidos)
     /// y combina en memoria. Es más claro que un Include gigante y trae solo lo necesario.
     /// </summary>
     private async Task<List<MesaViewModel>> ConstruirTableroAsync(IQueryable<Mesa> query)
@@ -293,6 +327,7 @@ public class MesasController : RestauranteControllerBase
             {
                 s.Id,
                 s.MesaId,
+                s.FechaApertura,
                 CuentaSolicitada = s.CuentaSolicitadaEn != null,
                 Comensales = s.Comensales.Count()
             })
@@ -305,6 +340,15 @@ public class MesasController : RestauranteControllerBase
             .Where(p => sesionIds.Contains(p.MesaSesionId))
             .Select(p => new { p.MesaSesionId, p.Estado, p.Total })
             .ToListAsync();
+
+        var solicitudesPorSesion = await _context.SolicitudesMesa
+            .AsNoTracking()
+            .Where(s =>
+                sesionIds.Contains(s.MesaSesionId) &&
+                s.Estado == EstadoSolicitudMesa.Pendiente)
+            .GroupBy(s => s.MesaSesionId)
+            .Select(g => new { SesionId = g.Key, Cantidad = g.Count() })
+            .ToDictionaryAsync(x => x.SesionId, x => x.Cantidad);
 
         return mesas.Select(m =>
         {
@@ -320,7 +364,12 @@ public class MesasController : RestauranteControllerBase
                 Activa = m.Activa,
                 GarzonNombre = m.GarzonNombre,
                 TieneSesionAbierta = sesion != null,
+                SesionId = sesion?.Id,
+                FechaApertura = sesion?.FechaApertura,
                 Comensales = sesion?.Comensales ?? 0,
+                SolicitudesPendientes = sesion == null
+                    ? 0
+                    : solicitudesPorSesion.GetValueOrDefault(sesion.Id),
                 TotalAcumulado = pedidosMesa
                     .Where(p => p.Estado != EstadoPedido.Cancelado)
                     .Sum(p => p.Total),
