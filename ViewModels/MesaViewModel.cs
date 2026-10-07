@@ -1,6 +1,12 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace EatWeb.ViewModels;
+
+public class MesasIndexViewModel
+{
+    public List<MesaViewModel> Mesas { get; set; } = new();
+    public List<SolicitudMesaResumenViewModel> SolicitudesPendientes { get; set; } = new();
+}
 
 /// <summary>Una fila/tarjeta del tablero de mesas.</summary>
 public class MesaViewModel
@@ -10,7 +16,10 @@ public class MesaViewModel
     public bool Activa { get; set; }
     public string? GarzonNombre { get; set; }
     public bool TieneSesionAbierta { get; set; }
+    public int? SesionId { get; set; }
+    public DateTime? FechaApertura { get; set; }
     public int Comensales { get; set; }
+    public int SolicitudesPendientes { get; set; }
     public decimal TotalAcumulado { get; set; }
     public string Estado { get; set; } = string.Empty; // EstadoMesaVisual
 }
