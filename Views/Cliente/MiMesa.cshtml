@@ -4,145 +4,199 @@
     var clp = new System.Globalization.CultureInfo("es-CL");
 }
 
-<h3>Mesa @Model.MesaNumero – @Model.ComensalNombre</h3>
+<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+    <div>
+        <h1 class="cliente-title h3 mb-1">Mesa @Model.MesaNumero</h1>
+        <div class="cliente-muted small">Hola @Model.ComensalNombre · mira lo que está pasando en tu mesa.</div>
+    </div>
+    <a asp-action="Carta" class="btn cliente-primary">Pedir algo</a>
+</div>
 
-<div class="row g-3 mb-4">
-    <div class="col-lg-6">
-        <div class="card h-100 bg-light">
-            <div class="card-body">
-                <h5>Tu consumo</h5>
-                <p class="display-6 mb-3">@Model.TotalConsumido.ToString("C0", clp)</p>
-
-                @if (Model.CuentaSolicitada)
-                {
-                    <div class="alert alert-warning mb-0">
-                        La cuenta ya fue solicitada. Puedes seguir viendo el estado de la solicitud aquí.
-                    </div>
-                }
-            </div>
+<div class="row g-3 mb-3">
+    <div class="col-6">
+        <div class="cliente-card p-3 h-100">
+            <div class="small cliente-muted">Tu consumo</div>
+            <div class="fs-4 fw-bold mt-1">@Model.TotalConsumido.ToString("C0", clp)</div>
         </div>
     </div>
-
-    <div class="col-lg-6">
-        <div class="card h-100">
-            <div class="card-header">
-                <strong>¿Necesitas ayuda?</strong>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <form asp-action="CrearSolicitud" method="post">
-                        <input type="hidden" name="tipo" value="@TipoSolicitudMesa.LlamarGarzon" />
-                        <button type="submit" class="btn btn-outline-primary w-100">
-                            🙋 Llamar al garzón
-                        </button>
-                    </form>
-
-                    @if (!Model.CuentaSolicitada)
-                    {
-                        <form asp-action="CrearSolicitud" method="post">
-                            <input type="hidden" name="tipo" value="@TipoSolicitudMesa.PedirCuenta" />
-                            <button type="submit" class="btn btn-warning w-100">
-                                💰 Pedir la cuenta
-                            </button>
-                        </form>
-                    }
-                    else
-                    {
-                        <button type="button" class="btn btn-warning w-100" disabled>
-                            💰 Cuenta solicitada
-                        </button>
-                    }
-
-                    <form asp-action="CrearSolicitud" method="post" class="border rounded p-2">
-                        <input type="hidden" name="tipo" value="@TipoSolicitudMesa.SolicitarAlgo" />
-                        <label class="form-label small">Pedir algo adicional</label>
-                        <div class="input-group">
-                            <input type="text" name="mensaje" maxlength="200"
-                                   class="form-control"
-                                   placeholder="Ej: agua, servilletas, cubiertos..." required />
-                            <button type="submit" class="btn btn-outline-primary">Enviar</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+    <div class="col-6">
+        <div class="cliente-card p-3 h-100">
+            <div class="small cliente-muted">Total mesa</div>
+            <div class="fs-4 fw-bold mt-1">@Model.TotalMesa.ToString("C0", clp)</div>
         </div>
     </div>
 </div>
 
-<div class="card mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <strong>Solicitudes al garzón</strong>
-        <small class="text-muted">Actualización automática</small>
+<div class="cliente-card p-3 p-md-4 mb-3">
+    <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <div class="cliente-section-label">Ayuda</div>
+            <h2 class="h5 fw-bold mb-0">¿Necesitas algo?</h2>
+        </div>
+        @if (Model.CuentaSolicitada)
+        {
+            <span class="ops-status-pill status-danger">Cuenta solicitada</span>
+        }
     </div>
-    <div class="card-body" id="misSolicitudes">
+
+    <div class="row g-2">
+        <div class="col-12 col-sm-6">
+            <form asp-action="CrearSolicitud" method="post">
+                <input type="hidden" name="tipo" value="@TipoSolicitudMesa.LlamarGarzon" />
+                <button type="submit" class="btn btn-outline-secondary w-100">Llamar al garzón</button>
+            </form>
+        </div>
+
+        <div class="col-12 col-sm-6">
+            @if (!Model.CuentaSolicitada && Model.PuedePedirCuenta)
+            {
+                <form asp-action="CrearSolicitud" method="post">
+                    <input type="hidden" name="tipo" value="@TipoSolicitudMesa.PedirCuenta" />
+                    <button type="submit" class="btn cliente-primary w-100">Pedir la cuenta</button>
+                </form>
+            }
+            else if (Model.CuentaSolicitada)
+            {
+                <button type="button" class="btn cliente-primary w-100" disabled>Cuenta solicitada</button>
+            }
+            else
+            {
+                <button type="button" class="btn btn-outline-secondary w-100" disabled>Pedir la cuenta</button>
+                <div class="form-text">La cuenta se habilita después de enviar al menos un producto.</div>
+            }
+        </div>
+
+        <div class="col-12">
+            <form asp-action="CrearSolicitud" method="post" class="mt-1">
+                <input type="hidden" name="tipo" value="@TipoSolicitudMesa.SolicitarAlgo" />
+                <label class="form-label small fw-semibold">Pedir algo adicional</label>
+                <div class="input-group">
+                    <input type="text" name="mensaje" maxlength="200"
+                           class="form-control"
+                           placeholder="Ej: agua, servilletas, cubiertos..." required />
+                    <button type="submit" class="btn btn-outline-secondary">Enviar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="cliente-card p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <div class="cliente-section-label">Solicitudes</div>
+            <div class="fw-bold">Estado de tus avisos</div>
+        </div>
+        <small class="cliente-muted">En vivo</small>
+    </div>
+    <div class="mt-2" id="misSolicitudes">
         <partial name="_MisSolicitudes" model="Model.Solicitudes" />
     </div>
 </div>
 
-<h5 class="mt-4">Tus pedidos</h5>
+<div class="d-flex justify-content-between align-items-end gap-2 mb-2">
+    <div>
+        <div class="cliente-section-label">Mesa</div>
+        <h2 class="h5 fw-bold mb-0">Pedidos de todos</h2>
+    </div>
+    <small class="cliente-muted">Actualización automática</small>
+</div>
 
-@if (Model.Pedidos.Count == 0)
-{
-    <div class="alert alert-info">Aún no has hecho pedidos.</div>
-    <a asp-action="Carta" class="btn btn-primary">Ir a la carta</a>
-}
-else
-{
-    foreach (var p in Model.Pedidos)
-    {
-        <div class="card mb-2">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <strong>Pedido #@p.Id</strong>
-                    <partial name="_EstadoPedidoBadge" model="p.Estado" />
-                </div>
-                <small class="text-muted">@ZonaHorariaService.ALocal(p.Fecha).ToString("HH:mm")</small>
-
-                <ul class="mb-1 mt-2">
-                    @foreach (var item in p.Items)
-                    {
-                        <li>@item</li>
-                    }
-                </ul>
-
-                @if (p.Personalizaciones.Any())
-                {
-                    <ul class="small text-muted mb-1">
-                        @foreach (var pers in p.Personalizaciones)
-                        {
-                            <li>@pers</li>
-                        }
-                    </ul>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(p.Observacion))
-                {
-                    <p class="small fst-italic mb-1">💬 @p.Observacion</p>
-                }
-
-                <div class="text-end">
-                    <strong>@p.Total.ToString("C0", clp)</strong>
-                </div>
-            </div>
-        </div>
-    }
-}
+<div id="pedidosMesaPanel">
+    <partial name="_PedidosMesa" model="Model.PedidosMesa" />
+</div>
 
 @section Scripts {
-    <script>
-        async function actualizarMisSolicitudes() {
-            try {
-                const response = await fetch('@Url.Action("MisSolicitudes", "Cliente")', {
-                    cache: 'no-store'
-                });
+<script>
+(() => {
+    const estados = new Map();
 
-                if (!response.ok) return;
-                document.getElementById('misSolicitudes').innerHTML = await response.text();
-            } catch {
-                // La siguiente iteración vuelve a intentarlo.
+    function registrarEstadosDOM() {
+        document.querySelectorAll('[data-detalle-id]').forEach(el => {
+            const id = Number(el.dataset.detalleId);
+            if (!estados.has(id)) {
+                estados.set(id, el.dataset.state || '');
             }
-        }
+        });
+    }
 
-        setInterval(actualizarMisSolicitudes, 8000);
-    </script>
+    function textoEstado(estado) {
+        if (estado === 'EnPreparacion') return 'En preparación';
+        if (estado === 'Listo') return 'Listo';
+        if (estado === 'Entregado') return 'Entregado';
+        if (estado === 'Pendiente') return 'Pendiente';
+        return estado;
+    }
+
+    async function actualizarPedidosMesa() {
+        try {
+            const response = await fetch('@Url.Action("PedidosMesa", "Cliente")', { cache: 'no-store' });
+            if (!response.ok) return;
+            document.getElementById('pedidosMesaPanel').innerHTML = await response.text();
+            registrarEstadosDOM();
+        } catch {}
+    }
+
+    async function actualizarSolicitudes() {
+        try {
+            const response = await fetch('@Url.Action("MisSolicitudes", "Cliente")', { cache: 'no-store' });
+            if (!response.ok) return;
+            document.getElementById('misSolicitudes').innerHTML = await response.text();
+        } catch {}
+    }
+
+    async function revisarEstados() {
+        try {
+            const response = await fetch('@Url.Action("EstadoMisPedidos", "Cliente")', { cache: 'no-store' });
+            if (!response.ok) return;
+
+            const detalles = await response.json();
+            const cambiosPropios = [];
+
+            detalles.forEach(detalle => {
+                const anterior = estados.get(detalle.id);
+                if (anterior && anterior !== detalle.estado && detalle.esPropio) {
+                    cambiosPropios.push(detalle);
+                }
+                estados.set(detalle.id, detalle.estado);
+
+                document.querySelectorAll('[data-detalle-id="' + detalle.id + '"]').forEach(el => {
+                    el.dataset.state = detalle.estado;
+                    el.textContent = textoEstado(detalle.estado);
+                });
+            });
+
+            if (cambiosPropios.length > 0) {
+                const detalle = cambiosPropios[cambiosPropios.length - 1];
+                const config = detalle.estado === 'Listo'
+                    ? {
+                        icon: 'success',
+                        title: '¡Tu pedido está listo!',
+                        text: detalle.producto + ' ya está listo.'
+                    }
+                    : detalle.estado === 'EnPreparacion'
+                        ? {
+                            icon: 'info',
+                            title: 'Ya lo están preparando',
+                            text: detalle.producto + ' entró en preparación.'
+                        }
+                        : detalle.estado === 'Entregado'
+                            ? {
+                                icon: 'success',
+                                title: 'Pedido entregado',
+                                text: detalle.producto + ' fue marcado como entregado.'
+                            }
+                            : null;
+
+                if (config) window.comiditaSwal?.(config);
+            }
+        } catch {}
+    }
+
+    registrarEstadosDOM();
+    setInterval(actualizarSolicitudes, 8000);
+    setInterval(actualizarPedidosMesa, 12000);
+    setInterval(revisarEstados, 6000);
+})();
+</script>
 }
