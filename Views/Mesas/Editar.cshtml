@@ -24,6 +24,20 @@
         <span asp-validation-for="GarzonId" class="text-danger"></span>
     </div>
 
+    <div class="col-md-8">
+        <label asp-for="SectorId" class="form-label">Sector</label>
+        <select asp-for="SectorId" asp-items="ViewBag.Sectores" class="form-select">
+            <option value="">Sin sector</option>
+        </select>
+        <span asp-validation-for="SectorId" class="text-danger"></span>
+    </div>
+
+    <div class="col-md-4">
+        <label asp-for="OrdenEnSector" class="form-label">Posición en mapa</label>
+        <input asp-for="OrdenEnSector" type="number" min="0" class="form-control" />
+        <div class="form-text">Número menor = aparece antes.</div>
+    </div>
+
     <div class="col-12 form-check">
         <input asp-for="Activa" type="checkbox" class="form-check-input" />
         <label asp-for="Activa" class="form-check-label">Activa</label>
