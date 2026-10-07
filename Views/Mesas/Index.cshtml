@@ -3,6 +3,15 @@
 @{
     ViewData["Title"] = "Mesas";
     var clp = new System.Globalization.CultureInfo("es-CL");
+    var sectores = Model.Mesas
+        .GroupBy(m => new { m.SectorId, m.SectorNombre })
+        .Select(g => new
+        {
+            Key = g.Key.SectorId?.ToString() ?? "sin-sector",
+            Nombre = g.Key.SectorNombre,
+            Cantidad = g.Count()
+        })
+        .ToList();
 
     string ClaseMesa(MesaViewModel mesa) => mesa.Estado switch
     {
@@ -14,12 +23,6 @@
         EstadoMesaVisual.FueraDeServicio => "mesa-off",
         _ => "mesa-ocupada"
     };
-
-    string GrupoMesa(MesaViewModel mesa) => mesa.Estado == EstadoMesaVisual.Disponible
-        ? "disponible"
-        : mesa.Estado == EstadoMesaVisual.FueraDeServicio
-            ? "fuera"
-            : "ocupada";
 
     string TextoEstado(MesaViewModel mesa) => mesa.Estado switch
     {
@@ -44,126 +47,157 @@
 
         <a asp-controller="Pedidos" asp-action="Index"
            class="btn btn-comidita px-4 align-self-start align-self-md-auto">
-            Ver pedidos
+            Monitor de pedidos
         </a>
     </div>
 
     <div class="row g-3">
         <section class="col-xl-9">
             <div class="ops-toolbar mb-3">
-                <div class="row g-2 align-items-center">
-                    <div class="col-12 col-md">
-                        <div class="btn-group" role="group" aria-label="Filtrar mesas">
-                            <button type="button" class="btn btn-outline-secondary ops-filter active" data-mesa-filter="todas">
-                                Todas
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary ops-filter" data-mesa-filter="disponible">
-                                Disponibles
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary ops-filter" data-mesa-filter="ocupada">
-                                En servicio
-                            </button>
+                <div class="d-flex flex-column gap-2">
+                    <div class="d-flex flex-column flex-md-row gap-2 justify-content-between">
+                        <div class="btn-group" role="group" aria-label="Tipo de vista">
+                            <button type="button" class="btn btn-comidita active" id="btnVistaMapa">Vista mapa</button>
+                            <button type="button" class="btn btn-outline-secondary" id="btnVistaLista">Lista</button>
                         </div>
-                    </div>
-                    <div class="col-12 col-md-auto">
+
                         <input id="buscarMesa"
                                type="search"
                                class="form-control ops-search"
+                               style="max-width: 260px;"
                                placeholder="Buscar mesa..."
                                aria-label="Buscar mesa" />
                     </div>
+
+                    @if (sectores.Any())
+                    {
+                        <div class="d-flex gap-2 overflow-x-auto pb-1 sector-tabs" role="group" aria-label="Sectores">
+                            <button type="button" class="btn btn-outline-secondary ops-filter active"
+                                    data-sector-filter="todos">
+                                Todos
+                            </button>
+                            @foreach (var sector in sectores)
+                            {
+                                <button type="button"
+                                        class="btn btn-outline-secondary ops-filter"
+                                        data-sector-filter="@sector.Key">
+                                    @sector.Nombre
+                                    <span class="badge text-bg-light ms-1">@sector.Cantidad</span>
+                                </button>
+                            }
+                        </div>
+                    }
                 </div>
             </div>
 
-            <div class="mesas-board">
+            <div id="vistaMapa" class="mesas-board sector-map">
                 @if (!Model.Mesas.Any())
                 {
-                    <div class="d-flex align-items-center justify-content-center h-100 py-5 text-center">
-                        <div>
-                            <div class="h5 mb-1">No tienes mesas asignadas</div>
-                            <div class="text-muted small">Cuando te asignen una mesa aparecerá aquí.</div>
-                        </div>
-                    </div>
+                    <div class="text-center text-muted py-5">No tienes mesas asignadas.</div>
                 }
                 else
                 {
-                    <div class="row row-cols-2 row-cols-md-3 row-cols-xxl-4 g-2 g-md-3" id="tablero-mesas">
-                        @foreach (var mesa in Model.Mesas)
+                    <div class="map-grid" id="mapaMesas">
+                        @foreach (var mesa in Model.Mesas.OrderBy(m => m.OrdenEnSector).ThenBy(m => m.Numero))
                         {
+                            var sectorKey = mesa.SectorId?.ToString() ?? "sin-sector";
                             var minutos = mesa.FechaApertura.HasValue
                                 ? Math.Max(0, (int)(DateTime.UtcNow - mesa.FechaApertura.Value).TotalMinutes)
                                 : 0;
                             var horas = minutos / 60;
                             var mins = minutos % 60;
                             var duracion = horas > 0 ? $"{horas:00}:{mins:00}" : $"00:{mins:00}";
-                            var contenidoClase = $"mesa-tile {ClaseMesa(mesa)}";
-                            var detalleHref = mesa.SesionId.HasValue
-                                ? Url.Action("Mesa", "Pedidos", new { id = mesa.SesionId.Value })!
+                            var href = mesa.SesionId.HasValue
+                                ? Url.Action("Mesa", "Pedidos", new { id = mesa.SesionId.Value })
                                 : null;
 
-                            <div class="col mesa-grid-item"
-                                 data-mesa-numero="@mesa.Numero"
-                                 data-mesa-grupo="@GrupoMesa(mesa)">
-                                @if (detalleHref != null)
+                            <div class="map-table-wrap mesa-filterable"
+                                 data-sector="@sectorKey"
+                                 data-mesa-numero="@mesa.Numero">
+                                @if (href != null)
                                 {
-                                    <a class="@contenidoClase d-block" href="@detalleHref">
-                                        <div class="d-flex justify-content-between align-items-start gap-2">
-                                            <div class="mesa-number">Mesa @mesa.Numero</div>
-                                            <span class="ops-status-pill @(mesa.SolicitudesPendientes > 0 || mesa.Estado == EstadoMesaVisual.CuentaSolicitada ? "status-danger" : mesa.Estado == EstadoMesaVisual.Disponible ? "status-success" : mesa.Estado == EstadoMesaVisual.EnPreparacion ? "status-warning" : "")">
-                                                @TextoEstado(mesa)
-                                            </span>
-                                        </div>
+                                    <a href="@href" class="map-table-node @ClaseMesa(mesa)">
+                                        <span class="map-chair chair-top"></span>
+                                        <span class="map-chair chair-right"></span>
+                                        <span class="map-chair chair-bottom"></span>
+                                        <span class="map-chair chair-left"></span>
 
-                                        <div class="d-flex align-items-center flex-wrap gap-3 mt-3 mesa-meta">
-                                            <span>♙ @mesa.Comensales</span>
-                                            @if (mesa.FechaApertura.HasValue)
-                                            {
-                                                <span class="mesa-time">◷ @duracion</span>
-                                            }
-                                        </div>
-
-                                        <div class="d-flex justify-content-between align-items-end gap-2 mt-3">
-                                            <div>
-                                                @if (mesa.SolicitudesPendientes > 0)
-                                                {
-                                                    <div class="small fw-semibold text-danger">
-                                                        <span class="mesa-alert-dot me-1"></span>
-                                                        @mesa.SolicitudesPendientes alerta(s)
-                                                    </div>
-                                                }
-                                                else
-                                                {
-                                                    <div class="small text-muted">Sin alertas</div>
-                                                }
-                                            </div>
-                                            @if (mesa.TotalAcumulado > 0)
-                                            {
-                                                <strong class="small">@mesa.TotalAcumulado.ToString("C0", clp)</strong>
-                                            }
-                                        </div>
+                                        <span class="map-table-number">@mesa.Numero</span>
+                                        <span class="map-table-people">♙ @mesa.Comensales</span>
+                                        @if (mesa.FechaApertura.HasValue)
+                                        {
+                                            <span class="map-table-time">@duracion</span>
+                                        }
+                                        @if (mesa.SolicitudesPendientes > 0)
+                                        {
+                                            <span class="map-alert-badge">@mesa.SolicitudesPendientes</span>
+                                        }
                                     </a>
                                 }
                                 else
                                 {
-                                    <div class="@contenidoClase">
-                                        <div class="d-flex justify-content-between align-items-start gap-2">
-                                            <div class="mesa-number">Mesa @mesa.Numero</div>
-                                            <span class="ops-status-pill @(mesa.Estado == EstadoMesaVisual.Disponible ? "status-success" : "")">
-                                                @TextoEstado(mesa)
-                                            </span>
-                                        </div>
-                                        <div class="mt-4 small text-muted">
-                                            @(mesa.Activa ? "Lista para recibir clientes" : "Mesa deshabilitada")
-                                        </div>
+                                    <div class="map-table-node @ClaseMesa(mesa)">
+                                        <span class="map-chair chair-top"></span>
+                                        <span class="map-chair chair-right"></span>
+                                        <span class="map-chair chair-bottom"></span>
+                                        <span class="map-chair chair-left"></span>
+                                        <span class="map-table-number">@mesa.Numero</span>
+                                        <span class="map-table-people">@TextoEstado(mesa)</span>
                                     </div>
                                 }
+
+                                <div class="text-center mt-2">
+                                    <div class="small fw-semibold">@mesa.SectorNombre</div>
+                                    <div class="small text-muted">@TextoEstado(mesa)</div>
+                                </div>
                             </div>
                         }
                     </div>
                 }
 
-                <div id="sinResultadosMesas" class="text-center text-muted py-5 d-none">
-                    No encontramos mesas con ese filtro.
+                <div id="sinResultadosMapa" class="text-center text-muted py-5 d-none">
+                    No encontramos mesas en este sector o búsqueda.
+                </div>
+            </div>
+
+            <div id="vistaLista" class="d-none">
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-2 g-md-3">
+                    @foreach (var mesa in Model.Mesas.OrderBy(m => m.OrdenEnSector).ThenBy(m => m.Numero))
+                    {
+                        var sectorKey = mesa.SectorId?.ToString() ?? "sin-sector";
+                        var href = mesa.SesionId.HasValue
+                            ? Url.Action("Mesa", "Pedidos", new { id = mesa.SesionId.Value })
+                            : null;
+
+                        <div class="col mesa-filterable" data-sector="@sectorKey" data-mesa-numero="@mesa.Numero">
+                            @if (href != null)
+                            {
+                                <a href="@href" class="mesa-tile @ClaseMesa(mesa) d-block">
+                                    <div class="d-flex justify-content-between gap-2">
+                                        <div>
+                                            <div class="mesa-number">Mesa @mesa.Numero</div>
+                                            <div class="small text-muted mt-1">@mesa.SectorNombre</div>
+                                        </div>
+                                        <span class="ops-status-pill">@TextoEstado(mesa)</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-end mt-3">
+                                        <span class="mesa-meta">♙ @mesa.Comensales</span>
+                                        <strong class="small">@mesa.TotalAcumulado.ToString("C0", clp)</strong>
+                                    </div>
+                                </a>
+                            }
+                            else
+                            {
+                                <div class="mesa-tile @ClaseMesa(mesa)">
+                                    <div class="mesa-number">Mesa @mesa.Numero</div>
+                                    <div class="small text-muted mt-1">@mesa.SectorNombre · @TextoEstado(mesa)</div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+                <div id="sinResultadosLista" class="text-center text-muted py-5 d-none">
+                    No encontramos mesas en este sector o búsqueda.
                 </div>
             </div>
         </section>
@@ -175,22 +209,19 @@
                         <h2 class="h6 mb-0 fw-bold">Notificaciones</h2>
                         <span class="badge rounded-pill text-bg-danger">@Model.SolicitudesPendientes.Count</span>
                     </div>
-                    <a asp-controller="Pedidos" asp-action="Index" asp-fragment="solicitudes"
-                       class="small text-decoration-none">Ver todas</a>
+                    <a asp-controller="Pedidos" asp-action="Index" class="small text-decoration-none">Monitor</a>
                 </div>
 
                 <div class="p-2 p-md-3 d-grid gap-2">
                     @if (!Model.SolicitudesPendientes.Any())
                     {
-                        <div class="text-center text-muted py-4 small">
-                            No tienes solicitudes pendientes.
-                        </div>
+                        <div class="text-center text-muted py-4 small">No tienes solicitudes pendientes.</div>
                     }
                     else
                     {
                         @foreach (var solicitud in Model.SolicitudesPendientes.Take(6))
                         {
-                            var minutosSolicitud = Math.Max(0, (int)(DateTime.UtcNow - solicitud.FechaCreacion).TotalMinutes);
+                            var minutos = Math.Max(0, (int)(DateTime.UtcNow - solicitud.FechaCreacion).TotalMinutes);
                             var titulo = solicitud.Tipo switch
                             {
                                 TipoSolicitudMesa.PedirCuenta => "Solicita la cuenta",
@@ -199,21 +230,15 @@
                                 _ => solicitud.Mensaje ?? solicitud.Tipo
                             };
 
-                            <a asp-controller="Pedidos"
-                               asp-action="Mesa"
-                               asp-route-id="@solicitud.SesionId"
-                               class="ops-notification-item @(minutosSolicitud >= 5 ? "is-urgent" : "") text-decoration-none text-reset">
+                            <a asp-controller="Pedidos" asp-action="Mesa" asp-route-id="@solicitud.SesionId"
+                               class="ops-notification-item @(minutos >= 5 ? "is-urgent" : "") text-decoration-none text-reset">
                                 <div class="d-flex justify-content-between gap-2">
                                     <div>
                                         <div class="fw-semibold small">Mesa @solicitud.MesaNumero</div>
                                         <div class="ops-notification-type mt-1">@titulo</div>
-                                        <div class="ops-notification-time mt-1">
-                                            @solicitud.ComensalNombre · hace @minutosSolicitud min
-                                        </div>
+                                        <div class="ops-notification-time mt-1">@solicitud.ComensalNombre · hace @minutos min</div>
                                     </div>
-                                    <div class="pt-1">
-                                        <span class="mesa-alert-dot"></span>
-                                    </div>
+                                    <span class="mesa-alert-dot mt-2"></span>
                                 </div>
                             </a>
                         }
@@ -225,41 +250,65 @@
 </div>
 
 @section Scripts {
-    <script>
-        (() => {
-            const input = document.getElementById('buscarMesa');
-            const filtros = Array.from(document.querySelectorAll('[data-mesa-filter]'));
-            const items = Array.from(document.querySelectorAll('.mesa-grid-item'));
-            const sinResultados = document.getElementById('sinResultadosMesas');
-            let filtroActual = 'todas';
+<script>
+(() => {
+    const input = document.getElementById('buscarMesa');
+    const sectorButtons = Array.from(document.querySelectorAll('[data-sector-filter]'));
+    const items = Array.from(document.querySelectorAll('.mesa-filterable'));
+    const mapa = document.getElementById('vistaMapa');
+    const lista = document.getElementById('vistaLista');
+    const btnMapa = document.getElementById('btnVistaMapa');
+    const btnLista = document.getElementById('btnVistaLista');
+    let sectorActual = 'todos';
 
-            function aplicarFiltros() {
-                const texto = (input?.value || '').trim().toLowerCase();
-                let visibles = 0;
+    function aplicarFiltros() {
+        const texto = (input?.value || '').trim().toLowerCase();
+        let visiblesMapa = 0;
+        let visiblesLista = 0;
 
-                items.forEach(item => {
-                    const numero = (item.dataset.mesaNumero || '').toLowerCase();
-                    const grupo = item.dataset.mesaGrupo || '';
-                    const coincideTexto = !texto || numero.includes(texto) || ('mesa ' + numero).includes(texto);
-                    const coincideFiltro = filtroActual === 'todas' || grupo === filtroActual;
-                    const visible = coincideTexto && coincideFiltro;
+        items.forEach(item => {
+            const numero = item.dataset.mesaNumero || '';
+            const sector = item.dataset.sector || '';
+            const coincideTexto = !texto || numero.includes(texto) || ('mesa ' + numero).includes(texto);
+            const coincideSector = sectorActual === 'todos' || sector === sectorActual;
+            const visible = coincideTexto && coincideSector;
+            item.classList.toggle('d-none', !visible);
 
-                    item.classList.toggle('d-none', !visible);
-                    if (visible) visibles++;
-                });
+            if (visible && item.closest('#vistaMapa')) visiblesMapa++;
+            if (visible && item.closest('#vistaLista')) visiblesLista++;
+        });
 
-                sinResultados?.classList.toggle('d-none', visibles !== 0 || items.length === 0);
-            }
+        document.getElementById('sinResultadosMapa')?.classList.toggle('d-none', visiblesMapa > 0 || !items.some(i => i.closest('#vistaMapa')));
+        document.getElementById('sinResultadosLista')?.classList.toggle('d-none', visiblesLista > 0 || !items.some(i => i.closest('#vistaLista')));
+    }
 
-            filtros.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    filtroActual = btn.dataset.mesaFilter || 'todas';
-                    filtros.forEach(x => x.classList.toggle('active', x === btn));
-                    aplicarFiltros();
-                });
-            });
+    sectorButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            sectorActual = btn.dataset.sectorFilter || 'todos';
+            sectorButtons.forEach(x => x.classList.toggle('active', x === btn));
+            aplicarFiltros();
+        });
+    });
 
-            input?.addEventListener('input', aplicarFiltros);
-        })();
-    </script>
+    input?.addEventListener('input', aplicarFiltros);
+
+    btnMapa?.addEventListener('click', () => {
+        mapa?.classList.remove('d-none');
+        lista?.classList.add('d-none');
+        btnMapa.classList.add('btn-comidita', 'active');
+        btnMapa.classList.remove('btn-outline-secondary');
+        btnLista?.classList.remove('btn-comidita', 'active');
+        btnLista?.classList.add('btn-outline-secondary');
+    });
+
+    btnLista?.addEventListener('click', () => {
+        lista?.classList.remove('d-none');
+        mapa?.classList.add('d-none');
+        btnLista.classList.add('btn-comidita', 'active');
+        btnLista.classList.remove('btn-outline-secondary');
+        btnMapa?.classList.remove('btn-comidita', 'active');
+        btnMapa?.classList.add('btn-outline-secondary');
+    });
+})();
+</script>
 }
