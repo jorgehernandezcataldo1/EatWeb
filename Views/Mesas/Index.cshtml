@@ -201,6 +201,7 @@
 
                             <a asp-controller="Pedidos"
                                asp-action="Index"
+                               asp-route-sesionId="@solicitud.SesionId"
                                asp-fragment="mesa-@solicitud.SesionId"
                                class="ops-notification-item @(minutosSolicitud >= 5 ? "is-urgent" : "") text-decoration-none text-reset">
                                 <div class="d-flex justify-content-between gap-2">
