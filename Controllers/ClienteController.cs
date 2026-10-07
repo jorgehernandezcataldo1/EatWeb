@@ -340,16 +340,11 @@ public class ClienteController : Controller
                 p.Activo)
             .Select(p => new EditarLineaCarritoViewModel
             {
-                LineaId = linea.LineaId,
                 ProductoId = p.Id,
                 Nombre = p.Nombre,
                 Descripcion = p.Descripcion,
                 Precio = p.Precio,
                 ImagenUrl = p.ImagenKey,
-                Cantidad = linea.Cantidad,
-                Observacion = linea.Observacion,
-                IngredientesQuitar = linea.IngredientesQuitar.ToList(),
-                IngredientesAgregar = linea.IngredientesAgregar.ToList(),
                 Incluidos = p.Ingredientes
                     .Where(pi => pi.Tipo == TipoIngrediente.Incluido && pi.Ingrediente!.Activo)
                     .Select(pi => new IngredienteOpcionViewModel
@@ -371,6 +366,11 @@ public class ClienteController : Controller
         if (producto == null)
             return RedirectToAction(nameof(Carrito));
 
+        producto.LineaId = linea.LineaId;
+        producto.Cantidad = linea.Cantidad;
+        producto.Observacion = linea.Observacion;
+        producto.IngredientesQuitar = linea.IngredientesQuitar.ToList();
+        producto.IngredientesAgregar = linea.IngredientesAgregar.ToList();
         producto.ImagenUrl = _storage.ObtenerUrlPublica(producto.ImagenUrl);
         return View(producto);
     }
