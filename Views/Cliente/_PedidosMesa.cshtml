@@ -1,0 +1,82 @@
+@model IReadOnlyList<MiPedidoViewModel>
+@{
+    var clp = new System.Globalization.CultureInfo("es-CL");
+
+    string EstadoTexto(string estado) => estado switch
+    {
+        EstadoDetallePedido.EnPreparacion => "En preparación",
+        EstadoDetallePedido.Listo => "Listo",
+        EstadoDetallePedido.Entregado => "Entregado",
+        EstadoDetallePedido.Pendiente => "Pendiente",
+        _ => estado
+    };
+}
+
+@if (!Model.Any())
+{
+    <div class="cliente-card p-4 text-center text-muted">
+        Aún nadie en la mesa ha hecho un pedido.
+    </div>
+}
+else
+{
+    @foreach (var grupo in Model
+        .GroupBy(p => new { p.ComensalId, p.ComensalNombre, p.EsPropio })
+        .OrderByDescending(g => g.Key.EsPropio)
+        .ThenBy(g => g.Key.ComensalNombre))
+    {
+        <section class="cliente-mesa-persona">
+            <div class="p-3 border-bottom d-flex justify-content-between align-items-center gap-2">
+                <div>
+                    <div class="fw-bold">
+                        @grupo.Key.ComensalNombre
+                        @if (grupo.Key.EsPropio)
+                        {
+                            <span class="badge rounded-pill text-bg-light border ms-1">Tú</span>
+                        }
+                    </div>
+                    <div class="small cliente-muted">@grupo.Count() pedido(s)</div>
+                </div>
+                <strong>@grupo.Sum(p => p.Total).ToString("C0", clp)</strong>
+            </div>
+
+            <div class="p-2 p-md-3">
+                @foreach (var pedido in grupo.OrderByDescending(p => p.Fecha))
+                {
+                    <article class="border rounded-3 p-3 @(pedido != grupo.Last() ? "mb-2" : "")">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div>
+                                <div class="small fw-semibold">Pedido #@pedido.Id</div>
+                                <div class="small text-muted">@ZonaHorariaService.ALocal(pedido.Fecha).ToString("HH:mm")</div>
+                            </div>
+                            <span class="cliente-state-badge" data-state="@pedido.Estado">@pedido.Estado</span>
+                        </div>
+
+                        <div class="d-grid gap-2 mt-3">
+                            @foreach (var detalle in pedido.Detalles)
+                            {
+                                <div class="d-flex justify-content-between align-items-start gap-3">
+                                    <div>
+                                        <div class="fw-semibold small">@detalle.Cantidad× @detalle.Producto</div>
+                                        <span class="cliente-state-badge mt-1"
+                                              data-detalle-id="@detalle.Id"
+                                              data-state="@detalle.Estado"
+                                              data-es-propio="@pedido.EsPropio.ToString().ToLowerInvariant()">
+                                            @EstadoTexto(detalle.Estado)
+                                        </span>
+                                    </div>
+                                    <span class="small text-nowrap">@detalle.Subtotal.ToString("C0", clp)</span>
+                                </div>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(pedido.Observacion))
+                        {
+                            <div class="small fst-italic text-muted mt-2">“@pedido.Observacion”</div>
+                        }
+                    </article>
+                }
+            </div>
+        </section>
+    }
+}
