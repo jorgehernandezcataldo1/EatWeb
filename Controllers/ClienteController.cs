@@ -436,41 +436,7 @@ public class ClienteController : Controller
         var ctx = await ObtenerContextoAsync();
         if (ctx == null) return RedirectToAction(nameof(SinSesion));
 
-        var pedidosMesa = await _context.Pedidos
-            .AsNoTracking()
-            .Where(p =>
-                p.MesaSesionId == ctx.SesionId &&
-                p.Estado != EstadoPedido.Cancelado)
-            .OrderByDescending(p => p.FechaCreacion)
-            .Select(p => new MiPedidoViewModel
-            {
-                Id = p.Id,
-                ComensalId = p.ComensalId,
-                ComensalNombre = p.Comensal!.Nombre,
-                EsPropio = p.ComensalId == ctx.ComensalId,
-                Estado = p.Estado,
-                Total = p.Detalles
-                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
-                    .Sum(d => d.Subtotal),
-                Fecha = p.FechaCreacion,
-                Observacion = p.ObservacionGeneral,
-                Items = p.Detalles
-                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
-                    .Select(d => d.Cantidad + "x " + d.NombreProducto)
-                    .ToList(),
-                Detalles = p.Detalles
-                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
-                    .Select(d => new MiPedidoDetalleViewModel
-                    {
-                        Id = d.Id,
-                        Producto = d.NombreProducto,
-                        Cantidad = d.Cantidad,
-                        Estado = d.Estado,
-                        Subtotal = d.Subtotal
-                    })
-                    .ToList()
-            })
-            .ToListAsync();
+        var pedidosMesa = await ObtenerPedidosMesaAsync(ctx);
 
         var solicitudes = await ObtenerSolicitudesAsync(ctx);
         var propios = pedidosMesa.Where(p => p.EsPropio).ToList();
@@ -487,6 +453,18 @@ public class ClienteController : Controller
             PedidosMesa = pedidosMesa,
             Solicitudes = solicitudes
         });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> PedidosMesa()
+    {
+        var ctx = await LeerContextoAsync();
+        if (ctx == null)
+            return Unauthorized();
+
+        Response.Headers.CacheControl = "no-store";
+        var pedidos = await ObtenerPedidosMesaAsync(ctx);
+        return PartialView("_PedidosMesa", pedidos);
     }
 
     [HttpGet]
@@ -580,6 +558,45 @@ public class ClienteController : Controller
         Response.Headers.CacheControl = "no-store";
         var solicitudes = await ObtenerSolicitudesAsync(ctx);
         return PartialView("_MisSolicitudes", solicitudes);
+    }
+
+    private Task<List<MiPedidoViewModel>> ObtenerPedidosMesaAsync(ContextoComensal ctx)
+    {
+        return _context.Pedidos
+            .AsNoTracking()
+            .Where(p =>
+                p.MesaSesionId == ctx.SesionId &&
+                p.Estado != EstadoPedido.Cancelado)
+            .OrderByDescending(p => p.FechaCreacion)
+            .Select(p => new MiPedidoViewModel
+            {
+                Id = p.Id,
+                ComensalId = p.ComensalId,
+                ComensalNombre = p.Comensal!.Nombre,
+                EsPropio = p.ComensalId == ctx.ComensalId,
+                Estado = p.Estado,
+                Total = p.Detalles
+                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                    .Sum(d => d.Subtotal),
+                Fecha = p.FechaCreacion,
+                Observacion = p.ObservacionGeneral,
+                Items = p.Detalles
+                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                    .Select(d => d.Cantidad + "x " + d.NombreProducto)
+                    .ToList(),
+                Detalles = p.Detalles
+                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                    .Select(d => new MiPedidoDetalleViewModel
+                    {
+                        Id = d.Id,
+                        Producto = d.NombreProducto,
+                        Cantidad = d.Cantidad,
+                        Estado = d.Estado,
+                        Subtotal = d.Subtotal
+                    })
+                    .ToList()
+            })
+            .ToListAsync();
     }
 
     private Task<List<SolicitudMesaResumenViewModel>> ObtenerSolicitudesAsync(ContextoComensal ctx)
