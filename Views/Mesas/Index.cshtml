@@ -98,7 +98,7 @@
                             var duracion = horas > 0 ? $"{horas:00}:{mins:00}" : $"00:{mins:00}";
                             var contenidoClase = $"mesa-tile {ClaseMesa(mesa)}";
                             var detalleHref = mesa.SesionId.HasValue
-                                ? Url.Action("Index", "Pedidos") + $"#mesa-{mesa.SesionId.Value}"
+                                ? Url.Action("Index", "Pedidos", new { sesionId = mesa.SesionId.Value }) + $"#mesa-{mesa.SesionId.Value}"
                                 : null;
 
                             <div class="col mesa-grid-item"
