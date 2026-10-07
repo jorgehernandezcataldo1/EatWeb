@@ -165,9 +165,6 @@ namespace EatWeb.Migrations
                     b.Property<int>("RestauranteId")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("SectorId")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
 
                     b.HasIndex("EstacionId");
@@ -464,6 +461,9 @@ namespace EatWeb.Migrations
                     b.Property<int>("RestauranteId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("SectorId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CodigoQr")
@@ -638,17 +638,6 @@ namespace EatWeb.Migrations
                     b.ToTable("PagoDetalles");
                 });
 
-            modelBuilder.Entity("EatWeb.Models.Sector", b =>
-                {
-                    b.HasOne("EatWeb.Models.Restaurante", "Restaurante")
-                        .WithMany("Sectores")
-                        .HasForeignKey("RestauranteId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Restaurante");
-                });
-
             modelBuilder.Entity("EatWeb.Models.SolicitudMesa", b =>
                 {
                     b.Property<int>("Id")
@@ -813,11 +802,6 @@ namespace EatWeb.Migrations
                     b.HasIndex("IngredienteId");
 
                     b.ToTable("ProductoIngredientes");
-                });
-
-            modelBuilder.Entity("EatWeb.Models.Sector", b =>
-                {
-                    b.Navigation("Mesas");
                 });
 
             modelBuilder.Entity("EatWeb.Models.Restaurante", b =>
@@ -1229,6 +1213,17 @@ namespace EatWeb.Migrations
                     b.Navigation("Pago");
                 });
 
+            modelBuilder.Entity("EatWeb.Models.Sector", b =>
+                {
+                    b.HasOne("EatWeb.Models.Restaurante", "Restaurante")
+                        .WithMany("Sectores")
+                        .HasForeignKey("RestauranteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Restaurante");
+                });
+
             modelBuilder.Entity("EatWeb.Models.SolicitudMesa", b =>
                 {
                     b.HasOne("EatWeb.Models.ApplicationUser", "AtendidaPor")
@@ -1483,6 +1478,11 @@ namespace EatWeb.Migrations
                     b.Navigation("Detalles");
 
                     b.Navigation("Ingredientes");
+                });
+
+            modelBuilder.Entity("EatWeb.Models.Sector", b =>
+                {
+                    b.Navigation("Mesas");
                 });
 
             modelBuilder.Entity("EatWeb.Models.Restaurante", b =>
