@@ -363,7 +363,7 @@
     <script>
         async function actualizarSolicitudes() {
             try {
-                const response = await fetch('@Url.Action("SolicitudesPendientes", "Pedidos")', {
+                const response = await fetch('@Url.Action("SolicitudesPendientes", "Pedidos", new { sesionId = Model.Mesas.First().SesionId })', {
                     cache: 'no-store'
                 });
                 if (!response.ok) return;
