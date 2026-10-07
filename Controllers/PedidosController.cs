@@ -37,99 +37,18 @@ public class PedidosController : RestauranteControllerBase
         User.FindFirstValue(ClaimTypes.NameIdentifier);
 
     [HttpGet]
-    public async Task<IActionResult> Index(int? sesionId = null)
+    public async Task<IActionResult> Index()
     {
-        var userId = GetUserId();
+        return View(await ConstruirOperacionAsync());
+    }
 
-        var sesiones = await _context.MesaSesiones
-            .AsNoTracking()
-            .AsSplitQuery()
-            .Where(s =>
-                s.FechaCierre == null &&
-                s.Mesa!.RestauranteId == RestauranteId &&
-                (!sesionId.HasValue || s.Id == sesionId.Value) &&
-                (User.EsAdmin() || s.GarzonId == userId || s.Mesa.GarzonId == userId))
-            .Include(s => s.Mesa)
-            .Include(s => s.Comensales)
-                .ThenInclude(c => c.Pedidos)
-                    .ThenInclude(p => p.Detalles)
-                        .ThenInclude(d => d.Ingredientes)
-            .Include(s => s.Comensales)
-                .ThenInclude(c => c.Pedidos)
-                    .ThenInclude(p => p.Historial)
-                        .ThenInclude(h => h.Usuario)
-            .OrderBy(s => s.Mesa!.Numero)
-            .ToListAsync();
+    [HttpGet]
+    public async Task<IActionResult> Mesa(int id)
+    {
+        var vm = await ConstruirOperacionAsync(id);
 
-        var solicitudesPendientes = await ObtenerSolicitudesPendientesAsync();
-
-        var vm = new PedidosIndexViewModel
-        {
-            SolicitudesPendientes = solicitudesPendientes,
-            Mesas = sesiones.Select(s => new PedidoMesaViewModel
-            {
-                SesionId = s.Id,
-                MesaId = s.MesaId,
-                MesaNumero = s.Mesa!.Numero,
-                CuentaSolicitada = s.CuentaSolicitadaEn.HasValue,
-
-                Pedidos = s.Comensales
-                    .SelectMany(c => c.Pedidos.Select(p => new PedidoResumenViewModel
-                    {
-                        Id = p.Id,
-                        ComensalNombre = c.Nombre,
-                        Estado = p.Estado,
-                        Total = p.Detalles
-                            .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
-                            .Sum(d => d.Subtotal),
-                        FechaCreacion = p.FechaCreacion,
-
-                        Historial = p.Historial
-                            .OrderBy(h => h.Fecha)
-                            .Select(h => new HistorialPedidoResumenViewModel
-                            {
-                                EstadoAnterior = h.EstadoAnterior,
-                                EstadoNuevo = h.EstadoNuevo,
-                                Fecha = h.Fecha,
-                                Actor = h.Usuario != null
-                                    ? h.Usuario.NombreCompleto
-                                    : "Sistema"
-                            })
-                            .ToList(),
-
-                        Detalles = p.Detalles.Select(d => new DetallePedidoResumenViewModel
-                        {
-                            Id = d.Id,
-                            Estado = d.Estado,
-                            EstacionId = d.EstacionId,
-                            Estacion = d.EstacionNombre,
-                            FechaInicioPreparacion = d.FechaInicioPreparacion,
-                            FechaListo = d.FechaListo,
-                            FechaEntregado = d.FechaEntregado,
-                            Producto = d.NombreProducto,
-                            Cantidad = d.Cantidad,
-                            Subtotal = d.Subtotal,
-                            Observacion = d.Observacion,
-
-                            Personalizaciones = d.Ingredientes
-                                .Select(i =>
-                                    $"{(i.Accion == AccionIngrediente.Quitar ? "Sin" : "Agregar")} " +
-                                    $"{i.NombreIngrediente}" +
-                                    (i.PrecioExtra > 0
-                                        ? $" (+{i.PrecioExtra:C0})"
-                                        : ""))
-                                .ToList()
-
-                        }).ToList()
-
-                    }))
-                    .OrderByDescending(p => p.FechaCreacion)
-                    .ToList()
-
-            })
-            .Where(m => m.Pedidos.Count > 0 || m.CuentaSolicitada)
-            .ToList()
-        };
+        if (!vm.Mesas.Any())
+            return NotFound();
 
         return View(vm);
     }
@@ -146,6 +65,14 @@ public class PedidosController : RestauranteControllerBase
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AtenderSolicitud(int id)
     {
+        var sesionId = await _context.SolicitudesMesa
+            .AsNoTracking()
+            .Where(s =>
+                s.Id == id &&
+                s.MesaSesion!.Mesa!.RestauranteId == RestauranteId)
+            .Select(s => (int?)s.MesaSesionId)
+            .FirstOrDefaultAsync();
+
         var resultado = await _solicitudMesaService.AtenderAsync(
             id,
             RestauranteId,
@@ -157,7 +84,9 @@ public class PedidosController : RestauranteControllerBase
         else
             TempData["Ok"] = "Solicitud marcada como atendida.";
 
-        return RedirectToAction(nameof(Index));
+        return sesionId.HasValue
+            ? RedirectToAction(nameof(Mesa), new { id = sesionId.Value })
+            : RedirectToAction(nameof(Index));
     }
 
     [HttpPost]
@@ -194,7 +123,7 @@ public class PedidosController : RestauranteControllerBase
         if (!resultado.Ok)
             TempData["Error"] = string.Join(" ", resultado.Errores);
 
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Mesa), new { id = pedido.MesaSesionId });
     }
 
     [HttpPost]
@@ -203,18 +132,21 @@ public class PedidosController : RestauranteControllerBase
     {
         if (!EstadoDetallePedido.Todos().Contains(nuevoEstado)) return BadRequest();
 
-        var permitido = await _context.DetallesPedidos
-            .AnyAsync(d => d.Id == id &&
-                           d.Pedido!.MesaSesion!.Mesa!.RestauranteId == RestauranteId &&
-                           (User.EsAdmin() ||
-                            d.Pedido.MesaSesion.GarzonId == GetUserId() ||
-                            d.Pedido.MesaSesion.Mesa.GarzonId == GetUserId()));
+        var detalle = await _context.DetallesPedidos
+            .AsNoTracking()
+            .Where(d => d.Id == id &&
+                        d.Pedido!.MesaSesion!.Mesa!.RestauranteId == RestauranteId &&
+                        (User.EsAdmin() ||
+                         d.Pedido.MesaSesion.GarzonId == GetUserId() ||
+                         d.Pedido.MesaSesion.Mesa.GarzonId == GetUserId()))
+            .Select(d => new { d.Id, SesionId = d.Pedido!.MesaSesionId })
+            .FirstOrDefaultAsync();
 
-        if (!permitido) return NotFound();
+        if (detalle == null) return NotFound();
 
         var resultado = await _pedidoService.CambiarEstadoDetalleAsync(id, nuevoEstado, GetUserId() ?? string.Empty);
         if (!resultado.Ok) TempData["Error"] = string.Join(" ", resultado.Errores);
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Mesa), new { id = detalle.SesionId });
     }
 
     [HttpPost]
@@ -248,7 +180,7 @@ public class PedidosController : RestauranteControllerBase
             GetUserId() ?? string.Empty,
             estacionId);
         if (!resultado.Ok) TempData["Error"] = string.Join(" ", resultado.Errores);
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Mesa), new { id });
     }
 
     [HttpPost]
@@ -757,6 +689,93 @@ public class PedidosController : RestauranteControllerBase
         }
 
         return resultado;
+    }
+
+    private async Task<PedidosIndexViewModel> ConstruirOperacionAsync(int? sesionId = null)
+    {
+        var userId = GetUserId();
+
+        var sesiones = await _context.MesaSesiones
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Where(s =>
+                s.FechaCierre == null &&
+                s.Mesa!.RestauranteId == RestauranteId &&
+                (!sesionId.HasValue || s.Id == sesionId.Value) &&
+                (User.EsAdmin() || s.GarzonId == userId || s.Mesa.GarzonId == userId))
+            .Include(s => s.Mesa)
+            .Include(s => s.Comensales)
+                .ThenInclude(c => c.Pedidos)
+                    .ThenInclude(p => p.Detalles)
+                        .ThenInclude(d => d.Ingredientes)
+            .Include(s => s.Comensales)
+                .ThenInclude(c => c.Pedidos)
+                    .ThenInclude(p => p.Historial)
+                        .ThenInclude(h => h.Usuario)
+            .OrderBy(s => s.Mesa!.Numero)
+            .ToListAsync();
+
+        var solicitudesPendientes = await ObtenerSolicitudesPendientesAsync();
+
+        if (sesionId.HasValue)
+            solicitudesPendientes = solicitudesPendientes.Where(s => s.SesionId == sesionId.Value).ToList();
+
+        return new PedidosIndexViewModel
+        {
+            SolicitudesPendientes = solicitudesPendientes,
+            Mesas = sesiones.Select(s => new PedidoMesaViewModel
+            {
+                SesionId = s.Id,
+                MesaId = s.MesaId,
+                MesaNumero = s.Mesa!.Numero,
+                CuentaSolicitada = s.CuentaSolicitadaEn.HasValue,
+                Pedidos = s.Comensales
+                    .SelectMany(comensal => comensal.Pedidos.Select(p => new PedidoResumenViewModel
+                    {
+                        Id = p.Id,
+                        ComensalNombre = comensal.Nombre,
+                        Estado = p.Estado,
+                        Total = p.Detalles
+                            .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                            .Sum(d => d.Subtotal),
+                        FechaCreacion = p.FechaCreacion,
+                        Historial = p.Historial
+                            .OrderBy(h => h.Fecha)
+                            .Select(h => new HistorialPedidoResumenViewModel
+                            {
+                                EstadoAnterior = h.EstadoAnterior,
+                                EstadoNuevo = h.EstadoNuevo,
+                                Fecha = h.Fecha,
+                                Actor = h.Usuario != null ? h.Usuario.NombreCompleto : "Sistema"
+                            })
+                            .ToList(),
+                        Detalles = p.Detalles.Select(d => new DetallePedidoResumenViewModel
+                        {
+                            Id = d.Id,
+                            Estado = d.Estado,
+                            EstacionId = d.EstacionId,
+                            Estacion = d.EstacionNombre,
+                            FechaInicioPreparacion = d.FechaInicioPreparacion,
+                            FechaListo = d.FechaListo,
+                            FechaEntregado = d.FechaEntregado,
+                            Producto = d.NombreProducto,
+                            Cantidad = d.Cantidad,
+                            Subtotal = d.Subtotal,
+                            Observacion = d.Observacion,
+                            Personalizaciones = d.Ingredientes
+                                .Select(i =>
+                                    $"{(i.Accion == AccionIngrediente.Quitar ? "Sin" : "Agregar")} " +
+                                    $"{i.NombreIngrediente}" +
+                                    (i.PrecioExtra > 0 ? $" (+{i.PrecioExtra:C0})" : ""))
+                                .ToList()
+                        }).ToList()
+                    }))
+                    .OrderByDescending(p => p.FechaCreacion)
+                    .ToList()
+            })
+            .Where(m => m.Pedidos.Count > 0 || m.CuentaSolicitada || sesionId.HasValue)
+            .ToList()
+        };
     }
 
     private sealed record SaldoDetallePago(
