@@ -108,12 +108,77 @@ public class CarritoService
 
         if (linea != null)
         {
-            linea.Cantidad = Math.Max(1, Math.Min(linea.Cantidad + delta, 20));
-            if (linea.Cantidad == 0)
-            {
+            var nuevaCantidad = Math.Min(linea.Cantidad + delta, 20);
+            if (nuevaCantidad <= 0)
                 carrito.Lineas.Remove(linea);
-            }
+            else
+                linea.Cantidad = nuevaCantidad;
         }
+
+        Guardar(carrito);
+    }
+
+    public int AjustarProductoEstandar(int comensalId, int productoId, int delta)
+    {
+        var carrito = Obtener(comensalId);
+        var linea = carrito.Lineas.FirstOrDefault(l =>
+            l.ProductoId == productoId &&
+            l.IngredientesQuitar.Count == 0 &&
+            l.IngredientesAgregar.Count == 0 &&
+            string.IsNullOrWhiteSpace(l.Observacion));
+
+        if (delta > 0)
+        {
+            if (linea == null)
+            {
+                linea = new LineaCarrito
+                {
+                    LineaId = Guid.NewGuid(),
+                    ProductoId = productoId,
+                    Cantidad = 0
+                };
+                carrito.Lineas.Add(linea);
+            }
+
+            linea.Cantidad = Math.Min(20, linea.Cantidad + delta);
+        }
+        else if (delta < 0 && linea != null)
+        {
+            linea.Cantidad += delta;
+            if (linea.Cantidad <= 0)
+                carrito.Lineas.Remove(linea);
+        }
+
+        Guardar(carrito);
+        return carrito.Lineas
+            .Where(l =>
+                l.ProductoId == productoId &&
+                l.IngredientesQuitar.Count == 0 &&
+                l.IngredientesAgregar.Count == 0 &&
+                string.IsNullOrWhiteSpace(l.Observacion))
+            .Sum(l => l.Cantidad);
+    }
+
+    public LineaCarrito? ObtenerLinea(int comensalId, Guid lineaId) =>
+        Obtener(comensalId).Lineas.FirstOrDefault(l => l.LineaId == lineaId);
+
+    public void ActualizarLinea(
+        int comensalId,
+        Guid lineaId,
+        int cantidad,
+        List<int> ingredientesQuitar,
+        List<int> ingredientesAgregar,
+        string observacion)
+    {
+        var carrito = Obtener(comensalId);
+        var linea = carrito.Lineas.FirstOrDefault(l => l.LineaId == lineaId);
+        if (linea == null)
+            return;
+
+        linea.Cantidad = Math.Max(1, Math.Min(cantidad, 20));
+        linea.IngredientesQuitar = ingredientesQuitar.Distinct().OrderBy(x => x).ToList();
+        linea.IngredientesAgregar = ingredientesAgregar.Distinct().OrderBy(x => x).ToList();
+        linea.Observacion = observacion ?? string.Empty;
 
         Guardar(carrito);
     }
