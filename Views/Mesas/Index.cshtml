@@ -1,29 +1,265 @@
-﻿@model List<MesaViewModel>
+@model MesasIndexViewModel
 
 @{
     ViewData["Title"] = "Mesas";
-    var clp = new CultureInfo("es-CL");
+    var clp = new System.Globalization.CultureInfo("es-CL");
+
+    string ClaseMesa(MesaViewModel mesa) => mesa.Estado switch
+    {
+        EstadoMesaVisual.Disponible => "mesa-disponible",
+        EstadoMesaVisual.CuentaSolicitada => "mesa-cuenta",
+        EstadoMesaVisual.PedidoNuevo => "mesa-urgente",
+        EstadoMesaVisual.ListoParaEntregar => "mesa-urgente",
+        EstadoMesaVisual.EnPreparacion => "mesa-preparacion",
+        EstadoMesaVisual.FueraDeServicio => "mesa-off",
+        _ => "mesa-ocupada"
+    };
+
+    string GrupoMesa(MesaViewModel mesa) => mesa.Estado == EstadoMesaVisual.Disponible
+        ? "disponible"
+        : mesa.Estado == EstadoMesaVisual.FueraDeServicio
+            ? "fuera"
+            : "ocupada";
+
+    string TextoEstado(MesaViewModel mesa) => mesa.Estado switch
+    {
+        EstadoMesaVisual.Disponible => "Disponible",
+        EstadoMesaVisual.CuentaSolicitada => "Cuenta",
+        EstadoMesaVisual.PedidoNuevo => "Pedido nuevo",
+        EstadoMesaVisual.ListoParaEntregar => "Listo",
+        EstadoMesaVisual.EnPreparacion => "En preparación",
+        EstadoMesaVisual.FueraDeServicio => "Fuera de servicio",
+        _ => "Ocupada"
+    };
 }
 
-<h2 class="mb-3">Mis mesas</h2>
-
-<div class="row g-3" id="tablero-mesas">
-    @foreach (var mesa in Model)
-    {
-        <div class="col-6 col-md-4 col-lg-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">Mesa @mesa.Numero</h5>
-                    <partial name="_EstadoMesaBadge" model="mesa.Estado" />
-                    <p class="mb-0 mt-2 small text-muted">@mesa.Comensales comensal(es)</p>
-                    <p class="mb-0"><strong>@mesa.TotalAcumulado.ToString("C0", clp)</strong></p>
-                </div>
+<div class="ops-page">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+        <div>
+            <h1 class="ops-title h3 mb-1">Mesas</h1>
+            <div class="ops-subtitle small">
+                @Model.Mesas.Count mesas asignadas · @Model.Mesas.Count(m => m.TieneSesionAbierta) en servicio
             </div>
         </div>
-    }
+
+        <a asp-controller="Pedidos" asp-action="Index"
+           class="btn btn-comidita px-4 align-self-start align-self-md-auto">
+            Ver pedidos
+        </a>
+    </div>
+
+    <div class="row g-3">
+        <section class="col-xl-9">
+            <div class="ops-toolbar mb-3">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md">
+                        <div class="btn-group" role="group" aria-label="Filtrar mesas">
+                            <button type="button" class="btn btn-outline-secondary ops-filter active" data-mesa-filter="todas">
+                                Todas
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary ops-filter" data-mesa-filter="disponible">
+                                Disponibles
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary ops-filter" data-mesa-filter="ocupada">
+                                En servicio
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-auto">
+                        <input id="buscarMesa"
+                               type="search"
+                               class="form-control ops-search"
+                               placeholder="Buscar mesa..."
+                               aria-label="Buscar mesa" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="mesas-board">
+                @if (!Model.Mesas.Any())
+                {
+                    <div class="d-flex align-items-center justify-content-center h-100 py-5 text-center">
+                        <div>
+                            <div class="h5 mb-1">No tienes mesas asignadas</div>
+                            <div class="text-muted small">Cuando te asignen una mesa aparecerá aquí.</div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="row row-cols-2 row-cols-md-3 row-cols-xxl-4 g-2 g-md-3" id="tablero-mesas">
+                        @foreach (var mesa in Model.Mesas)
+                        {
+                            var minutos = mesa.FechaApertura.HasValue
+                                ? Math.Max(0, (int)(DateTime.UtcNow - mesa.FechaApertura.Value).TotalMinutes)
+                                : 0;
+                            var horas = minutos / 60;
+                            var mins = minutos % 60;
+                            var duracion = horas > 0 ? $"{horas:00}:{mins:00}" : $"00:{mins:00}";
+                            var contenidoClase = $"mesa-tile {ClaseMesa(mesa)}";
+                            var detalleHref = mesa.SesionId.HasValue
+                                ? Url.Action("Index", "Pedidos") + $"#mesa-{mesa.SesionId.Value}"
+                                : null;
+
+                            <div class="col mesa-grid-item"
+                                 data-mesa-numero="@mesa.Numero"
+                                 data-mesa-grupo="@GrupoMesa(mesa)">
+                                @if (detalleHref != null)
+                                {
+                                    <a class="@contenidoClase d-block" href="@detalleHref">
+                                        <div class="d-flex justify-content-between align-items-start gap-2">
+                                            <div class="mesa-number">Mesa @mesa.Numero</div>
+                                            <span class="ops-status-pill @(mesa.SolicitudesPendientes > 0 || mesa.Estado == EstadoMesaVisual.CuentaSolicitada ? "status-danger" : mesa.Estado == EstadoMesaVisual.Disponible ? "status-success" : mesa.Estado == EstadoMesaVisual.EnPreparacion ? "status-warning" : "")">
+                                                @TextoEstado(mesa)
+                                            </span>
+                                        </div>
+
+                                        <div class="d-flex align-items-center flex-wrap gap-3 mt-3 mesa-meta">
+                                            <span>♙ @mesa.Comensales</span>
+                                            @if (mesa.FechaApertura.HasValue)
+                                            {
+                                                <span class="mesa-time">◷ @duracion</span>
+                                            }
+                                        </div>
+
+                                        <div class="d-flex justify-content-between align-items-end gap-2 mt-3">
+                                            <div>
+                                                @if (mesa.SolicitudesPendientes > 0)
+                                                {
+                                                    <div class="small fw-semibold text-danger">
+                                                        <span class="mesa-alert-dot me-1"></span>
+                                                        @mesa.SolicitudesPendientes alerta(s)
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="small text-muted">Sin alertas</div>
+                                                }
+                                            </div>
+                                            @if (mesa.TotalAcumulado > 0)
+                                            {
+                                                <strong class="small">@mesa.TotalAcumulado.ToString("C0", clp)</strong>
+                                            }
+                                        </div>
+                                    </a>
+                                }
+                                else
+                                {
+                                    <div class="@contenidoClase">
+                                        <div class="d-flex justify-content-between align-items-start gap-2">
+                                            <div class="mesa-number">Mesa @mesa.Numero</div>
+                                            <span class="ops-status-pill @(mesa.Estado == EstadoMesaVisual.Disponible ? "status-success" : "")">
+                                                @TextoEstado(mesa)
+                                            </span>
+                                        </div>
+                                        <div class="mt-4 small text-muted">
+                                            @(mesa.Activa ? "Lista para recibir clientes" : "Mesa deshabilitada")
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+
+                <div id="sinResultadosMesas" class="text-center text-muted py-5 d-none">
+                    No encontramos mesas con ese filtro.
+                </div>
+            </div>
+        </section>
+
+        <aside class="col-xl-3" id="notificaciones">
+            <div class="ops-notifications ops-sticky-panel">
+                <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+                    <div class="d-flex align-items-center gap-2">
+                        <h2 class="h6 mb-0 fw-bold">Notificaciones</h2>
+                        <span class="badge rounded-pill text-bg-danger">@Model.SolicitudesPendientes.Count</span>
+                    </div>
+                    <a asp-controller="Pedidos" asp-action="Index" asp-fragment="solicitudes"
+                       class="small text-decoration-none">Ver todas</a>
+                </div>
+
+                <div class="p-2 p-md-3 d-grid gap-2">
+                    @if (!Model.SolicitudesPendientes.Any())
+                    {
+                        <div class="text-center text-muted py-4 small">
+                            No tienes solicitudes pendientes.
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var solicitud in Model.SolicitudesPendientes.Take(6))
+                        {
+                            var minutosSolicitud = Math.Max(0, (int)(DateTime.UtcNow - solicitud.FechaCreacion).TotalMinutes);
+                            var titulo = solicitud.Tipo switch
+                            {
+                                TipoSolicitudMesa.PedirCuenta => "Solicita la cuenta",
+                                TipoSolicitudMesa.LlamarGarzon => "Llama al garzón",
+                                TipoSolicitudMesa.SolicitarAlgo => solicitud.Mensaje ?? "Solicitud del cliente",
+                                _ => solicitud.Mensaje ?? solicitud.Tipo
+                            };
+
+                            <a asp-controller="Pedidos"
+                               asp-action="Index"
+                               asp-fragment="mesa-@solicitud.SesionId"
+                               class="ops-notification-item @(minutosSolicitud >= 5 ? "is-urgent" : "") text-decoration-none text-reset">
+                                <div class="d-flex justify-content-between gap-2">
+                                    <div>
+                                        <div class="fw-semibold small">Mesa @solicitud.MesaNumero</div>
+                                        <div class="ops-notification-type mt-1">@titulo</div>
+                                        <div class="ops-notification-time mt-1">
+                                            @solicitud.ComensalNombre · hace @minutosSolicitud min
+                                        </div>
+                                    </div>
+                                    <div class="pt-1">
+                                        <span class="mesa-alert-dot"></span>
+                                    </div>
+                                </div>
+                            </a>
+                        }
+                    }
+                </div>
+            </div>
+        </aside>
+    </div>
 </div>
 
-@if (Model.Count == 0)
-{
-    <div class="alert alert-info">No tienes mesas asignadas.</div>
+@section Scripts {
+    <script>
+        (() => {
+            const input = document.getElementById('buscarMesa');
+            const filtros = Array.from(document.querySelectorAll('[data-mesa-filter]'));
+            const items = Array.from(document.querySelectorAll('.mesa-grid-item'));
+            const sinResultados = document.getElementById('sinResultadosMesas');
+            let filtroActual = 'todas';
+
+            function aplicarFiltros() {
+                const texto = (input?.value || '').trim().toLowerCase();
+                let visibles = 0;
+
+                items.forEach(item => {
+                    const numero = (item.dataset.mesaNumero || '').toLowerCase();
+                    const grupo = item.dataset.mesaGrupo || '';
+                    const coincideTexto = !texto || numero.includes(texto) || ('mesa ' + numero).includes(texto);
+                    const coincideFiltro = filtroActual === 'todas' || grupo === filtroActual;
+                    const visible = coincideTexto && coincideFiltro;
+
+                    item.classList.toggle('d-none', !visible);
+                    if (visible) visibles++;
+                });
+
+                sinResultados?.classList.toggle('d-none', visibles !== 0 || items.length === 0);
+            }
+
+            filtros.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    filtroActual = btn.dataset.mesaFilter || 'todas';
+                    filtros.forEach(x => x.classList.toggle('active', x === btn));
+                    aplicarFiltros();
+                });
+            });
+
+            input?.addEventListener('input', aplicarFiltros);
+        })();
+    </script>
 }
