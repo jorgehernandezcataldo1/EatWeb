@@ -98,7 +98,7 @@
                             var duracion = horas > 0 ? $"{horas:00}:{mins:00}" : $"00:{mins:00}";
                             var contenidoClase = $"mesa-tile {ClaseMesa(mesa)}";
                             var detalleHref = mesa.SesionId.HasValue
-                                ? Url.Action("Index", "Pedidos", new { sesionId = mesa.SesionId.Value }) + $"#mesa-{mesa.SesionId.Value}"
+                                ? Url.Action("Mesa", "Pedidos", new { id = mesa.SesionId.Value })!
                                 : null;
 
                             <div class="col mesa-grid-item"
@@ -200,9 +200,8 @@
                             };
 
                             <a asp-controller="Pedidos"
-                               asp-action="Index"
-                               asp-route-sesionId="@solicitud.SesionId"
-                               asp-fragment="mesa-@solicitud.SesionId"
+                               asp-action="Mesa"
+                               asp-route-id="@solicitud.SesionId"
                                class="ops-notification-item @(minutosSolicitud >= 5 ? "is-urgent" : "") text-decoration-none text-reset">
                                 <div class="d-flex justify-content-between gap-2">
                                     <div>
