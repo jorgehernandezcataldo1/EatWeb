@@ -1,0 +1,15 @@
+@model SectorViewModel
+
+@{
+    ViewData["Title"] = "Nuevo sector";
+}
+
+<h2 class="mb-3">Nuevo sector</h2>
+
+<form asp-action="Crear" method="post" class="row g-3">
+    <partial name="_Formulario" model="Model" />
+    <div class="col-12">
+        <button type="submit" class="btn btn-primary">Crear sector</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+</form>
