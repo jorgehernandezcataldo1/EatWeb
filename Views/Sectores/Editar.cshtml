@@ -1,0 +1,16 @@
+@model SectorViewModel
+
+@{
+    ViewData["Title"] = $"Editar {Model.Nombre}";
+}
+
+<h2 class="mb-3">Editar sector</h2>
+
+<form asp-action="Editar" asp-route-id="@Model.Id" method="post" class="row g-3">
+    <input asp-for="Id" type="hidden" />
+    <partial name="_Formulario" model="Model" />
+    <div class="col-12">
+        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+</form>
