@@ -42,6 +42,7 @@
                     <div class="d-flex gap-2 mt-3">
                         <a asp-controller="Pedidos"
                            asp-action="Index"
+                           asp-route-sesionId="@s.SesionId"
                            asp-fragment="mesa-@s.SesionId"
                            class="btn btn-sm btn-outline-secondary flex-fill">
                             Ver mesa
