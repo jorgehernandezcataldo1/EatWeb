@@ -122,7 +122,7 @@
 
                             <div class="map-table-wrap mesa-filterable"
                                  data-sector="@sectorKey"
-                                 data-uso="@(mesa.TieneSesionAbierta ? "usada" : "disponible")"
+                                 data-uso="@(mesa.TieneSesionAbierta ? "usada" : mesa.Activa ? "disponible" : "fuera")"
                                  data-mesa-numero="@mesa.Numero">
                                 @if (href != null)
                                 {
@@ -180,7 +180,7 @@
                             : null;
 
                         <div class="col mesa-filterable" data-sector="@sectorKey"
-                             data-uso="@(mesa.TieneSesionAbierta ? "usada" : "disponible")"
+                             data-uso="@(mesa.TieneSesionAbierta ? "usada" : mesa.Activa ? "disponible" : "fuera")"
                              data-mesa-numero="@mesa.Numero">
                             @if (href != null)
                             {
