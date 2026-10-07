@@ -8,9 +8,12 @@ public class Mesa
     public string CodigoQr { get; set; } = string.Empty;
     public bool Activa { get; set; } = true;
     public string? GarzonId { get; set; }
+    public int? SectorId { get; set; }
+    public int OrdenEnSector { get; set; }
 
     // Relaciones
     public Restaurante? Restaurante { get; set; }
     public ApplicationUser? Garzon { get; set; }
+    public Sector? Sector { get; set; }
     public ICollection<MesaSesion> Sesiones { get; set; } = new List<MesaSesion>();
 }
