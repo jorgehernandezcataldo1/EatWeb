@@ -1,6 +1,8 @@
 @model IReadOnlyList<MiPedidoViewModel>
 @{
     var clp = new System.Globalization.CultureInfo("es-CL");
+    var totalMesa = Model.Sum(p => p.Total);
+    var totalPropio = Model.Where(p => p.EsPropio).Sum(p => p.Total);
 
     string EstadoTexto(string estado) => estado switch
     {
@@ -11,7 +13,9 @@
         _ => estado
     };
 }
-
+<div data-pedidos-mesa-root
+     data-total-mesa="@totalMesa"
+     data-total-propio="@totalPropio">
 @if (!Model.Any())
 {
     <div class="cliente-card p-4 text-center text-muted">
@@ -80,3 +84,4 @@ else
         </section>
     }
 }
+</div>
