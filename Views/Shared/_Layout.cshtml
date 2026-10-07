@@ -3,6 +3,9 @@
     var controllerActual = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
     var restauranteNombre = ViewData["RestauranteNombre"] as string;
     var usuarioNombre = User.Identity?.Name ?? "Garzón";
+    var inicialUsuario = string.IsNullOrWhiteSpace(usuarioNombre)
+        ? "G"
+        : usuarioNombre.Trim().Substring(0, 1).ToUpperInvariant();
 }
 <!DOCTYPE html>
 <html lang="es">
@@ -43,7 +46,7 @@
                 </a>
 
                 <div class="d-none d-lg-flex align-items-center gap-2">
-                    <div class="garzon-avatar">@usuarioNombre.Trim().Substring(0, 1).ToUpperInvariant()</div>
+                    <div class="garzon-avatar">@inicialUsuario</div>
                     <div class="lh-sm">
                         <div class="small fw-semibold text-truncate garzon-user-name">@usuarioNombre</div>
                         <div class="text-muted garzon-user-role">Garzón</div>
