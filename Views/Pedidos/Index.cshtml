@@ -385,7 +385,8 @@
 
         async function actualizarPedidos() {
             try {
-                const response = await fetch('@Url.Action("Index", "Pedidos")', {
+                const pedidosUrl = '@Url.Action("Index", "Pedidos")' + window.location.search;
+                const response = await fetch(pedidosUrl, {
                     cache: 'no-store',
                     headers: { 'X-Partial-Refresh': '1' }
                 });
