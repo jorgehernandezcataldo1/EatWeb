@@ -2,11 +2,11 @@
 
 @if (!Model.Any())
 {
-    <div class="text-muted small">No tienes solicitudes recientes.</div>
+    <div class="text-muted small py-2">No tienes solicitudes recientes.</div>
 }
 else
 {
-    <div class="list-group list-group-flush">
+    <div class="d-grid gap-2">
         @foreach (var s in Model)
         {
             var titulo = s.Tipo switch
@@ -17,34 +17,33 @@ else
                 _ => s.Tipo
             };
 
-            var badge = s.Estado switch
+            var estadoClase = s.Estado switch
             {
-                EstadoSolicitudMesa.Pendiente => "bg-warning text-dark",
-                EstadoSolicitudMesa.Atendida => "bg-success",
-                EstadoSolicitudMesa.Cancelada => "bg-secondary",
-                _ => "bg-secondary"
+                EstadoSolicitudMesa.Pendiente => "status-warning",
+                EstadoSolicitudMesa.Atendida => "status-success",
+                _ => ""
             };
 
-            <div class="list-group-item px-0">
+            <div class="border rounded-3 p-2 p-md-3">
                 <div class="d-flex justify-content-between align-items-start gap-2">
                     <div>
-                        <strong>@titulo</strong>
-                        <div class="small text-muted">@ZonaHorariaService.ALocal(s.FechaCreacion).ToString("HH:mm")</div>
+                        <div class="fw-semibold small">@titulo</div>
+                        <div class="small text-muted">
+                            @ZonaHorariaService.ALocal(s.FechaCreacion).ToString("HH:mm")
+                        </div>
                         @if (!string.IsNullOrWhiteSpace(s.Mensaje))
                         {
                             <div class="small mt-1">@s.Mensaje</div>
                         }
                     </div>
-                    <span class="badge @badge">@s.Estado</span>
+                    <span class="ops-status-pill @estadoClase">@s.Estado</span>
                 </div>
 
                 @if (s.Estado == EstadoSolicitudMesa.Pendiente)
                 {
                     <form asp-action="CancelarSolicitud" method="post" class="mt-2">
                         <input type="hidden" name="id" value="@s.Id" />
-                        <button type="submit" class="btn btn-sm btn-outline-secondary">
-                            Cancelar
-                        </button>
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">Cancelar</button>
                     </form>
                 }
             </div>
