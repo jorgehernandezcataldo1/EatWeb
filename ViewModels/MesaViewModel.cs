@@ -17,6 +17,9 @@ public class MesaViewModel
     public string? GarzonNombre { get; set; }
     public bool TieneSesionAbierta { get; set; }
     public int? SesionId { get; set; }
+    public int? SectorId { get; set; }
+    public string SectorNombre { get; set; } = "Sin sector";
+    public int OrdenEnSector { get; set; }
     public DateTime? FechaApertura { get; set; }
     public int Comensales { get; set; }
     public int SolicitudesPendientes { get; set; }
@@ -33,6 +36,8 @@ public class MesaFormViewModel
     public int Numero { get; set; }
 
     public string? GarzonId { get; set; }
+    public int? SectorId { get; set; }
+    public int OrdenEnSector { get; set; }
     public bool Activa { get; set; } = true;
 }
 
