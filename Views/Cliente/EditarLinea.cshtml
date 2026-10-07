@@ -1,0 +1,89 @@
+@model EditarLineaCarritoViewModel
+@{
+    ViewData["Title"] = "Editar producto";
+    var clp = new System.Globalization.CultureInfo("es-CL");
+}
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-8">
+        <a asp-action="Carrito" class="btn btn-link px-0 text-decoration-none mb-2">← Volver al carrito</a>
+
+        <div class="cliente-hero-card">
+            @if (!string.IsNullOrWhiteSpace(Model.ImagenUrl))
+            {
+                <img src="@Model.ImagenUrl" alt="@Model.Nombre"
+                     class="w-100" style="max-height: 300px; object-fit: cover;" />
+            }
+
+            <form asp-action="EditarLinea" method="post" class="p-3 p-md-4">
+                <input asp-for="LineaId" type="hidden" />
+                <input asp-for="ProductoId" type="hidden" />
+
+                <div class="d-flex justify-content-between gap-3 mb-3">
+                    <div>
+                        <h1 class="cliente-title h4 mb-1">@Model.Nombre</h1>
+                        <div class="cliente-muted small">@Model.Descripcion</div>
+                    </div>
+                    <strong>@Model.Precio.ToString("C0", clp)</strong>
+                </div>
+
+                @if (Model.Incluidos.Any())
+                {
+                    <div class="cliente-section-label mb-2">Quitar ingredientes</div>
+                    <div class="row g-2 mb-3">
+                        @foreach (var ing in Model.Incluidos)
+                        {
+                            <div class="col-12 col-sm-6">
+                                <label class="form-check border rounded-3 p-2 ps-5 w-100">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="IngredientesQuitar"
+                                           value="@ing.IngredienteId"
+                                           checked="@Model.IngredientesQuitar.Contains(ing.IngredienteId)" />
+                                    <span class="form-check-label">Sin @ing.Nombre</span>
+                                </label>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (Model.Extras.Any())
+                {
+                    <div class="cliente-section-label mb-2">Extras</div>
+                    <div class="row g-2 mb-3">
+                        @foreach (var ing in Model.Extras)
+                        {
+                            <div class="col-12 col-sm-6">
+                                <label class="form-check border rounded-3 p-2 ps-5 w-100">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="IngredientesAgregar"
+                                           value="@ing.IngredienteId"
+                                           checked="@Model.IngredientesAgregar.Contains(ing.IngredienteId)" />
+                                    <span class="form-check-label">
+                                        @ing.Nombre
+                                        @if (ing.PrecioExtra > 0)
+                                        {
+                                            <small class="text-muted">+@ing.PrecioExtra.ToString("C0", clp)</small>
+                                        }
+                                    </span>
+                                </label>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label asp-for="Observacion" class="form-label fw-semibold">Observación</label>
+                        <input asp-for="Observacion" class="form-control" maxlength="200" />
+                    </div>
+                    <div class="col-sm-4">
+                        <label asp-for="Cantidad" class="form-label fw-semibold">Cantidad</label>
+                        <input asp-for="Cantidad" type="number" min="1" max="20" class="form-control" />
+                    </div>
+                </div>
+
+                <button type="submit" class="btn cliente-primary w-100 mt-4">Guardar cambios</button>
+            </form>
+        </div>
+    </div>
+</div>
