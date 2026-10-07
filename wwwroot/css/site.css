@@ -528,3 +528,216 @@ a.mesa-tile:hover {
     max-width: none;
   }
 }
+
+/* ============================
+   Mapa de sectores y mesas
+   ============================ */
+
+.sector-tabs {
+  scrollbar-width: thin;
+}
+
+.sector-tabs .ops-filter {
+  flex: 0 0 auto;
+}
+
+.sector-map {
+  position: relative;
+  min-height: 480px;
+  background:
+    linear-gradient(rgba(255,255,255,.86), rgba(255,255,255,.86)),
+    repeating-linear-gradient(0deg, #edf0f2 0, #edf0f2 1px, transparent 1px, transparent 42px),
+    repeating-linear-gradient(90deg, #edf0f2 0, #edf0f2 1px, transparent 1px, transparent 42px);
+}
+
+.map-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 2rem 1.5rem;
+  align-items: start;
+  padding: 1.5rem .75rem;
+}
+
+.map-table-wrap {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.map-table-node {
+  position: relative;
+  width: 112px;
+  height: 92px;
+  border: 2px solid #cfd6dd;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--comidita-text);
+  text-decoration: none;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: .12rem;
+  box-shadow: 0 5px 14px rgba(15, 23, 42, .07);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+
+a.map-table-node:hover {
+  color: var(--comidita-text);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .12);
+}
+
+.map-table-node.mesa-disponible {
+  background: #e9f9ee;
+  border-color: #8fd3a7;
+}
+
+.map-table-node.mesa-preparacion {
+  background: #fff4df;
+  border-color: #efbd69;
+}
+
+.map-table-node.mesa-urgente,
+.map-table-node.mesa-cuenta {
+  background: #ffebe7;
+  border-color: #f27f6c;
+}
+
+.map-table-node.mesa-off {
+  background: #edf0f2;
+  border-color: #b7c0c9;
+  opacity: .72;
+}
+
+.map-table-number {
+  font-size: 1.55rem;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.map-table-people {
+  font-size: .75rem;
+  color: var(--comidita-muted);
+}
+
+.map-table-time {
+  font-size: .72rem;
+  color: #e43f34;
+  font-weight: 700;
+}
+
+.map-alert-badge {
+  position: absolute;
+  top: -11px;
+  right: -11px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #ef3f36;
+  color: #fff;
+  border: 2px solid #fff;
+  font-size: .7rem;
+  font-weight: 800;
+  z-index: 2;
+}
+
+.map-chair {
+  position: absolute;
+  width: 32px;
+  height: 12px;
+  border-radius: 5px 5px 3px 3px;
+  background: #d9dee3;
+  border: 1px solid #c6cdd4;
+}
+
+.map-table-node.mesa-disponible .map-chair {
+  background: #a9dfba;
+  border-color: #8acb9f;
+}
+
+.map-table-node.mesa-preparacion .map-chair {
+  background: #f3cf8d;
+  border-color: #dfb45f;
+}
+
+.map-table-node.mesa-urgente .map-chair,
+.map-table-node.mesa-cuenta .map-chair {
+  background: #f5a397;
+  border-color: #e77f70;
+}
+
+.chair-top {
+  top: -16px;
+  left: calc(50% - 16px);
+}
+
+.chair-bottom {
+  bottom: -16px;
+  left: calc(50% - 16px);
+  transform: rotate(180deg);
+}
+
+.chair-left {
+  left: -22px;
+  top: calc(50% - 6px);
+  transform: rotate(-90deg);
+}
+
+.chair-right {
+  right: -22px;
+  top: calc(50% - 6px);
+  transform: rotate(90deg);
+}
+
+.payment-mode-panel {
+  min-height: 58px;
+}
+
+.garzon-body .btn-check:checked + .btn-outline-secondary {
+  color: #fff;
+  background: var(--comidita-orange);
+  border-color: var(--comidita-orange);
+}
+
+@media (max-width: 575.98px) {
+  .sector-map {
+    min-height: 0;
+  }
+
+  .map-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2rem .7rem;
+    padding: 1.5rem .2rem;
+  }
+
+  .map-table-node {
+    width: 94px;
+    height: 82px;
+  }
+
+  .map-table-number {
+    font-size: 1.35rem;
+  }
+
+  .map-chair {
+    width: 26px;
+    height: 10px;
+  }
+
+  .chair-top,
+  .chair-bottom {
+    left: calc(50% - 13px);
+  }
+
+  .chair-left {
+    left: -19px;
+  }
+
+  .chair-right {
+    right: -19px;
+  }
+}
