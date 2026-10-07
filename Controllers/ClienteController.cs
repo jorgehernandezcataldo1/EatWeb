@@ -502,14 +502,14 @@ public class ClienteController : Controller
             .AsNoTracking()
             .Where(d =>
                 d.Pedido!.MesaSesionId == ctx.SesionId &&
-                d.Pedido.ComensalId == ctx.ComensalId &&
                 d.Pedido.Estado != EstadoPedido.Cancelado &&
                 d.Estado != EstadoDetallePedido.Cancelado)
             .Select(d => new
             {
                 id = d.Id,
                 producto = d.NombreProducto,
-                estado = d.Estado
+                estado = d.Estado,
+                esPropio = d.Pedido!.ComensalId == ctx.ComensalId
             })
             .ToListAsync();
 
