@@ -1,0 +1,96 @@
+﻿@model PantallaViewModel
+@{
+    var columnas = new List<(string Titulo, string Clase, List<PantallaItemViewModel> Items, string? Siguiente, string Boton, string BotonClase)>
+    {
+        ("Pendientes",      "text-bg-warning",   Model.Pendientes,    EstadoDetallePedido.EnPreparacion, "Preparar", "btn-warning"),
+        ("En preparación",  "text-bg-info",      Model.EnPreparacion, EstadoDetallePedido.Listo,         "Listo",    "btn-success"),
+        ("Listos",          "text-bg-success",   Model.Listos,        null,                              "",         "")
+    };
+}
+
+<ul class="nav nav-pills mb-3 flex-wrap gap-1">
+    <li class="nav-item">
+        <a class="nav-link @(Model.EstacionId == null ? "active" : "")" asp-action="Index">
+            Todas <span class="badge text-bg-light ms-1">@Model.TotalPorAtender</span>
+        </a>
+    </li>
+    @foreach (var t in Model.Tabs)
+    {
+        <li class="nav-item">
+            <a class="nav-link @(Model.EstacionId == t.Id ? "active" : "")"
+               asp-action="Index" asp-route-estacionId="@t.Id">
+                @t.Nombre <span class="badge text-bg-light ms-1">@t.PorAtender</span>
+            </a>
+        </li>
+    }
+</ul>
+
+<div class="row g-3">
+    @foreach (var col in columnas)
+    {
+        <div class="col-md-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="badge @col.Clase fs-6">@col.Titulo</span>
+                <span class="text-muted">@col.Items.Count</span>
+            </div>
+
+            @if (!col.Items.Any())
+            {
+                <div class="text-muted small text-center py-4 border rounded">Sin ítems</div>
+            }
+
+            @foreach (var i in col.Items)
+            {
+                var urgente = col.Siguiente != null && i.Minutos >= 10;
+
+                <div class="card mb-2 shadow-sm @(urgente ? "border-danger" : "")">
+                    <div class="card-body p-2">
+                        <div class="d-flex justify-content-between">
+                            <strong>Mesa @i.MesaNumero</strong>
+                            <span class="small @(urgente ? "text-danger fw-bold" : "text-muted")">hace @i.Minutos min</span>
+                        </div>
+
+                        <div class="small text-muted">
+                            @i.Comensal
+                            @if (Model.EstacionId == null)
+                            {
+                                <span class="badge text-bg-light border ms-1">@i.Estacion</span>
+                            }
+                        </div>
+
+                        <div class="fs-5 fw-semibold mt-1">@i.Cantidad× @i.Producto</div>
+
+                        @foreach (var p in i.Personalizaciones)
+                        {
+                            <div class="small @(p.StartsWith("Sin") ? "text-danger" : "text-success")">@p</div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(i.Observacion))
+                        {
+                            <div class="small fst-italic mt-1">“@i.Observacion”</div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(i.NotaPedido))
+                        {
+                            <div class="small text-muted mt-1">Nota del pedido: @i.NotaPedido</div>
+                        }
+
+                        @if (col.Siguiente != null)
+                        {
+                            <button type="button"
+                                    class="btn btn-sm @col.BotonClase w-100 mt-2 btn-cambiar"
+                                    data-id="@i.DetalleId"
+                                    data-estado="@col.Siguiente">
+                                @col.Boton
+                            </button>
+                        }
+                        else
+                        {
+                            <div class="small text-muted mt-2">Esperando al garzón</div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

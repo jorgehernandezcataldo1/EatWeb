@@ -1,0 +1,44 @@
+﻿@model PantallaViewModel
+@{
+    ViewData["Title"] = "Pantalla - " + Model.Titulo;
+}
+
+<h2 class="mb-3">@Model.Titulo</h2>
+
+<div id="tablero" data-url="@Url.Action("Tablero", "Pantalla", new { estacionId = Model.EstacionId })">
+    <partial name="_Tablero" model="Model" />
+</div>
+
+@section Scripts {
+<script>
+    $(function () {
+        var $tablero = $('#tablero');
+        var urlTablero = $tablero.data('url');
+        var urlCambiar = '@Url.Action("Cambiar", "Pantalla")';
+        var ocupado = false;
+
+        function recargar() {
+            if (ocupado) return;
+            $.ajax({ url: urlTablero, type: 'GET', cache: false })
+                .done(function (html) { $tablero.html(html); });
+        }
+
+        setInterval(recargar, 5000);
+
+        $tablero.on('click', '.btn-cambiar', function () {
+            var $btn = $(this);
+            $btn.prop('disabled', true);
+            ocupado = true;
+
+            $.ajax({
+                url: urlCambiar,
+                type: 'POST',
+                data: { id: $btn.data('id'), nuevoEstado: $btn.data('estado') },
+                headers: { 'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').first().val() }
+            })
+            .fail(function (xhr) { alert(xhr.responseText || 'No se pudo cambiar el estado.'); })
+            .always(function () { ocupado = false; recargar(); });
+        });
+    });
+</script>
+}
