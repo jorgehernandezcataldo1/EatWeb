@@ -1,36 +1,158 @@
-﻿@model IEnumerable<dynamic>
-
+@model AdminCadenaDashboardViewModel
 @{
-    ViewData["Title"] = "Mis Restaurantes";
+    ViewData["Title"] = "Dashboard de cadena";
+    var clp = new CultureInfo("es-CL");
+    var grados = Math.Clamp(Model.OcupacionPorcentaje * 3.6m, 0, 360);
+    var maxVentas = Model.Restaurantes.Count == 0 ? 1m : Math.Max(1m, Model.Restaurantes.Max(r => r.VentasHoy));
 }
 
-<h2 class="mb-4">Mis Restaurantes</h2>
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div>
+        <div class="text-uppercase small fw-bold text-muted mb-1">Resumen de la cadena</div>
+        <h1 class="admin-dashboard-title h2 mb-1">@Model.CadenaNombre</h1>
+        <div class="admin-dashboard-subtitle">Estado comercial y operativo de todos tus restaurantes hoy.</div>
+    </div>
+    <a asp-controller="Cadenas" asp-action="Index" class="btn btn-outline-secondary">Gestionar restaurantes</a>
+</div>
 
-@if (!Model.Any())
-{
-    <div class="alert alert-info">No tienes restaurantes asignados.</div>
-}
-else
-{
-    <div class="row">
-        @foreach (var r in Model)
-        {
-            <div class="col-md-6 col-lg-4 mb-3">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">@r.Nombre</h5>
-                        <ul class="list-unstyled small text-muted mb-3">
-                            <li>🍔 Productos: <strong>@r.TotalProductos</strong></li>
-                            <li>🪑 Mesas: <strong>@r.TotalMesas</strong></li>
-                            <li>📋 Pedidos totales: <strong>@r.TotalPedidos</strong></li>
-                        </ul>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-xl-3">
+        <div class="admin-kpi">
+            <div class="admin-kpi-icon">$</div>
+            <div class="admin-kpi-label">Ventas hoy</div>
+            <div class="admin-kpi-value">@Model.VentasHoy.ToString("C0", clp)</div>
+            <div class="admin-kpi-meta">@Model.Restaurantes.Count locales en la cadena</div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="admin-kpi">
+            <div class="admin-kpi-icon">☷</div>
+            <div class="admin-kpi-label">Pedidos hoy</div>
+            <div class="admin-kpi-value">@Model.PedidosHoy</div>
+            <div class="admin-kpi-meta">Pedidos generados en todos los locales</div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="admin-kpi">
+            <div class="admin-kpi-icon">▤</div>
+            <div class="admin-kpi-label">Ocupación global</div>
+            <div class="admin-kpi-value">@Model.OcupacionPorcentaje.ToString("0")%</div>
+            <div class="admin-kpi-meta">@Model.MesasOcupadas de @Model.TotalMesas mesas ocupadas</div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="admin-kpi">
+            <div class="admin-kpi-icon">!</div>
+            <div class="admin-kpi-label">Solicitudes pendientes</div>
+            <div class="admin-kpi-value">@Model.SolicitudesPendientes</div>
+            <div class="admin-kpi-meta">Atenciones activas de clientes</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-4">
+        <section class="admin-panel">
+            <div class="admin-panel-header">
+                <h2 class="admin-panel-title h6">Estado de mesas</h2>
+            </div>
+            <div class="admin-panel-body">
+                <div class="admin-donut" style="--occupied:@grados.ToString(System.Globalization.CultureInfo.InvariantCulture)deg">
+                    <div class="admin-donut-center">
+                        <div class="admin-donut-value">@Model.OcupacionPorcentaje.ToString("0")%</div>
+                        <div class="admin-donut-label">ocupación</div>
                     </div>
-                    <a asp-action="SeleccionarRestaurante" asp-route-id="@r.Id"
-                       class="card-footer btn btn-primary">
-                        Entrar →
-                    </a>
+                </div>
+                <div class="admin-legend">
+                    <div class="admin-legend-row">
+                        <div class="admin-legend-label"><span class="admin-legend-dot occupied"></span>Ocupadas</div>
+                        <strong>@Model.MesasOcupadas</strong>
+                    </div>
+                    <div class="admin-legend-row">
+                        <div class="admin-legend-label"><span class="admin-legend-dot free"></span>Disponibles</div>
+                        <strong>@Model.MesasDisponibles</strong>
+                    </div>
                 </div>
             </div>
-        }
+        </section>
     </div>
-}
+
+    <div class="col-lg-8">
+        <section class="admin-panel">
+            <div class="admin-panel-header d-flex justify-content-between align-items-center">
+                <h2 class="admin-panel-title h6">Rendimiento por local</h2>
+                <span class="small text-muted">Ventas de hoy</span>
+            </div>
+            <div class="admin-panel-body">
+                @if (!Model.Restaurantes.Any())
+                {
+                    <div class="text-muted py-4 text-center">No hay restaurantes asignados.</div>
+                }
+                else
+                {
+                    @foreach (var local in Model.Restaurantes.OrderByDescending(r => r.VentasHoy))
+                    {
+                        var ancho = Math.Round(local.VentasHoy * 100m / maxVentas, 0);
+                        <div class="admin-ranking-row">
+                            <div class="d-flex justify-content-between gap-3 mb-2">
+                                <div>
+                                    <div class="fw-semibold">@local.Nombre</div>
+                                    <div class="small text-muted">@local.PedidosHoy pedidos · @local.OcupacionPorcentaje.ToString("0")% ocupación</div>
+                                </div>
+                                <strong>@local.VentasHoy.ToString("C0", clp)</strong>
+                            </div>
+                            <div class="admin-progress">
+                                <div class="admin-progress-bar" style="width:@ancho.ToString(System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </section>
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="h5 mb-1 fw-bold">Tus restaurantes</h2>
+        <div class="small text-muted">Entra a un local para revisar su operación en detalle.</div>
+    </div>
+</div>
+
+<div class="row g-3">
+    @foreach (var local in Model.Restaurantes)
+    {
+        <div class="col-md-6 col-xl-4">
+            <article class="admin-restaurant-card">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div class="admin-restaurant-name">@local.Nombre</div>
+                    <span class="admin-status @(local.Activo ? "ok" : "warning")">
+                        @(local.Activo ? "● Operando" : "● Inactivo")
+                    </span>
+                </div>
+                <div class="admin-restaurant-money">@local.VentasHoy.ToString("C0", clp)</div>
+                <div class="admin-restaurant-metric">Ventas hoy</div>
+
+                <div class="row g-2 mt-3">
+                    <div class="col-4">
+                        <div class="fw-bold">@local.PedidosHoy</div>
+                        <div class="admin-restaurant-metric">Pedidos</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="fw-bold">@local.MesasOcupadas/@local.TotalMesas</div>
+                        <div class="admin-restaurant-metric">Mesas</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="fw-bold">@local.SolicitudesPendientes</div>
+                        <div class="admin-restaurant-metric">Alertas</div>
+                    </div>
+                </div>
+
+                <a asp-action="SeleccionarRestaurante" asp-route-id="@local.Id"
+                   class="btn btn-comidita w-100 mt-3">
+                    Ver restaurante
+                </a>
+            </article>
+        </div>
+    }
+</div>

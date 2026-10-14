@@ -54,6 +54,40 @@ public class PedidosController : RestauranteControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = Roles.Garzon)]
+    public async Task<IActionResult> AlertasListos()
+    {
+        Response.Headers.CacheControl = "no-store";
+        var userId = GetUserId();
+
+        if (string.IsNullOrWhiteSpace(userId))
+            return Unauthorized();
+
+        var alertas = await _context.DetallesPedidos
+            .AsNoTracking()
+            .Where(d =>
+                d.Estado == EstadoDetallePedido.Listo &&
+                d.Pedido!.MesaSesion!.FechaCierre == null &&
+                d.Pedido.MesaSesion.Mesa!.RestauranteId == RestauranteId &&
+                (d.Pedido.MesaSesion.GarzonId == userId ||
+                 d.Pedido.MesaSesion.Mesa.GarzonId == userId))
+            .OrderByDescending(d => d.FechaListo)
+            .Take(20)
+            .Select(d => new
+            {
+                id = d.Id,
+                mesa = d.Pedido!.MesaSesion!.Mesa!.Numero,
+                producto = d.NombreProducto,
+                cantidad = d.Cantidad,
+                estacion = d.EstacionNombre,
+                fechaListo = d.FechaListo
+            })
+            .ToListAsync();
+
+        return Json(alertas);
+    }
+
+    [HttpGet]
     public async Task<IActionResult> SolicitudesPendientes(int? sesionId = null)
     {
         Response.Headers.CacheControl = "no-store";

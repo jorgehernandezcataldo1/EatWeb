@@ -1,0 +1,244 @@
+@{
+    var controllerActual = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+    var actionActual = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+    var restauranteNombre = ViewData["RestauranteNombre"] as string;
+    var usuarioNombre = User.Identity?.Name ?? "Administrador";
+    var inicial = string.IsNullOrWhiteSpace(usuarioNombre) ? "A" : usuarioNombre.Trim()[0].ToString().ToUpperInvariant();
+    var esCadena = User.IsInRole(Roles.AdminCadena);
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Comidita</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" />
+</head>
+<body class="admin-body">
+<header class="admin-topbar">
+    <div class="d-flex align-items-center h-100 px-3 px-lg-4">
+        <button class="btn admin-menu-button d-lg-none me-2"
+                type="button"
+                data-bs-toggle="offcanvas"
+                data-bs-target="#adminMenu"
+                aria-controls="adminMenu"
+                aria-label="Abrir menú">
+            ☰
+        </button>
+
+        <a class="admin-brand text-decoration-none" asp-controller="Admin" asp-action="Index">
+            Comidita<span>.</span>
+        </a>
+
+        @if (!string.IsNullOrWhiteSpace(restauranteNombre))
+        {
+            <div class="d-none d-md-flex align-items-center ms-4 admin-context">
+                <span class="admin-context-dot"></span>
+                <span class="text-truncate">@restauranteNombre</span>
+            </div>
+        }
+
+        <div class="ms-auto d-flex align-items-center gap-2 gap-md-3">
+            @if (esCadena)
+            {
+                <div class="d-none d-lg-block">
+                    @await Component.InvokeAsync("RestauranteSelector")
+                </div>
+            }
+            <div class="admin-avatar">@inicial</div>
+            <div class="d-none d-md-block lh-sm">
+                <div class="small fw-semibold">@usuarioNombre</div>
+                <div class="admin-role">@(esCadena ? "Admin. cadena" : "Admin. restaurante")</div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<aside class="admin-sidebar d-none d-lg-flex flex-column">
+
+    <div class="admin-sidebar-scroll">
+        <nav class="nav flex-column gap-1 p-3">
+
+            <div class="admin-nav-label">Principal</div>
+
+            <a class="admin-nav-link @(controllerActual == "Admin" ? "active" : "")"
+               asp-controller="Admin"
+               asp-action="Index">
+                <span class="admin-nav-icon">▦</span>
+                <span>Dashboard</span>
+            </a>
+
+            @if (esCadena)
+            {
+                <a class="admin-nav-link @(controllerActual == "Cadenas" ? "active" : "")"
+                   asp-controller="Cadenas"
+                   asp-action="Index">
+                    <span class="admin-nav-icon">⌂</span>
+                    <span>Restaurantes</span>
+                </a>
+            }
+
+            <a class="admin-nav-link @(controllerActual == "Mesas" ? "active" : "")"
+               asp-controller="Mesas"
+               asp-action="Administrar">
+                <span class="admin-nav-icon">▤</span>
+                <span>Mesas</span>
+            </a>
+
+            <a class="admin-nav-link @(controllerActual == "Pedidos" ? "active" : "")"
+               asp-controller="Pedidos"
+               asp-action="Index">
+                <span class="admin-nav-icon">☷</span>
+                <span>Pedidos</span>
+            </a>
+
+            <div class="admin-nav-label mt-3">Carta</div>
+
+            <a class="admin-nav-link @(controllerActual == "Productos" ? "active" : "")"
+               asp-controller="Productos"
+               asp-action="Index">
+                <span class="admin-nav-icon">◫</span>
+                <span>Productos</span>
+            </a>
+
+            <a class="admin-nav-link @(controllerActual == "Categorias" ? "active" : "")"
+               asp-controller="Categorias"
+               asp-action="Index">
+                <span class="admin-nav-icon">◉</span>
+                <span>Categorías</span>
+            </a>
+
+            <a class="admin-nav-link @(controllerActual == "Ingredientes" ? "active" : "")"
+               asp-controller="Ingredientes"
+               asp-action="Index">
+                <span class="admin-nav-icon">◇</span>
+                <span>Ingredientes</span>
+            </a>
+
+            <a class="admin-nav-link @(controllerActual == "Estaciones" ? "active" : "")"
+               asp-controller="Estaciones"
+               asp-action="Index">
+                <span class="admin-nav-icon">⌁</span>
+                <span>Estaciones</span>
+            </a>
+
+            <div class="admin-nav-label mt-3">Equipo y control</div>
+
+            <a class="admin-nav-link @(controllerActual == "Garzones" ? "active" : "")"
+               asp-controller="Garzones"
+               asp-action="Index">
+                <span class="admin-nav-icon">◎</span>
+                <span>Garzones</span>
+            </a>
+            
+            <a class="admin-nav-link @(controllerActual == "Operadores" ? "active" : "")"
+               asp-controller="Operadores"
+               asp-action="Index">
+                <span class="admin-nav-icon">◈</span>
+                <span>Cocina y Bar</span>
+            </a>
+            
+            <a class="admin-nav-link @(controllerActual == "Sesiones" ? "active" : "")"
+               asp-controller="Sesiones"
+               asp-action="Index">
+                <span class="admin-nav-icon">◷</span>
+                <span>Historial</span>
+            </a>
+
+        </nav>
+    </div>
+
+    <div class="admin-sidebar-footer p-3 border-top">
+        <form asp-controller="Account"
+              asp-action="Logout"
+              method="post">
+
+            <button type="submit"
+                    class="btn btn-outline-secondary w-100 admin-logout">
+                Cerrar sesión
+            </button>
+
+        </form>
+    </div>
+
+</aside>
+
+<div class="offcanvas offcanvas-start admin-offcanvas" tabindex="-1" id="adminMenu" aria-labelledby="adminMenuLabel">
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title admin-brand" id="adminMenuLabel">Comidita<span>.</span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column">
+        <nav class="nav flex-column gap-1">
+            <a class="admin-nav-link @(controllerActual == "Admin" ? "active" : "")"
+               asp-controller="Admin" asp-action="Index">▦ Dashboard</a>
+            @if (esCadena)
+            {
+                <a class="admin-nav-link @(controllerActual == "Cadenas" ? "active" : "")"
+                   asp-controller="Cadenas" asp-action="Index">⌂ Restaurantes</a>
+            }
+            <a class="admin-nav-link @(controllerActual == "Mesas" ? "active" : "")"
+               asp-controller="Mesas" asp-action="Administrar">▤ Mesas</a>
+            <a class="admin-nav-link @(controllerActual == "Pedidos" ? "active" : "")"
+               asp-controller="Pedidos" asp-action="Index">☷ Pedidos</a>
+            <a class="admin-nav-link @(controllerActual == "Productos" ? "active" : "")"
+               asp-controller="Productos" asp-action="Index">◫ Productos</a>
+            <a class="admin-nav-link @(controllerActual == "Garzones" ? "active" : "")"
+               asp-controller="Garzones"
+               asp-action="Index">
+                ◎ Garzones
+            </a>
+            
+            <a class="admin-nav-link @(controllerActual == "Operadores" ? "active" : "")"
+               asp-controller="Operadores"
+               asp-action="Index">
+                ◈ Cocina y Bar
+            </a>
+            
+            <a class="admin-nav-link @(controllerActual == "Sesiones" ? "active" : "")"
+               asp-controller="Sesiones"
+               asp-action="Index">
+                ◷ Historial
+            </a>
+        </nav>
+
+        <div class="mt-auto pt-3 border-top">
+            <div class="fw-semibold">@usuarioNombre</div>
+            <div class="small text-muted mb-3">@(esCadena ? "Administrador de cadena" : "Administrador de restaurante")</div>
+            <form asp-controller="Account" asp-action="Logout" method="post">
+                <button type="submit" class="btn btn-outline-secondary w-100">Cerrar sesión</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+@if (TempData["Ok"] != null)
+{
+    <div class="admin-flash alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Ok"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="admin-flash alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+<main class="admin-main">
+    <div class="admin-page">
+        @RenderBody()
+    </div>
+</main>
+
+@Html.AntiForgeryToken()
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
