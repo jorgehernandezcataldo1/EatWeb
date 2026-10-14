@@ -1,3 +1,5 @@
+using EatWeb.Data;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -5,6 +7,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace EatWeb.Migrations;
 
+[DbContext(typeof(ApplicationDbContext))]
+[Migration("20261014033000_PersistDataProtectionKeys")]
 public partial class PersistDataProtectionKeys : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
