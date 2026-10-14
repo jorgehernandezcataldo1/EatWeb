@@ -267,7 +267,7 @@
     const input = document.getElementById('buscarMesa');
     const sectorButtons = Array.from(document.querySelectorAll('[data-sector-filter]'));
     const usoButtons = Array.from(document.querySelectorAll('[data-uso-filter]'));
-    const items = Array.from(document.querySelectorAll('.mesa-filterable'));
+    let items = Array.from(document.querySelectorAll('.mesa-filterable'));
     const mapa = document.getElementById('vistaMapa');
     const lista = document.getElementById('vistaLista');
     const btnMapa = document.getElementById('btnVistaMapa');
@@ -333,6 +333,34 @@
         btnMapa?.classList.remove('btn-comidita', 'active');
         btnMapa?.classList.add('btn-outline-secondary');
     });
+
+    async function refrescarMesas() {
+        try {
+            const response = await fetch(window.location.href, { cache: 'no-store' });
+            if (!response.ok) return;
+
+            const html = await response.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+
+            const mapaNuevo = doc.getElementById('vistaMapa');
+            const listaNueva = doc.getElementById('vistaLista');
+            const notificacionesNuevas = doc.querySelector('#notificaciones .ops-notifications');
+
+            if (mapaNuevo && mapa) mapa.innerHTML = mapaNuevo.innerHTML;
+            if (listaNueva && lista) lista.innerHTML = listaNueva.innerHTML;
+
+            const notificacionesActuales = document.querySelector('#notificaciones .ops-notifications');
+            if (notificacionesNuevas && notificacionesActuales)
+                notificacionesActuales.innerHTML = notificacionesNuevas.innerHTML;
+
+            items = Array.from(document.querySelectorAll('.mesa-filterable'));
+            aplicarFiltros();
+        } catch {
+            // Se reintenta en el próximo ciclo.
+        }
+    }
+
+    setInterval(refrescarMesas, 5000);
 })();
 </script>
 }
