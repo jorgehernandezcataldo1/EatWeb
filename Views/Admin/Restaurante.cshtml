@@ -1,152 +1,237 @@
 @model AdminRestauranteDashboardViewModel
 @{
     ViewData["Title"] = "Dashboard Restaurante";
+    ViewData["RestauranteNombre"] = Model.RestauranteNombre;
     var clp = new CultureInfo("es-CL");
+    var grados = Math.Clamp(Model.OcupacionPorcentaje * 3.6m, 0, 360);
+    var pendientesConfig = Model.Checklist.Where(x => !x.Ok).ToList();
 }
 
-<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-4">
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
     <div>
-        <h2 class="mb-0">@Model.RestauranteNombre</h2>
-        <div class="d-flex align-items-center gap-2 mt-1">
-            <span class="badge @(Model.RestauranteActivo ? "bg-success" : "bg-danger")">
-                @(Model.RestauranteActivo ? "Restaurante activo" : "Restaurante inactivo")
+        <div class="text-uppercase small fw-bold text-muted mb-1">Operación del restaurante</div>
+        <h1 class="admin-dashboard-title h2 mb-2">@Model.RestauranteNombre</h1>
+        <div class="d-flex flex-wrap gap-2">
+            <span class="admin-status @(Model.RestauranteActivo ? "ok" : "warning")">
+                @(Model.RestauranteActivo ? "● Restaurante operativo" : "● Restaurante inactivo")
             </span>
-            <span class="badge @(Model.ListoParaPiloto ? "bg-success" : "bg-warning text-dark")">
-                @(Model.ListoParaPiloto ? "Listo para piloto" : "Configuración pendiente")
+            <span class="admin-status @(Model.ListoParaPiloto ? "ok" : "warning")">
+                @(Model.ListoParaPiloto ? "✓ Configuración completa" : "⚠ Configuración pendiente")
             </span>
         </div>
     </div>
-
     @if (User.IsInRole(Roles.AdminCadena))
     {
-        <a asp-action="Index" class="btn btn-outline-secondary">← Restaurantes</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">← Volver a la cadena</a>
     }
 </div>
 
 <div class="row g-3 mb-4">
     <div class="col-6 col-xl-3">
-        <div class="card h-100 border-success">
-            <div class="card-body">
-                <div class="small text-muted">Ventas hoy</div>
-                <div class="fs-3 fw-bold">@Model.VentasHoy.ToString("C0", clp)</div>
+        <div class="admin-kpi">
+            <div class="admin-kpi-icon">$</div>
+            <div class="admin-kpi-label">Ventas hoy</div>
+            <div class="admin-kpi-value">@Model.VentasHoy.ToString("C0", clp)</div>
+            <div class="admin-kpi-meta">
                 @if (Model.PropinasHoy > 0)
                 {
-                    <div class="small text-success">+ @Model.PropinasHoy.ToString("C0", clp) propinas</div>
+                    <span>+ @Model.PropinasHoy.ToString("C0", clp) en propinas</span>
+                }
+                else
+                {
+                    <span>Ventas confirmadas</span>
                 }
             </div>
         </div>
     </div>
-
     <div class="col-6 col-xl-3">
-        <div class="card h-100 border-primary">
-            <div class="card-body">
-                <div class="small text-muted">Mesas ocupadas</div>
-                <div class="fs-3 fw-bold">@Model.MesasOcupadas / @Model.TotalMesas</div>
-                <a asp-controller="Mesas" asp-action="Index" class="small">Ver operación →</a>
-            </div>
+        <div class="admin-kpi">
+            <div class="admin-kpi-icon">☷</div>
+            <div class="admin-kpi-label">Pedidos hoy</div>
+            <div class="admin-kpi-value">@Model.TotalPedidosHoy</div>
+            <div class="admin-kpi-meta">@Model.PedidosActivos pedidos activos ahora</div>
         </div>
     </div>
-
     <div class="col-6 col-xl-3">
-        <div class="card h-100 border-warning">
-            <div class="card-body">
-                <div class="small text-muted">Pedidos activos</div>
-                <div class="fs-3 fw-bold">@Model.PedidosActivos</div>
-                <div class="small text-muted">@Model.TotalPedidosHoy pedidos hoy</div>
-            </div>
+        <div class="admin-kpi">
+            <div class="admin-kpi-icon">▤</div>
+            <div class="admin-kpi-label">Mesas ocupadas</div>
+            <div class="admin-kpi-value">@Model.MesasOcupadas/@Model.TotalMesas</div>
+            <div class="admin-kpi-meta">@Model.OcupacionPorcentaje.ToString("0")% de ocupación</div>
         </div>
     </div>
-
     <div class="col-6 col-xl-3">
-        <div class="card h-100 @(Model.SolicitudesPendientes > 0 ? "border-danger" : "border-secondary")">
-            <div class="card-body">
-                <div class="small text-muted">Solicitudes pendientes</div>
-                <div class="fs-3 fw-bold">@Model.SolicitudesPendientes</div>
-                <a asp-controller="Pedidos" asp-action="Index" class="small">Abrir tablero →</a>
-            </div>
+        <div class="admin-kpi">
+            <div class="admin-kpi-icon">!</div>
+            <div class="admin-kpi-label">Solicitudes pendientes</div>
+            <div class="admin-kpi-value">@Model.SolicitudesPendientes</div>
+            <div class="admin-kpi-meta">Solicitudes que requieren atención</div>
         </div>
     </div>
 </div>
 
-<div class="row g-3">
-    <div class="col-lg-7">
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <strong>Preparación para piloto</strong>
-                <span class="small text-muted">
-                    @Model.Checklist.Count(x => x.Ok)/@Model.Checklist.Count listo
-                </span>
+<div class="row g-3 mb-4">
+    <div class="col-lg-4">
+        <section class="admin-panel">
+            <div class="admin-panel-header">
+                <h2 class="admin-panel-title h6">Estado del salón</h2>
             </div>
-
-            <div class="list-group list-group-flush">
-                @foreach (var item in Model.Checklist)
-                {
-                    <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
-                        <div>
-                            <div class="fw-semibold">
-                                <span class="me-1">@(item.Ok ? "✅" : "⚠️")</span>
-                                @item.Titulo
-                            </div>
-                            <div class="small text-muted">@item.Descripcion</div>
-                        </div>
-                        <a asp-controller="@item.Controller" asp-action="@item.Action"
-                           class="btn btn-sm @(item.Ok ? "btn-outline-secondary" : "btn-outline-warning")">
-                            @(item.Ok ? "Revisar" : "Configurar")
-                        </a>
+            <div class="admin-panel-body">
+                <div class="admin-donut" style="--occupied:@grados.ToString(System.Globalization.CultureInfo.InvariantCulture)deg">
+                    <div class="admin-donut-center">
+                        <div class="admin-donut-value">@Model.OcupacionPorcentaje.ToString("0")%</div>
+                        <div class="admin-donut-label">ocupación</div>
                     </div>
-                }
+                </div>
+                <div class="admin-legend">
+                    <div class="admin-legend-row">
+                        <div class="admin-legend-label"><span class="admin-legend-dot occupied"></span>Ocupadas</div>
+                        <strong>@Model.MesasOcupadas</strong>
+                    </div>
+                    <div class="admin-legend-row">
+                        <div class="admin-legend-label"><span class="admin-legend-dot free"></span>Disponibles</div>
+                        <strong>@Model.MesasDisponibles</strong>
+                    </div>
+                </div>
+                <a asp-controller="Mesas" asp-action="Index" class="btn btn-outline-secondary w-100 mt-3">Ver mesas</a>
             </div>
-
-            @if (Model.ListoParaPiloto)
-            {
-                <div class="card-footer bg-success-subtle">
-                    <strong>Configuración base completa.</strong>
-                    Ya puedes ejecutar una prueba completa desde un QR real.
-                </div>
-            }
-            else
-            {
-                <div class="card-footer bg-warning-subtle">
-                    Completa los puntos pendientes antes de probar con clientes reales.
-                </div>
-            }
-        </div>
+        </section>
     </div>
 
-    <div class="col-lg-5">
-        <div class="card mb-3">
-            <div class="card-header"><strong>Catálogo</strong></div>
-            <div class="card-body">
-                <div class="d-flex justify-content-between mb-2">
-                    <span>Productos configurados</span>
-                    <strong>@Model.TotalProductos</strong>
-                </div>
-                <div class="d-flex justify-content-between">
-                    <span>Disponibles para pedir</span>
-                    <strong>@Model.ProductosDisponibles</strong>
-                </div>
+    <div class="col-lg-4">
+        <section class="admin-panel">
+            <div class="admin-panel-header">
+                <h2 class="admin-panel-title h6">Operación ahora</h2>
             </div>
-        </div>
+            <div class="admin-panel-body">
+                <div class="admin-operation-row d-flex align-items-center gap-3">
+                    <div class="admin-operation-count orange">@Model.PedidosPendientes</div>
+                    <div>
+                        <div class="fw-semibold">Pedidos pendientes</div>
+                        <div class="small text-muted">Aún no entran en preparación</div>
+                    </div>
+                </div>
+                <div class="admin-operation-row d-flex align-items-center gap-3">
+                    <div class="admin-operation-count orange">@Model.PedidosEnPreparacion</div>
+                    <div>
+                        <div class="fw-semibold">En preparación</div>
+                        <div class="small text-muted">Cocina o bar trabajando</div>
+                    </div>
+                </div>
+                <div class="admin-operation-row d-flex align-items-center gap-3">
+                    <div class="admin-operation-count green">@Model.PedidosListos</div>
+                    <div>
+                        <div class="fw-semibold">Listos para entregar</div>
+                        <div class="small text-muted">Esperando al garzón</div>
+                    </div>
+                </div>
+                <div class="admin-operation-row d-flex align-items-center gap-3">
+                    <div class="admin-operation-count @(Model.SolicitudesPendientes > 0 ? "red" : "green")">@Model.SolicitudesPendientes</div>
+                    <div>
+                        <div class="fw-semibold">Solicitudes de mesa</div>
+                        <div class="small text-muted">Servilletas, cuenta, ayuda y más</div>
+                    </div>
+                </div>
+                <a asp-controller="Pedidos" asp-action="Index" class="btn btn-comidita w-100 mt-3">Abrir operación</a>
+            </div>
+        </section>
+    </div>
 
-        <div class="card">
-            <div class="card-header"><strong>Accesos rápidos</strong></div>
-            <div class="card-body d-grid gap-2">
-                <a asp-controller="Pedidos" asp-action="Index" class="btn btn-outline-warning text-start">
-                    📋 Operación y solicitudes
-                </a>
-                <a asp-controller="Mesas" asp-action="Administrar" class="btn btn-outline-success text-start">
-                    🪑 Mesas y QR
-                </a>
-                <a asp-controller="Productos" asp-action="Index" class="btn btn-outline-primary text-start">
-                    🍔 Productos
-                </a>
-                <a asp-controller="Garzones" asp-action="Index" class="btn btn-outline-info text-start">
-                    👨 Garzones
-                </a>
-                <a asp-controller="Sesiones" asp-action="Index" class="btn btn-outline-secondary text-start">
-                    🧾 Historial y cierres
-                </a>
+    <div class="col-lg-4">
+        <section class="admin-panel">
+            <div class="admin-panel-header">
+                <h2 class="admin-panel-title h6">Catálogo y configuración</h2>
             </div>
-        </div>
+            <div class="admin-panel-body">
+                <div class="d-flex justify-content-between align-items-end mb-3">
+                    <div>
+                        <div class="small text-muted">Productos disponibles</div>
+                        <div class="h3 fw-bold mb-0">@Model.ProductosDisponibles</div>
+                    </div>
+                    <div class="small text-muted">de @Model.TotalProductos configurados</div>
+                </div>
+
+                @if (Model.ListoParaPiloto)
+                {
+                    <div class="admin-config-summary">
+                        <div class="fw-semibold text-success">✓ Todo listo para operar</div>
+                        <div class="small text-muted mt-1">La configuración base del restaurante está completa.</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="admin-config-summary">
+                        <div class="fw-semibold text-warning">⚠ @pendientesConfig.Count pendiente(s)</div>
+                        @foreach (var item in pendientesConfig.Take(3))
+                        {
+                            <div class="admin-config-pending">
+                                <div class="fw-semibold small">@item.Titulo</div>
+                                <div class="small text-muted">@item.Descripcion</div>
+                                <a asp-controller="@item.Controller" asp-action="@item.Action" class="small">Configurar →</a>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <a asp-controller="Productos" asp-action="Index" class="btn btn-outline-secondary w-100 mt-3">Gestionar carta</a>
+            </div>
+        </section>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <section class="admin-panel">
+            <div class="admin-panel-header">
+                <h2 class="admin-panel-title h6">Accesos rápidos</h2>
+            </div>
+            <div class="admin-panel-body">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <a asp-controller="Pedidos" asp-action="Index" class="admin-quick-link">
+                            <span>Operación y solicitudes</span><span>→</span>
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a asp-controller="Mesas" asp-action="Administrar" class="admin-quick-link">
+                            <span>Mesas y códigos QR</span><span>→</span>
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a asp-controller="Productos" asp-action="Index" class="admin-quick-link">
+                            <span>Productos y disponibilidad</span><span>→</span>
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a asp-controller="Garzones" asp-action="Index" class="admin-quick-link">
+                            <span>Equipo de garzones</span><span>→</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div class="col-lg-4">
+        <section class="admin-panel">
+            <div class="admin-panel-header">
+                <h2 class="admin-panel-title h6">Resumen de configuración</h2>
+            </div>
+            <div class="admin-panel-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted">Completado</span>
+                    <strong>@Model.Checklist.Count(x => x.Ok)/@Model.Checklist.Count</strong>
+                </div>
+                @{
+                    var checklistPct = Model.Checklist.Count == 0
+                        ? 0
+                        : Math.Round(Model.Checklist.Count(x => x.Ok) * 100m / Model.Checklist.Count, 0);
+                }
+                <div class="admin-progress mb-3">
+                    <div class="admin-progress-bar" style="width:@checklistPct.ToString(System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                </div>
+                <a asp-controller="Estaciones" asp-action="Index" class="small text-decoration-none">Revisar configuración del local →</a>
+            </div>
+        </section>
     </div>
 </div>
