@@ -92,6 +92,7 @@ builder.Services.AddScoped<RestauranteDefaultsService>();
 builder.Services.AddScoped<DbSeeder>();
 builder.Services.AddScoped<AccesoRestauranteService>();
 builder.Services.AddScoped<RestauranteContextService>();
+builder.Services.AddScoped<AdminDashboardService>();
 
 var app = builder.Build();
 
