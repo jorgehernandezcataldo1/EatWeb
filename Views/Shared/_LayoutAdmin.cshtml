@@ -132,7 +132,14 @@
                 <span class="admin-nav-icon">◎</span>
                 <span>Garzones</span>
             </a>
-
+            
+            <a class="admin-nav-link @(controllerActual == "Operadores" ? "active" : "")"
+               asp-controller="Operadores"
+               asp-action="Index">
+                <span class="admin-nav-icon">◈</span>
+                <span>Cocina y Bar</span>
+            </a>
+            
             <a class="admin-nav-link @(controllerActual == "Sesiones" ? "active" : "")"
                asp-controller="Sesiones"
                asp-action="Index">
@@ -179,9 +186,22 @@
             <a class="admin-nav-link @(controllerActual == "Productos" ? "active" : "")"
                asp-controller="Productos" asp-action="Index">◫ Productos</a>
             <a class="admin-nav-link @(controllerActual == "Garzones" ? "active" : "")"
-               asp-controller="Garzones" asp-action="Index">◎ Garzones</a>
+               asp-controller="Garzones"
+               asp-action="Index">
+                ◎ Garzones
+            </a>
+            
+            <a class="admin-nav-link @(controllerActual == "Operadores" ? "active" : "")"
+               asp-controller="Operadores"
+               asp-action="Index">
+                ◈ Cocina y Bar
+            </a>
+            
             <a class="admin-nav-link @(controllerActual == "Sesiones" ? "active" : "")"
-               asp-controller="Sesiones" asp-action="Index">◷ Historial</a>
+               asp-controller="Sesiones"
+               asp-action="Index">
+                ◷ Historial
+            </a>
         </nav>
 
         <div class="mt-auto pt-3 border-top">
