@@ -3,6 +3,7 @@ using EatWeb.Models;
 using EatWeb.Services;
 using EatWeb.Services.Storage;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,6 +18,10 @@ if (string.IsNullOrWhiteSpace(connectionString))
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
+
+builder.Services.AddDataProtection()
+    .SetApplicationName("Comidita")
+    .PersistKeysToDbContext<ApplicationDbContext>();
 
 // Add Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
