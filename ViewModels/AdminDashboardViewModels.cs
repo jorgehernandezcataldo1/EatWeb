@@ -1,5 +1,35 @@
 namespace EatWeb.ViewModels;
 
+public class AdminCadenaDashboardViewModel
+{
+    public string CadenaNombre { get; set; } = "Mi cadena";
+    public decimal VentasHoy { get; set; }
+    public int PedidosHoy { get; set; }
+    public int TotalMesas { get; set; }
+    public int MesasOcupadas { get; set; }
+    public int SolicitudesPendientes { get; set; }
+    public List<RestauranteDashboardItemViewModel> Restaurantes { get; set; } = new();
+
+    public int MesasDisponibles => Math.Max(0, TotalMesas - MesasOcupadas);
+    public decimal OcupacionPorcentaje =>
+        TotalMesas == 0 ? 0 : Math.Round(MesasOcupadas * 100m / TotalMesas, 0);
+}
+
+public class RestauranteDashboardItemViewModel
+{
+    public int Id { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public bool Activo { get; set; }
+    public decimal VentasHoy { get; set; }
+    public int PedidosHoy { get; set; }
+    public int TotalMesas { get; set; }
+    public int MesasOcupadas { get; set; }
+    public int SolicitudesPendientes { get; set; }
+
+    public decimal OcupacionPorcentaje =>
+        TotalMesas == 0 ? 0 : Math.Round(MesasOcupadas * 100m / TotalMesas, 0);
+}
+
 public class AdminRestauranteDashboardViewModel
 {
     public int RestauranteId { get; set; }
@@ -12,11 +42,18 @@ public class AdminRestauranteDashboardViewModel
     public int MesasOcupadas { get; set; }
     public int TotalPedidosHoy { get; set; }
     public int PedidosActivos { get; set; }
+    public int PedidosPendientes { get; set; }
+    public int PedidosEnPreparacion { get; set; }
+    public int PedidosListos { get; set; }
     public int SolicitudesPendientes { get; set; }
     public decimal VentasHoy { get; set; }
     public decimal PropinasHoy { get; set; }
 
     public List<PilotChecklistItemViewModel> Checklist { get; set; } = new();
+
+    public int MesasDisponibles => Math.Max(0, TotalMesas - MesasOcupadas);
+    public decimal OcupacionPorcentaje =>
+        TotalMesas == 0 ? 0 : Math.Round(MesasOcupadas * 100m / TotalMesas, 0);
 
     public bool ListoParaPiloto =>
         RestauranteActivo &&
