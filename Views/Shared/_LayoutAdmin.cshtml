@@ -57,64 +57,105 @@
 </header>
 
 <aside class="admin-sidebar d-none d-lg-flex flex-column">
-    <nav class="nav flex-column gap-1 p-3">
-        <div class="admin-nav-label">Principal</div>
-        <a class="admin-nav-link @(controllerActual == "Admin" ? "active" : "")"
-           asp-controller="Admin" asp-action="Index">
-            <span class="admin-nav-icon">▦</span><span>Dashboard</span>
-        </a>
 
-        @if (esCadena)
-        {
-            <a class="admin-nav-link @(controllerActual == "Cadenas" ? "active" : "")"
-               asp-controller="Cadenas" asp-action="Index">
-                <span class="admin-nav-icon">⌂</span><span>Restaurantes</span>
+    <div class="admin-sidebar-scroll">
+        <nav class="nav flex-column gap-1 p-3">
+
+            <div class="admin-nav-label">Principal</div>
+
+            <a class="admin-nav-link @(controllerActual == "Admin" ? "active" : "")"
+               asp-controller="Admin"
+               asp-action="Index">
+                <span class="admin-nav-icon">▦</span>
+                <span>Dashboard</span>
             </a>
-        }
 
-        <a class="admin-nav-link @(controllerActual == "Mesas" ? "active" : "")"
-           asp-controller="Mesas" asp-action="Administrar">
-            <span class="admin-nav-icon">▤</span><span>Mesas</span>
-        </a>
-        <a class="admin-nav-link @(controllerActual == "Pedidos" ? "active" : "")"
-           asp-controller="Pedidos" asp-action="Index">
-            <span class="admin-nav-icon">☷</span><span>Pedidos</span>
-        </a>
+            @if (esCadena)
+            {
+                <a class="admin-nav-link @(controllerActual == "Cadenas" ? "active" : "")"
+                   asp-controller="Cadenas"
+                   asp-action="Index">
+                    <span class="admin-nav-icon">⌂</span>
+                    <span>Restaurantes</span>
+                </a>
+            }
 
-        <div class="admin-nav-label mt-3">Carta</div>
-        <a class="admin-nav-link @(controllerActual == "Productos" ? "active" : "")"
-           asp-controller="Productos" asp-action="Index">
-            <span class="admin-nav-icon">◫</span><span>Productos</span>
-        </a>
-        <a class="admin-nav-link @(controllerActual == "Categorias" ? "active" : "")"
-           asp-controller="Categorias" asp-action="Index">
-            <span class="admin-nav-icon">◉</span><span>Categorías</span>
-        </a>
-        <a class="admin-nav-link @(controllerActual == "Ingredientes" ? "active" : "")"
-           asp-controller="Ingredientes" asp-action="Index">
-            <span class="admin-nav-icon">◇</span><span>Ingredientes</span>
-        </a>
-        <a class="admin-nav-link @(controllerActual == "Estaciones" ? "active" : "")"
-           asp-controller="Estaciones" asp-action="Index">
-            <span class="admin-nav-icon">⌁</span><span>Estaciones</span>
-        </a>
+            <a class="admin-nav-link @(controllerActual == "Mesas" ? "active" : "")"
+               asp-controller="Mesas"
+               asp-action="Administrar">
+                <span class="admin-nav-icon">▤</span>
+                <span>Mesas</span>
+            </a>
 
-        <div class="admin-nav-label mt-3">Equipo y control</div>
-        <a class="admin-nav-link @(controllerActual == "Garzones" ? "active" : "")"
-           asp-controller="Garzones" asp-action="Index">
-            <span class="admin-nav-icon">◎</span><span>Garzones</span>
-        </a>
-        <a class="admin-nav-link @(controllerActual == "Sesiones" ? "active" : "")"
-           asp-controller="Sesiones" asp-action="Index">
-            <span class="admin-nav-icon">◷</span><span>Historial</span>
-        </a>
-    </nav>
+            <a class="admin-nav-link @(controllerActual == "Pedidos" ? "active" : "")"
+               asp-controller="Pedidos"
+               asp-action="Index">
+                <span class="admin-nav-icon">☷</span>
+                <span>Pedidos</span>
+            </a>
 
-    <div class="mt-auto p-3 border-top">
-        <form asp-controller="Account" asp-action="Logout" method="post">
-            <button type="submit" class="btn btn-outline-secondary w-100 admin-logout">Cerrar sesión</button>
+            <div class="admin-nav-label mt-3">Carta</div>
+
+            <a class="admin-nav-link @(controllerActual == "Productos" ? "active" : "")"
+               asp-controller="Productos"
+               asp-action="Index">
+                <span class="admin-nav-icon">◫</span>
+                <span>Productos</span>
+            </a>
+
+            <a class="admin-nav-link @(controllerActual == "Categorias" ? "active" : "")"
+               asp-controller="Categorias"
+               asp-action="Index">
+                <span class="admin-nav-icon">◉</span>
+                <span>Categorías</span>
+            </a>
+
+            <a class="admin-nav-link @(controllerActual == "Ingredientes" ? "active" : "")"
+               asp-controller="Ingredientes"
+               asp-action="Index">
+                <span class="admin-nav-icon">◇</span>
+                <span>Ingredientes</span>
+            </a>
+
+            <a class="admin-nav-link @(controllerActual == "Estaciones" ? "active" : "")"
+               asp-controller="Estaciones"
+               asp-action="Index">
+                <span class="admin-nav-icon">⌁</span>
+                <span>Estaciones</span>
+            </a>
+
+            <div class="admin-nav-label mt-3">Equipo y control</div>
+
+            <a class="admin-nav-link @(controllerActual == "Garzones" ? "active" : "")"
+               asp-controller="Garzones"
+               asp-action="Index">
+                <span class="admin-nav-icon">◎</span>
+                <span>Garzones</span>
+            </a>
+
+            <a class="admin-nav-link @(controllerActual == "Sesiones" ? "active" : "")"
+               asp-controller="Sesiones"
+               asp-action="Index">
+                <span class="admin-nav-icon">◷</span>
+                <span>Historial</span>
+            </a>
+
+        </nav>
+    </div>
+
+    <div class="admin-sidebar-footer p-3 border-top">
+        <form asp-controller="Account"
+              asp-action="Logout"
+              method="post">
+
+            <button type="submit"
+                    class="btn btn-outline-secondary w-100 admin-logout">
+                Cerrar sesión
+            </button>
+
         </form>
     </div>
+
 </aside>
 
 <div class="offcanvas offcanvas-start admin-offcanvas" tabindex="-1" id="adminMenu" aria-labelledby="adminMenuLabel">

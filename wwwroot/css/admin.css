@@ -78,14 +78,46 @@ body.admin-body {
 }
 
 .admin-sidebar {
-  position: fixed;
-  z-index: 1030;
-  top: 70px;
-  bottom: 0;
-  left: 0;
-  width: 220px;
-  background: #fff;
-  border-right: 1px solid var(--admin-border);
+    position: fixed;
+    z-index: 1030;
+    top: 70px;
+    bottom: 0;
+    left: 0;
+    width: 220px;
+    background: #fff;
+    border-right: 1px solid var(--admin-border);
+    overflow: hidden;
+}
+
+.admin-sidebar-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: #d7dce1 transparent;
+}
+
+    .admin-sidebar-scroll::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .admin-sidebar-scroll::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .admin-sidebar-scroll::-webkit-scrollbar-thumb {
+        background: #d7dce1;
+        border-radius: 999px;
+    }
+
+        .admin-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+            background: #bfc6ce;
+        }
+
+.admin-sidebar-footer {
+    flex-shrink: 0;
+    background: #fff;
 }
 
 .admin-nav-label {
