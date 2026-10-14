@@ -46,7 +46,9 @@ public class DbSeeder
         {
             Roles.AdminCadena,
             Roles.AdminRestaurante,
-            Roles.Garzon
+            Roles.Garzon,
+            Roles.Cocina,
+            Roles.Bar
         };
 
         foreach (var role in roles)

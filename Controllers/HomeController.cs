@@ -34,6 +34,9 @@ namespace EatWeb.Controllers
 
                 if (roles.Contains(Roles.Garzon))
                     return RedirectToAction("Index", "Mesas");
+
+                if (roles.Contains(Roles.Cocina) || roles.Contains(Roles.Bar))
+                    return RedirectToAction("Index", "EstacionTrabajo");
             }
 
             return RedirectToAction("Login", "Account");

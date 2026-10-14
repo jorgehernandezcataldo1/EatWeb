@@ -1,0 +1,98 @@
+@model EstacionTrabajoViewModel
+@{
+    ViewData["Title"] = Model.Estacion;
+}
+
+<div class="ops-page">
+    <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+        <div>
+            <div class="small text-muted text-uppercase fw-bold">Estación de trabajo</div>
+            <h1 class="ops-title h2 mb-1">@Model.Estacion</h1>
+            <div class="ops-subtitle small">@Model.Items.Count ítem(s) pendientes de completar</div>
+        </div>
+        <span class="ops-status-pill status-warning">En vivo</span>
+    </div>
+
+    <div id="estacionPanel">
+        @if (!Model.Items.Any())
+        {
+            <div class="card ops-table-card">
+                <div class="card-body py-5 text-center">
+                    <div class="fs-2 mb-2">✓</div>
+                    <strong>Todo al día</strong>
+                    <div class="text-muted small">No hay ítems pendientes en @Model.Estacion.</div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="row g-3">
+                @foreach (var item in Model.Items)
+                {
+                    var minutos = Math.Max(0, (int)(DateTime.UtcNow - item.FechaPedido).TotalMinutes);
+                    <div class="col-md-6 col-xl-4">
+                        <article class="card ops-table-card h-100 shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <div>
+                                        <div class="small text-muted">Mesa @item.MesaNumero · Pedido #@item.PedidoId</div>
+                                        <h2 class="h5 fw-bold mt-1 mb-0">@item.Cantidad× @item.Producto</h2>
+                                    </div>
+                                    <span class="badge @(item.Estado == EstadoDetallePedido.EnPreparacion ? "text-bg-warning" : "text-bg-secondary")">
+                                        @(item.Estado == EstadoDetallePedido.EnPreparacion ? "Preparando" : "Pendiente")
+                                    </span>
+                                </div>
+
+                                @if (item.Personalizaciones.Any())
+                                {
+                                    <div class="small text-muted mt-3">@string.Join(" · ", item.Personalizaciones)</div>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(item.Observacion))
+                                {
+                                    <div class="small fst-italic mt-2">“@item.Observacion”</div>
+                                }
+
+                                <div class="small text-muted mt-3">Hace @minutos min</div>
+
+                                <div class="mt-3">
+                                    @if (item.Estado == EstadoDetallePedido.Pendiente)
+                                    {
+                                        <form asp-action="CambiarEstado" method="post">
+                                            <input type="hidden" name="id" value="@item.DetalleId" />
+                                            <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
+                                            <button class="btn btn-outline-warning w-100">Comenzar preparación</button>
+                                        </form>
+                                    }
+                                    else if (item.Estado == EstadoDetallePedido.EnPreparacion)
+                                    {
+                                        <form asp-action="CambiarEstado" method="post">
+                                            <input type="hidden" name="id" value="@item.DetalleId" />
+                                            <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Listo" />
+                                            <button class="btn btn-comidita w-100">Marcar listo</button>
+                                        </form>
+                                    }
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    async function refrescarEstacion() {
+        try {
+            const response = await fetch(window.location.href, { cache: 'no-store' });
+            if (!response.ok) return;
+            const html = await response.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const nuevo = doc.getElementById('estacionPanel');
+            if (nuevo) document.getElementById('estacionPanel').innerHTML = nuevo.innerHTML;
+        } catch {}
+    }
+    setInterval(refrescarEstacion, 5000);
+</script>
+}

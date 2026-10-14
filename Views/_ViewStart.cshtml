@@ -1,5 +1,7 @@
 ﻿@{
     Layout = User.Identity?.IsAuthenticated == true && User.EsAdmin()
         ? "_LayoutAdmin"
-        : "_Layout";
+        : User.Identity?.IsAuthenticated == true && User.EsEstacion()
+            ? "_LayoutEstacion"
+            : "_Layout";
 }

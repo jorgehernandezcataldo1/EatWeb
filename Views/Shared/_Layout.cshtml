@@ -240,6 +240,77 @@ else
 <script src="~/lib/jquery/dist/jquery.min.js"></script>
 <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="~/js/site.js" asp-append-version="true"></script>
+@if (esGarzon)
+{
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1090; margin-top:70px;">
+        <div id="itemListoToast" class="toast border-0 shadow" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto">🍽️ Pedido listo</strong>
+                <small>Ahora</small>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+            </div>
+            <div class="toast-body" id="itemListoToastBody"></div>
+        </div>
+    </div>
+    <script>
+        (() => {
+            const storageKey = 'comidita-items-listos-vistos';
+            const vistos = new Set(JSON.parse(localStorage.getItem(storageKey) || '[]'));
+            let primeraCarga = true;
+
+            function guardarVistos() {
+                localStorage.setItem(storageKey, JSON.stringify(Array.from(vistos).slice(-100)));
+            }
+
+            function beep() {
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    const ctx = new AudioCtx();
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.frequency.value = 880;
+                    gain.gain.value = 0.05;
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    setTimeout(() => { osc.stop(); ctx.close(); }, 180);
+                } catch {}
+            }
+
+            async function revisarItemsListos() {
+                try {
+                    const response = await fetch('@Url.Action("AlertasListos", "Pedidos")', { cache: 'no-store' });
+                    if (!response.ok) return;
+                    const items = await response.json();
+
+                    for (const item of items.reverse()) {
+                        const key = String(item.id);
+                        if (vistos.has(key)) continue;
+
+                        vistos.add(key);
+                        guardarVistos();
+
+                        if (primeraCarga) continue;
+
+                        const body = document.getElementById('itemListoToastBody');
+                        body.innerHTML = '<strong>Mesa ' + item.mesa + '</strong><br>' +
+                            item.cantidad + '× ' + item.producto + ' · ' + item.estacion;
+                        bootstrap.Toast.getOrCreateInstance(
+                            document.getElementById('itemListoToast'),
+                            { delay: 7000 }
+                        ).show();
+                        beep();
+                    }
+
+                    primeraCarga = false;
+                } catch {}
+            }
+
+            revisarItemsListos();
+            setInterval(revisarItemsListos, 5000);
+        })();
+    </script>
+}
 @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

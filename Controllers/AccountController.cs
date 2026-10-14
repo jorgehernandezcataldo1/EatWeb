@@ -66,6 +66,9 @@ public class AccountController : Controller
             if (roles.Contains(Roles.Garzon))
                 return RedirectToAction("Index", "Mesas");
 
+            if (roles.Contains(Roles.Cocina) || roles.Contains(Roles.Bar))
+                return RedirectToAction("Index", "EstacionTrabajo");
+
             return RedirectToLocal(returnUrl);
 
         }

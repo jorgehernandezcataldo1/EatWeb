@@ -1,0 +1,51 @@
+@{
+    var usuarioNombre = User.Identity?.Name ?? "Operador";
+    var estacion = User.IsInRole(Roles.Bar) ? "Bar" : "Cocina";
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Comidita</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="garzon-body">
+<header class="garzon-topbar border-bottom bg-white">
+    <div class="d-flex align-items-center h-100 px-3 px-lg-4">
+        <a class="garzon-brand text-decoration-none text-dark" asp-controller="EstacionTrabajo" asp-action="Index">
+            Comidita
+        </a>
+        <span class="badge text-bg-light border ms-3">@estacion</span>
+        <div class="ms-auto d-flex align-items-center gap-3">
+            <div class="d-none d-md-block text-end lh-sm">
+                <div class="small fw-semibold">@usuarioNombre</div>
+                <div class="garzon-user-role text-muted">Operador de @estacion</div>
+            </div>
+            <form asp-controller="Account" asp-action="Logout" method="post">
+                <button class="btn btn-outline-secondary btn-sm">Salir</button>
+            </form>
+        </div>
+    </div>
+</header>
+
+@if (TempData["Error"] != null)
+{
+    <div class="garzon-flash alert alert-danger alert-dismissible fade show">
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<main style="min-height:100vh;padding:92px 18px 32px;max-width:1500px;margin:0 auto;">
+    @RenderBody()
+</main>
+
+@Html.AntiForgeryToken()
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

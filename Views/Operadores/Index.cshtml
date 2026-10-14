@@ -1,0 +1,36 @@
+@model List<OperadorEstacionViewModel>
+@{
+    ViewData["Title"] = "Cocina y Bar";
+}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 fw-bold mb-1">Cocina y Bar</h1>
+        <div class="text-muted small">Usuarios que trabajan directamente en estaciones de preparación.</div>
+    </div>
+    <a asp-action="Crear" class="btn btn-comidita">+ Nuevo operador</a>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead><tr><th>Nombre</th><th>Estación</th><th>Email</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td class="fw-semibold">@item.NombreCompleto</td>
+                    <td><span class="badge text-bg-light border">@item.Estacion</span></td>
+                    <td>@item.Email</td>
+                    <td><span class="badge @(item.Activo ? "text-bg-success" : "text-bg-secondary")">@(item.Activo ? "Activo" : "Inactivo")</span></td>
+                    <td class="text-end">
+                        <form asp-action="Activar" method="post">
+                            <input type="hidden" name="id" value="@item.Id" />
+                            <button class="btn btn-sm btn-outline-secondary">@(item.Activo ? "Desactivar" : "Activar")</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
