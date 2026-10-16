@@ -98,26 +98,6 @@
                                                             </div>
 
                                                             <div class="d-flex flex-wrap gap-1 ops-actions">
-                                                                @if (pendientes > 0)
-                                                                {
-                                                                    <form asp-action="CambiarEstadoMesa" method="post">
-                                                                        <input type="hidden" name="id" value="@m.SesionId" />
-                                                                        <input type="hidden" name="estacionId" value="@estacion.Key.EstacionId" />
-                                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
-                                                                        <button class="btn btn-sm btn-outline-warning">Preparar @estacion.Key.Estacion</button>
-                                                                    </form>
-                                                                }
-
-                                                                @if (preparando > 0)
-                                                                {
-                                                                    <form asp-action="CambiarEstadoMesa" method="post">
-                                                                        <input type="hidden" name="id" value="@m.SesionId" />
-                                                                        <input type="hidden" name="estacionId" value="@estacion.Key.EstacionId" />
-                                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Listo" />
-                                                                        <button class="btn btn-sm btn-outline-success">Marcar listo</button>
-                                                                    </form>
-                                                                }
-
                                                                 @if (listos > 0)
                                                                 {
                                                                     <form asp-action="CambiarEstadoMesa" method="post">
@@ -199,38 +179,6 @@
                                                             }
 
                                                             <div class="d-flex flex-wrap gap-1 mt-2 ops-actions">
-                                                                @if (d.Estado == EstadoDetallePedido.Pendiente)
-                                                                {
-                                                                    <form asp-action="CambiarEstadoDetalle" method="post">
-                                                                        <input type="hidden" name="id" value="@d.Id" />
-                                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
-                                                                        <button class="btn btn-sm btn-outline-warning">Preparar</button>
-                                                                    </form>
-                                                                    <form asp-action="CambiarEstadoDetalle" method="post">
-                                                                        <input type="hidden" name="id" value="@d.Id" />
-                                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Cancelado" />
-                                                                        <button class="btn btn-sm btn-outline-danger"
-                                                                                onclick="return confirm('¿Cancelar este ítem?')">
-                                                                            Cancelar
-                                                                        </button>
-                                                                    </form>
-                                                                }
-                                                                else if (d.Estado == EstadoDetallePedido.EnPreparacion)
-                                                                {
-                                                                    <form asp-action="CambiarEstadoDetalle" method="post">
-                                                                        <input type="hidden" name="id" value="@d.Id" />
-                                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Listo" />
-                                                                        <button class="btn btn-sm btn-outline-success">Listo</button>
-                                                                    </form>
-                                                                    <form asp-action="CambiarEstadoDetalle" method="post">
-                                                                        <input type="hidden" name="id" value="@d.Id" />
-                                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Cancelado" />
-                                                                        <button class="btn btn-sm btn-outline-danger"
-                                                                                onclick="return confirm('¿Cancelar este ítem en preparación?')">
-                                                                            Cancelar
-                                                                        </button>
-                                                                    </form>
-                                                                }
                                                                 else if (d.Estado == EstadoDetallePedido.Listo)
                                                                 {
                                                                     <form asp-action="CambiarEstadoDetalle" method="post">
@@ -246,30 +194,6 @@
 
                                                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3">
                                                     <div class="d-flex flex-wrap gap-1 ops-actions">
-                                                        @if (p.Estado == EstadoPedido.Pendiente)
-                                                        {
-                                                            <form asp-action="CambiarEstado" method="post">
-                                                                <input type="hidden" name="id" value="@p.Id" />
-                                                                <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
-                                                                <button class="btn btn-sm btn-outline-warning">Pedido → preparación</button>
-                                                            </form>
-                                                            <form asp-action="CambiarEstado" method="post">
-                                                                <input type="hidden" name="id" value="@p.Id" />
-                                                                <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Cancelado" />
-                                                                <button class="btn btn-sm btn-outline-danger"
-                                                                        onclick="return confirm('¿Cancelar los ítems cancelables de este pedido?')">
-                                                                    Cancelar pedido
-                                                                </button>
-                                                            </form>
-                                                        }
-                                                        else if (p.Estado == EstadoPedido.EnPreparacion)
-                                                        {
-                                                            <form asp-action="CambiarEstado" method="post">
-                                                                <input type="hidden" name="id" value="@p.Id" />
-                                                                <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Listo" />
-                                                                <button class="btn btn-sm btn-outline-success">Pedido → listo</button>
-                                                            </form>
-                                                        }
                                                         else if (p.Estado == EstadoPedido.Listo)
                                                         {
                                                             <form asp-action="CambiarEstado" method="post">
@@ -305,16 +229,6 @@
                                         <div class="pt-3 mt-2 border-top">
                                             <div class="d-flex flex-column flex-lg-row justify-content-between gap-2">
                                                 <div class="d-flex flex-wrap gap-1 ops-actions">
-                                                    <form asp-action="CambiarEstadoMesa" method="post">
-                                                        <input type="hidden" name="id" value="@m.SesionId" />
-                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
-                                                        <button class="btn btn-sm btn-outline-warning">Mesa → preparación</button>
-                                                    </form>
-                                                    <form asp-action="CambiarEstadoMesa" method="post">
-                                                        <input type="hidden" name="id" value="@m.SesionId" />
-                                                        <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Listo" />
-                                                        <button class="btn btn-sm btn-outline-success">Mesa → listo</button>
-                                                    </form>
                                                     <form asp-action="CambiarEstadoMesa" method="post">
                                                         <input type="hidden" name="id" value="@m.SesionId" />
                                                         <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Entregado" />
