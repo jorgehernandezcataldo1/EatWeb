@@ -85,6 +85,7 @@
 <script>
     async function refrescarEstacion() {
         try {
+            if (document.hidden || document.activeElement?.closest('#estacionPanel form')) return;
             const response = await fetch(window.location.href, { cache: 'no-store' });
             if (!response.ok) return;
             const html = await response.text();
