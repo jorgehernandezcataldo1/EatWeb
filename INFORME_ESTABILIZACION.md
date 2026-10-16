@@ -4,6 +4,8 @@ Fecha: 2026-10-15
 Rama: `estabilizacion`
 Estado: **EN PROCESO — NO APTO AÚN PARA PILOTO SIN QA**.
 
+Última actualización: 2026-10-15.
+
 ## Alcance
 Estabilizar funcionalidades existentes sin añadir módulos nuevos. Stack actual: ASP.NET Core MVC, Razor, EF Core, LINQ, ViewModels, AJAX y Bootstrap.
 
@@ -11,8 +13,12 @@ Estabilizar funcionalidades existentes sin añadir módulos nuevos. Stack actual
 1. `PedidosController`: las acciones `CambiarEstado`, `CambiarEstadoDetalle` y `CambiarEstadoMesa` solo aceptan `Entregado`. La estación conserva el control de `EnPreparacion` y `Listo` en `EstacionTrabajoController`.
 2. `Views/Pedidos/Mesa.cshtml`: retirados botones para preparar, marcar listo y cancelar desde la vista de garzón; se conservan botones de entrega y detalle de pedidos.
 
+3. `AlertasListos`: eliminada la limitación de 20 ítems; los pendientes se ordenan por antigüedad.
+4. `Views/Cliente/MiMesa.cshtml`: vibración progresiva compatible al recibir estado `Listo`, conservando SweetAlert.
+5. `Views/EstacionTrabajo/Index.cshtml`: evita reemplazar el panel mientras el operador interactúa con un formulario o la pestaña está oculta.
+
 ## Hallazgos por revisar
-- `AlertasListos` limita a 20 los ítems listos; podría ocultar pendientes antiguos en servicios intensos.
+- Verificar comportamiento y rendimiento de alertas de ítems listos bajo alta carga.
 - `EstacionTrabajoController` identifica estaciones por rol y nombre literal Cocina/Bar.
 - Validar visualización móvil de todas las vistas, especialmente tablas, formularios y menús laterales.
 - Validar cierre de mesa, pagos parciales, cancelaciones y reintentos concurrentes.
