@@ -202,7 +202,12 @@
                             }
                             : null;
 
-                if (config) window.comiditaSwal?.(config);
+                if (config) {
+                    if (detalle.estado === 'Listo' && typeof navigator.vibrate === 'function') {
+                        navigator.vibrate([180, 100, 180]);
+                    }
+                    window.comiditaSwal?.(config);
+                }
             }
         } catch {}
     }
