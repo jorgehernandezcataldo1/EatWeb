@@ -71,8 +71,7 @@ public class PedidosController : RestauranteControllerBase
                 d.Pedido.MesaSesion.Mesa!.RestauranteId == RestauranteId &&
                 (d.Pedido.MesaSesion.GarzonId == userId ||
                  d.Pedido.MesaSesion.Mesa.GarzonId == userId))
-            .OrderByDescending(d => d.FechaListo)
-            .Take(20)
+            .OrderBy(d => d.FechaListo)
             .Select(d => new
             {
                 id = d.Id,
