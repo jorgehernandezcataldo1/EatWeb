@@ -133,7 +133,7 @@ public class PedidosController : RestauranteControllerBase
     int id,
     string nuevoEstado)
     {
-        if (!EstadoPedido.Todos().Contains(nuevoEstado))
+        if (nuevoEstado != EstadoDetallePedido.Entregado)
             return BadRequest();
 
         var pedido = await _context.Pedidos
@@ -168,7 +168,7 @@ public class PedidosController : RestauranteControllerBase
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CambiarEstadoDetalle(int id, string nuevoEstado)
     {
-        if (!EstadoDetallePedido.Todos().Contains(nuevoEstado)) return BadRequest();
+        if (nuevoEstado != EstadoDetallePedido.Entregado) return BadRequest();
 
         var detalle = await _context.DetallesPedidos
             .AsNoTracking()
@@ -191,7 +191,7 @@ public class PedidosController : RestauranteControllerBase
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CambiarEstadoMesa(int id, string nuevoEstado, int? estacionId = null)
     {
-        if (!EstadoDetallePedido.Todos().Contains(nuevoEstado)) return BadRequest();
+        if (nuevoEstado != EstadoDetallePedido.Entregado) return BadRequest();
 
         var permitido = await _context.MesaSesiones
             .AnyAsync(s => s.Id == id && s.FechaCierre == null &&
