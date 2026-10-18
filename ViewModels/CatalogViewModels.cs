@@ -67,8 +67,23 @@ public class ProductoViewModel
     [Required(ErrorMessage = "La categoría es requerida")]
     public int CategoriaId { get; set; }
 
+    public string? CategoriaNombre { get; set; }
+    public string? EstacionNombre { get; set; }
+    public int CantidadIngredientes { get; set; }
+
     public bool Activo { get; set; } = true;
     public bool Disponible { get; set; } = true;
+
+    public List<ProductoIngredienteInputViewModel> IngredientesSeleccionados { get; set; } = new();
+}
+
+public class ProductoIngredienteInputViewModel
+{
+    public int IngredienteId { get; set; }
+    public string? NombreIngrediente { get; set; }
+    public bool Seleccionado { get; set; }
+    public string Tipo { get; set; } = EatWeb.Models.Enums.TipoIngrediente.Incluido;
+    public decimal PrecioExtra { get; set; }
 }
 
 public class ProductoIngredienteViewModel
