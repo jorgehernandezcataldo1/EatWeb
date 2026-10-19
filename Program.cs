@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 using EatWeb.Data;
 using EatWeb.Models;
@@ -92,6 +93,30 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true
             });
     });
+
+    options.AddPolicy("realtime", httpContext =>
+    {
+        var usuarioId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var tieneComensal = httpContext.Request.Cookies
+            .TryGetValue("eatweb_comensal", out var token) &&
+            Guid.TryParse(token, out _);
+
+        var clave = !string.IsNullOrWhiteSpace(usuarioId)
+            ? "usuario:" + usuarioId
+            : tieneComensal
+                ? "comensal:" + token
+                : "ip:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconocida");
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            clave,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
 });
 
 // Session
@@ -161,14 +186,15 @@ app.Use(async (context, next) =>
 });
 
 app.UseRouting();
-app.UseRateLimiter();
 app.UseSession();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapStaticAssets();
 
-app.MapHub<ComiditaHub>("/hubs/operacion");
+app.MapHub<ComiditaHub>("/hubs/operacion")
+    .RequireRateLimiting("realtime");
 
 app.MapControllerRoute(
     name: "default",
