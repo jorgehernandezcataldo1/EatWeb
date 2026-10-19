@@ -212,10 +212,21 @@
         } catch {}
     }
 
+    async function actualizarMesaCompleta() {
+        await Promise.all([
+            actualizarSolicitudes(),
+            actualizarPedidosMesa(),
+            revisarEstados()
+        ]);
+    }
+
     registrarEstadosDOM();
-    setInterval(actualizarSolicitudes, 8000);
-    setInterval(actualizarPedidosMesa, 12000);
-    setInterval(revisarEstados, 6000);
+    document.addEventListener('comidita:MesaActualizada', actualizarMesaCompleta);
+
+    // Respaldo si el WebSocket/SSE de SignalR no está disponible.
+    setInterval(actualizarSolicitudes, 45000);
+    setInterval(actualizarPedidosMesa, 45000);
+    setInterval(revisarEstados, 30000);
 })();
 </script>
 }
