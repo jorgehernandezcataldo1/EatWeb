@@ -1,0 +1,83 @@
+@using EatWeb.Models.Enums
+@model dynamic
+@{
+    string status = Model.Estado;
+    bool urgent = Model.Urgente;
+    long timestamp = new DateTimeOffset((DateTime)Model.Fecha).ToUnixTimeMilliseconds();
+    var search = string.Join(" ", ((IEnumerable<EstacionTrabajoItemViewModel>)Model.Items).Select(i => i.Producto));
+    var collapseId = $"pedido-{Model.PedidoId}";
+}
+<article class="station-order-card @(urgent ? "is-urgent" : "")"
+         data-status="@status"
+         data-urgent="@urgent.ToString().ToLowerInvariant()"
+         data-table="@Model.MesaNumero"
+         data-order="@Model.PedidoId"
+         data-timestamp="@timestamp"
+         data-search="@search.ToLowerInvariant()">
+    <div class="station-order-head">
+        <div>
+            <strong>Mesa @Model.MesaNumero</strong>
+            <span>#@Model.PedidoId</span>
+            @if (urgent)
+            {
+                <span class="station-urgent-badge">🔥 Urgente</span>
+            }
+        </div>
+        <span class="station-age">Hace @Model.Minutos min</span>
+    </div>
+
+    <div class="station-products">
+        @foreach (var item in Model.Items)
+        {
+            <div class="station-product-line">
+                <span class="station-product-qty">@item.Cantidad ×</span>
+                <div>
+                    <strong>@item.Producto</strong>
+                    @if (item.Personalizaciones.Any())
+                    {
+                        <div class="station-product-notes">@string.Join(" · ", item.Personalizaciones)</div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(item.Observacion))
+                    {
+                        <div class="station-product-notes">Nota: @item.Observacion</div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (status == EstadoDetallePedido.Pendiente)
+    {
+        <form asp-action="CambiarEstadoPedido" method="post">
+            <input type="hidden" name="pedidoId" value="@Model.PedidoId" />
+            <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
+            <button class="btn btn-comidita w-100 station-action-button">▶ Comenzar preparación</button>
+        </form>
+    }
+    else if (status == EstadoDetallePedido.EnPreparacion)
+    {
+        <div class="station-state-line is-progress">
+            <span>♨ En preparación</span>
+            <span>Pedido activo</span>
+        </div>
+        <form asp-action="CambiarEstadoPedido" method="post">
+            <input type="hidden" name="pedidoId" value="@Model.PedidoId" />
+            <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Listo" />
+            <button class="btn station-ready-button w-100">✓ Marcar como listo</button>
+        </form>
+    }
+    else
+    {
+        <div class="station-state-line is-ready">
+            <span>✓ Listo</span>
+            <span>Esperando retiro</span>
+        </div>
+        <button class="btn btn-outline-secondary w-100 station-details-button"
+                type="button" data-bs-toggle="collapse" data-bs-target="#@collapseId">
+            Ver detalles
+        </button>
+        <div class="collapse mt-2" id="@collapseId">
+            <div class="station-ready-help">El garzón ya fue avisado. Este pedido saldrá del tablero cuando sea entregado.</div>
+        </div>
+    }
+</article>
