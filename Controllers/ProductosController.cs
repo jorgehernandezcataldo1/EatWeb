@@ -399,6 +399,9 @@ public class ProductosController : RestauranteControllerBase
             .Where(i => i.Seleccionado)
             .ToList();
 
+        if (seleccionados.Count == 0)
+            ModelState.AddModelError(string.Empty, "Selecciona al menos un ingrediente para el producto.");
+
         if (seleccionados.GroupBy(i => i.IngredienteId).Any(g => g.Count() > 1))
             ModelState.AddModelError(string.Empty, "Hay ingredientes duplicados en el producto.");
 
