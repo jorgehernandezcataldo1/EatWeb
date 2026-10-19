@@ -86,11 +86,3 @@ public class ProductoIngredienteInputViewModel
     public decimal PrecioExtra { get; set; }
 }
 
-public class ProductoIngredienteViewModel
-{
-    public int ProductoId { get; set; }
-    public int IngredienteId { get; set; }
-    public string Tipo { get; set; } = string.Empty;
-    public decimal PrecioExtra { get; set; }
-    public string NombreIngrediente { get; set; } = string.Empty;
-}
