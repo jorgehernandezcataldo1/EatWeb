@@ -233,17 +233,31 @@ public class ProductosController : RestauranteControllerBase
         producto.Activo = modelo.Activo;
         producto.Disponible = modelo.Disponible;
 
-        _context.ProductoIngredientes.RemoveRange(producto.Ingredientes);
-        producto.Ingredientes.Clear();
+        var seleccionados = modelo.IngredientesSeleccionados
+            .Where(i => i.Seleccionado)
+            .ToDictionary(i => i.IngredienteId);
 
-        foreach (var item in modelo.IngredientesSeleccionados.Where(i => i.Seleccionado))
+        foreach (var existente in producto.Ingredientes.ToList())
+        {
+            if (!seleccionados.TryGetValue(existente.IngredienteId, out var entrada))
+            {
+                _context.ProductoIngredientes.Remove(existente);
+                continue;
+            }
+
+            existente.Tipo = entrada.Tipo;
+            existente.PrecioExtra = entrada.Tipo == TipoIngrediente.Incluido ? 0 : entrada.PrecioExtra;
+            seleccionados.Remove(existente.IngredienteId);
+        }
+
+        foreach (var nuevo in seleccionados.Values)
         {
             producto.Ingredientes.Add(new ProductoIngrediente
             {
                 ProductoId = producto.Id,
-                IngredienteId = item.IngredienteId,
-                Tipo = item.Tipo,
-                PrecioExtra = item.Tipo == TipoIngrediente.Incluido ? 0 : item.PrecioExtra
+                IngredienteId = nuevo.IngredienteId,
+                Tipo = nuevo.Tipo,
+                PrecioExtra = nuevo.Tipo == TipoIngrediente.Incluido ? 0 : nuevo.PrecioExtra
             });
         }
 
