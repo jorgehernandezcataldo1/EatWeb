@@ -85,6 +85,54 @@ public class CategoriasController : RestauranteControllerBase
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CrearRapido(string nombre, int estacionId)
+    {
+        nombre = (nombre ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(nombre) || nombre.Length > 80)
+            return BadRequest(new { error = "Ingresa un nombre válido para la categoría." });
+
+        if (!await EstacionValidaAsync(estacionId))
+            return BadRequest(new { error = "Selecciona una estación válida." });
+
+        var existe = await _context.Categorias
+            .AnyAsync(c => c.RestauranteId == RestauranteId && c.Nombre == nombre);
+
+        if (existe)
+            return BadRequest(new { error = "Ya existe una categoría con este nombre." });
+
+        var ultimoOrden = await _context.Categorias
+            .Where(c => c.RestauranteId == RestauranteId)
+            .MaxAsync(c => (int?)c.Orden) ?? 0;
+
+        var estacionNombre = await _context.Estaciones
+            .Where(e => e.Id == estacionId && e.RestauranteId == RestauranteId)
+            .Select(e => e.Nombre)
+            .FirstAsync();
+
+        var categoria = new Categoria
+        {
+            RestauranteId = RestauranteId,
+            Nombre = nombre,
+            Orden = ultimoOrden + 1,
+            Activa = true,
+            EstacionId = estacionId
+        };
+
+        _context.Categorias.Add(categoria);
+        await _context.SaveChangesAsync();
+
+        return Json(new
+        {
+            id = categoria.Id,
+            nombre = categoria.Nombre,
+            estacionId,
+            estacionNombre
+        });
+    }
+
     [HttpGet]
     public async Task<IActionResult> Editar(int id)
     {
