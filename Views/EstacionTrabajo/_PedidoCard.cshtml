@@ -1,10 +1,10 @@
 @using EatWeb.Models.Enums
-@model dynamic
+@model EstacionTrabajoPedidoViewModel
 @{
     string status = Model.Estado;
     bool urgent = Model.Urgente;
     long timestamp = new DateTimeOffset((DateTime)Model.Fecha).ToUnixTimeMilliseconds();
-    var search = string.Join(" ", ((IEnumerable<EstacionTrabajoItemViewModel>)Model.Items).Select(i => i.Producto));
+    var search = string.Join(" ", Model.Items.Select(i => i.Producto));
     var collapseId = $"pedido-{Model.PedidoId}";
 }
 <article class="station-order-card @(urgent ? "is-urgent" : "")"
@@ -23,7 +23,7 @@
                 <span class="station-urgent-badge">🔥 Urgente</span>
             }
         </div>
-        <span class="station-age">Hace @Model.Minutos min</span>
+        <span class="station-age">Hace @Model.MinutosEspera min</span>
     </div>
 
     <div class="station-products">
