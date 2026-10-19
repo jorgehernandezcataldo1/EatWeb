@@ -1,0 +1,373 @@
+@model ProductoViewModel
+@using EatWeb.Models.Enums
+@{
+    var categorias = (List<CategoriaViewModel>)(ViewBag.CategoriasEditor ?? new List<CategoriaViewModel>());
+    var estaciones = (List<EstacionViewModel>)(ViewBag.EstacionesEditor ?? new List<EstacionViewModel>());
+    var esEdicion = Model.Id > 0;
+}
+
+<form asp-action="@(esEdicion ? "Editar" : "Crear")"
+      asp-route-id="@(esEdicion ? Model.Id : null)"
+      method="post"
+      enctype="multipart/form-data"
+      id="productoEditorForm">
+    @Html.AntiForgeryToken()
+    @if (esEdicion)
+    {
+        <input asp-for="Id" type="hidden" />
+    }
+
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+    <div class="row g-3 g-xl-4">
+        <div class="col-xl-8">
+            <section class="admin-panel mb-3">
+                <div class="admin-panel-header">
+                    <h2 class="admin-panel-title h6">Información del producto</h2>
+                </div>
+                <div class="admin-panel-body">
+                    <div class="row g-3">
+                        <div class="col-md-7">
+                            <label asp-for="Nombre" class="form-label fw-semibold">Nombre</label>
+                            <input asp-for="Nombre" class="form-control" placeholder="Ej. Hamburguesa clásica" />
+                            <span asp-validation-for="Nombre" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-5">
+                            <label asp-for="Precio" class="form-label fw-semibold">Precio</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input asp-for="Precio" type="number" step="1" min="1" class="form-control" />
+                            </div>
+                            <span asp-validation-for="Precio" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="Descripcion" class="form-label fw-semibold">Descripción</label>
+                            <textarea asp-for="Descripcion" class="form-control" rows="3"
+                                      placeholder="Describe brevemente el producto"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="Imagen" class="form-label fw-semibold">Foto</label>
+                            @if (!string.IsNullOrWhiteSpace(Model.ImagenUrl))
+                            {
+                                <div class="d-flex align-items-center gap-3 mb-2">
+                                    <img src="@Model.ImagenUrl" alt="@Model.Nombre"
+                                         class="carta-editor-image border" />
+                                    <div class="form-check">
+                                        <input asp-for="EliminarImagen" class="form-check-input" />
+                                        <label asp-for="EliminarImagen" class="form-check-label">Eliminar foto actual</label>
+                                    </div>
+                                </div>
+                            }
+                            <input asp-for="Imagen" type="file"
+                                   accept="image/jpeg,image/png,image/webp"
+                                   class="form-control" />
+                            <div class="form-text">JPG, PNG o WebP. Máximo 5 MB.</div>
+                            <span asp-validation-for="Imagen" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="admin-panel mb-3">
+                <div class="admin-panel-header">
+                    <h2 class="admin-panel-title h6">Categoría y estación</h2>
+                </div>
+                <div class="admin-panel-body">
+                    <label asp-for="CategoriaId" class="form-label fw-semibold">Categoría</label>
+                    <div class="d-flex gap-2">
+                        <select asp-for="CategoriaId" id="categoriaSelect" class="form-select">
+                            <option value="">Seleccionar categoría...</option>
+                            @foreach (var categoria in categorias)
+                            {
+                                <option value="@categoria.Id"
+                                        data-estacion="@categoria.EstacionNombre"
+                                        selected="@(Model.CategoriaId == categoria.Id)">
+                                    @categoria.Nombre
+                                </option>
+                            }
+                        </select>
+                        <button type="button" class="btn btn-outline-secondary text-nowrap"
+                                data-bs-toggle="modal" data-bs-target="#modalCategoria">
+                            + Nueva
+                        </button>
+                    </div>
+                    <span asp-validation-for="CategoriaId" class="text-danger small"></span>
+                    <div class="carta-station-info mt-3">
+                        <span>Estación de preparación</span>
+                        <strong id="estacionCategoria">Selecciona una categoría</strong>
+                    </div>
+                    <div class="form-text">La estación se obtiene de la categoría para evitar configuraciones duplicadas.</div>
+                </div>
+            </section>
+
+            <section class="admin-panel">
+                <div class="admin-panel-header d-flex justify-content-between align-items-center gap-2">
+                    <div>
+                        <h2 class="admin-panel-title h6">Ingredientes</h2>
+                        <div class="small text-muted mt-1">Selecciona los que pertenecen al producto y define si son incluidos o extras.</div>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm text-nowrap"
+                            data-bs-toggle="modal" data-bs-target="#modalIngrediente">
+                        + Crear ingrediente
+                    </button>
+                </div>
+                <div class="admin-panel-body">
+                    <input type="search" class="form-control mb-3" id="buscarIngrediente"
+                           placeholder="Buscar ingrediente..." />
+                    <div id="ingredientesEditor" class="carta-ingredient-list">
+                        @for (var i = 0; i < Model.IngredientesSeleccionados.Count; i++)
+                        {
+                            var item = Model.IngredientesSeleccionados[i];
+                            <div class="carta-ingredient-row" data-ingredient-name="@item.NombreIngrediente?.ToLowerInvariant()">
+                                <input asp-for="IngredientesSeleccionados[i].IngredienteId" type="hidden" />
+                                <input asp-for="IngredientesSeleccionados[i].NombreIngrediente" type="hidden" />
+                                <div class="form-check">
+                                    <input asp-for="IngredientesSeleccionados[i].Seleccionado"
+                                           class="form-check-input ingrediente-check" />
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold small">@item.NombreIngrediente</div>
+                                    <div class="text-muted carta-small">Disponible para este producto</div>
+                                </div>
+                                <select asp-for="IngredientesSeleccionados[i].Tipo"
+                                        class="form-select form-select-sm ingrediente-tipo">
+                                    <option value="@TipoIngrediente.Incluido">Incluido</option>
+                                    <option value="@TipoIngrediente.Extra">Extra</option>
+                                </select>
+                                <div class="ingrediente-precio @(item.Tipo == TipoIngrediente.Extra ? "" : "d-none")">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">$</span>
+                                        <input asp-for="IngredientesSeleccionados[i].PrecioExtra"
+                                               type="number" min="0" step="1" class="form-control" />
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    @if (!Model.IngredientesSeleccionados.Any())
+                    {
+                        <div id="sinIngredientes" class="text-center text-muted py-4 small">
+                            Aún no hay ingredientes. Créalo aquí sin salir del producto.
+                        </div>
+                    }
+                </div>
+            </section>
+        </div>
+
+        <div class="col-xl-4">
+            <section class="admin-panel carta-preview sticky-xl-top" style="top: 88px;">
+                <div class="admin-panel-header">
+                    <h2 class="admin-panel-title h6">Publicación</h2>
+                </div>
+                <div class="admin-panel-body">
+                    <div class="carta-preview-photo mb-3">
+                        @if (!string.IsNullOrWhiteSpace(Model.ImagenUrl))
+                        {
+                            <img src="@Model.ImagenUrl" alt="@Model.Nombre" />
+                        }
+                        else
+                        {
+                            <span>◫</span>
+                        }
+                    </div>
+                    <div class="small text-muted" id="previewCategoria">Categoría · Estación</div>
+                    <div class="h5 fw-bold mt-1 mb-1" id="previewNombre">@(Model.Nombre ?? "Nombre del producto")</div>
+                    <div class="small text-muted mb-3" id="previewDescripcion">@(Model.Descripcion ?? "Descripción del producto")</div>
+                    <div class="h4 fw-bold mb-4" id="previewPrecio">$0</div>
+
+                    <div class="form-check form-switch mb-2">
+                        <input asp-for="Activo" class="form-check-input" />
+                        <label asp-for="Activo" class="form-check-label">Producto activo</label>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input asp-for="Disponible" class="form-check-input" />
+                        <label asp-for="Disponible" class="form-check-label">Disponible para pedir</label>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div class="d-flex flex-column flex-sm-row justify-content-end gap-2 mt-3">
+        <a asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-comidita px-4">
+            @(esEdicion ? "Guardar cambios" : "Crear producto")
+        </button>
+    </div>
+</form>
+
+<div class="modal fade" id="modalCategoria" tabindex="-1" aria-labelledby="modalCategoriaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="modalCategoriaLabel">Nueva categoría</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="categoriaRapidaError" class="alert alert-danger d-none"></div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="categoriaRapidaNombre">Nombre</label>
+                    <input id="categoriaRapidaNombre" class="form-control" maxlength="80"
+                           placeholder="Ej. Hamburguesas" />
+                </div>
+                <div>
+                    <label class="form-label fw-semibold" for="categoriaRapidaEstacion">Estación</label>
+                    <select id="categoriaRapidaEstacion" class="form-select">
+                        <option value="">Seleccionar...</option>
+                        @foreach (var estacion in estaciones)
+                        {
+                            <option value="@estacion.Id">@estacion.Nombre</option>
+                        }
+                    </select>
+                    <div class="form-text">Los productos de esta categoría se enviarán a esta estación.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-comidita" id="crearCategoriaRapida">Crear y seleccionar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalIngrediente" tabindex="-1" aria-labelledby="modalIngredienteLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="modalIngredienteLabel">Nuevo ingrediente</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="ingredienteRapidoError" class="alert alert-danger d-none"></div>
+                <label class="form-label fw-semibold" for="ingredienteRapidoNombre">Nombre</label>
+                <input id="ingredienteRapidoNombre" class="form-control" maxlength="80"
+                       placeholder="Ej. Cebolla caramelizada" />
+                <div class="form-text">Se agregará inmediatamente a este producto.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-comidita" id="crearIngredienteRapido">Crear y agregar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(() => {
+    const form = document.getElementById('productoEditorForm');
+    const token = form.querySelector('input[name="__RequestVerificationToken"]').value;
+    const categoria = document.getElementById('categoriaSelect');
+    const estacion = document.getElementById('estacionCategoria');
+    const ingredientes = document.getElementById('ingredientesEditor');
+
+    function actualizarCategoria() {
+        const option = categoria.options[categoria.selectedIndex];
+        const nombre = option?.text?.trim() || 'Categoría';
+        const estacionNombre = option?.dataset?.estacion || 'Sin estación';
+        estacion.textContent = estacionNombre;
+        document.getElementById('previewCategoria').textContent =
+            categoria.value ? nombre + ' · ' + estacionNombre : 'Categoría · Estación';
+    }
+
+    function actualizarPreview() {
+        const nombre = document.getElementById('Nombre')?.value || 'Nombre del producto';
+        const descripcion = document.getElementById('Descripcion')?.value || 'Descripción del producto';
+        const precio = Number(document.getElementById('Precio')?.value || 0);
+        document.getElementById('previewNombre').textContent = nombre;
+        document.getElementById('previewDescripcion').textContent = descripcion;
+        document.getElementById('previewPrecio').textContent =
+            '$' + Math.round(precio).toLocaleString('es-CL');
+    }
+
+    function prepararFila(row) {
+        const tipo = row.querySelector('.ingrediente-tipo');
+        const precio = row.querySelector('.ingrediente-precio');
+        const check = row.querySelector('.ingrediente-check');
+        const refrescar = () => {
+            precio?.classList.toggle('d-none', tipo?.value !== '@TipoIngrediente.Extra');
+            row.classList.toggle('is-selected', !!check?.checked);
+        };
+        tipo?.addEventListener('change', refrescar);
+        check?.addEventListener('change', refrescar);
+        refrescar();
+    }
+
+    document.querySelectorAll('.carta-ingredient-row').forEach(prepararFila);
+    categoria?.addEventListener('change', actualizarCategoria);
+    ['Nombre','Descripcion','Precio'].forEach(id =>
+        document.getElementById(id)?.addEventListener('input', actualizarPreview));
+
+    document.getElementById('buscarIngrediente')?.addEventListener('input', e => {
+        const q = e.target.value.trim().toLowerCase();
+        document.querySelectorAll('.carta-ingredient-row').forEach(row => {
+            row.classList.toggle('d-none', q && !(row.dataset.ingredientName || '').includes(q));
+        });
+    });
+
+    async function postRapido(url, data) {
+        const body = new URLSearchParams(data);
+        body.append('__RequestVerificationToken', token);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body
+        });
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(json.error || 'No se pudo completar la operación.');
+        return json;
+    }
+
+    document.getElementById('crearCategoriaRapida')?.addEventListener('click', async () => {
+        const error = document.getElementById('categoriaRapidaError');
+        error.classList.add('d-none');
+        try {
+            const creada = await postRapido('@Url.Action("CrearRapido", "Categorias")', {
+                nombre: document.getElementById('categoriaRapidaNombre').value,
+                estacionId: document.getElementById('categoriaRapidaEstacion').value
+            });
+            const option = new Option(creada.nombre, creada.id, true, true);
+            option.dataset.estacion = creada.estacionNombre;
+            categoria.add(option);
+            actualizarCategoria();
+            bootstrap.Modal.getInstance(document.getElementById('modalCategoria'))?.hide();
+            document.getElementById('categoriaRapidaNombre').value = '';
+        } catch (e) {
+            error.textContent = e.message;
+            error.classList.remove('d-none');
+        }
+    });
+
+    document.getElementById('crearIngredienteRapido')?.addEventListener('click', async () => {
+        const error = document.getElementById('ingredienteRapidoError');
+        error.classList.add('d-none');
+        try {
+            const creado = await postRapido('@Url.Action("CrearRapido", "Ingredientes")', {
+                nombre: document.getElementById('ingredienteRapidoNombre').value
+            });
+            const index = document.querySelectorAll('.carta-ingredient-row').length;
+            const row = document.createElement('div');
+            row.className = 'carta-ingredient-row is-selected';
+            row.dataset.ingredientName = creado.nombre.toLowerCase();
+            row.innerHTML =
+                '<input type="hidden" name="IngredientesSeleccionados[' + index + '].IngredienteId" value="' + creado.id + '">' +
+                '<input type="hidden" name="IngredientesSeleccionados[' + index + '].NombreIngrediente" value="' + creado.nombre.replace(/"/g, '&quot;') + '">' +
+                '<div class="form-check"><input class="form-check-input ingrediente-check" type="checkbox" name="IngredientesSeleccionados[' + index + '].Seleccionado" value="true" checked><input type="hidden" name="IngredientesSeleccionados[' + index + '].Seleccionado" value="false"></div>' +
+                '<div class="flex-grow-1"><div class="fw-semibold small"></div><div class="text-muted carta-small">Creado recién</div></div>' +
+                '<select class="form-select form-select-sm ingrediente-tipo" name="IngredientesSeleccionados[' + index + '].Tipo"><option value="@TipoIngrediente.Incluido">Incluido</option><option value="@TipoIngrediente.Extra">Extra</option></select>' +
+                '<div class="ingrediente-precio d-none"><div class="input-group input-group-sm"><span class="input-group-text">$</span><input name="IngredientesSeleccionados[' + index + '].PrecioExtra" type="number" min="0" step="1" class="form-control" value="0"></div></div>';
+            row.querySelector('.fw-semibold').textContent = creado.nombre;
+            ingredientes.appendChild(row);
+            prepararFila(row);
+            document.getElementById('sinIngredientes')?.remove();
+            bootstrap.Modal.getInstance(document.getElementById('modalIngrediente'))?.hide();
+            document.getElementById('ingredienteRapidoNombre').value = '';
+        } catch (e) {
+            error.textContent = e.message;
+            error.classList.remove('d-none');
+        }
+    });
+
+    actualizarCategoria();
+    actualizarPreview();
+})();
+</script>
