@@ -1,6 +1,7 @@
 using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
+using EatWeb.Realtime;
 using Microsoft.EntityFrameworkCore;
 
 namespace EatWeb.Services;
@@ -19,10 +20,14 @@ public class ContextoComensal
 public class SesionService
 {
     private readonly ApplicationDbContext _context;
+    private readonly OperacionRealtimeService _realtime;
 
-    public SesionService(ApplicationDbContext context)
+    public SesionService(
+        ApplicationDbContext context,
+        OperacionRealtimeService realtime)
     {
         _context = context;
+        _realtime = realtime;
     }
 
     /// <summary>
@@ -38,15 +43,25 @@ public class SesionService
             return sesion;
 
         // Crear nueva sesión. La asignación actual de la mesa se conserva como snapshot histórico.
-        var garzonId = await _context.Mesas
-            .Where(m => m.Id == mesaId)
-            .Select(m => m.GarzonId)
+        var mesa = await _context.Mesas
+            .AsNoTracking()
+            .Where(m => m.Id == mesaId && m.Activa && m.Restaurante!.Activo)
+            .Select(m => new
+            {
+                m.Id,
+                m.Numero,
+                m.RestauranteId,
+                m.GarzonId
+            })
             .FirstOrDefaultAsync();
+
+        if (mesa == null)
+            throw new InvalidOperationException("Mesa no disponible");
 
         sesion = new MesaSesion
         {
             MesaId = mesaId,
-            GarzonId = garzonId,
+            GarzonId = mesa.GarzonId,
             FechaApertura = DateTime.UtcNow,
             FechaCierre = null,
             CuentaSolicitadaEn = null,
@@ -57,6 +72,13 @@ public class SesionService
         {
             _context.MesaSesiones.Add(sesion);
             await _context.SaveChangesAsync();
+
+            await _realtime.PublicarAsync(
+                mesa.RestauranteId,
+                "MesaOcupada",
+                sesion.Id,
+                mesa.GarzonId);
+
             return sesion;
         }
         catch (DbUpdateException)
@@ -99,6 +121,26 @@ public class SesionService
 
         _context.Comensales.Add(comensal);
         await _context.SaveChangesAsync();
+
+        var datosSesion = await _context.MesaSesiones
+            .AsNoTracking()
+            .Where(s => s.Id == sesionId && s.FechaCierre == null)
+            .Select(s => new
+            {
+                s.Id,
+                RestauranteId = s.Mesa!.RestauranteId,
+                GarzonId = s.GarzonId ?? s.Mesa.GarzonId
+            })
+            .FirstOrDefaultAsync();
+
+        if (datosSesion != null)
+        {
+            await _realtime.PublicarAsync(
+                datosSesion.RestauranteId,
+                "ComensalIngresado",
+                datosSesion.Id,
+                datosSesion.GarzonId);
+        }
 
         return token;
     }
@@ -188,6 +230,22 @@ public class SesionService
         sesion.FechaCierre = DateTime.UtcNow;
         sesion.Estado = EstadoSesion.Cerrada;
         await _context.SaveChangesAsync();
+
+        var datosCierre = await _context.Mesas
+            .AsNoTracking()
+            .Where(m => m.Id == sesion.MesaId)
+            .Select(m => new
+            {
+                m.RestauranteId,
+                GarzonId = sesion.GarzonId ?? m.GarzonId
+            })
+            .FirstAsync();
+
+        await _realtime.PublicarAsync(
+            datosCierre.RestauranteId,
+            "MesaCerrada",
+            sesion.Id,
+            datosCierre.GarzonId);
 
         return (true, null);
     }
