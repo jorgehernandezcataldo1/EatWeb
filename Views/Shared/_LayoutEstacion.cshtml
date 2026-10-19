@@ -11,20 +11,35 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
-<body class="garzon-body">
-<header class="garzon-topbar border-bottom bg-white">
-    <div class="d-flex align-items-center h-100 px-3 px-lg-4">
-        <a class="garzon-brand text-decoration-none text-dark" asp-controller="EstacionTrabajo" asp-action="Index">
-            Comidita
-        </a>
-        <span class="badge text-bg-light border ms-3">@estacion</span>
-        <div class="ms-auto d-flex align-items-center gap-3">
-            <div class="d-none d-md-block text-end lh-sm">
-                <div class="small fw-semibold">@usuarioNombre</div>
-                <div class="garzon-user-role text-muted">Operador de @estacion</div>
+<body class="station-body">
+<header class="station-topbar">
+    <div class="station-topbar-inner">
+        <a class="station-brand" asp-controller="EstacionTrabajo" asp-action="Index">Comidita</a>
+
+        <div class="station-title-block">
+            <span class="station-divider d-none d-md-block"></span>
+            <div>
+                <div class="station-name">@estacion</div>
+                <div class="station-active-line">
+                    <span class="station-active-dot"></span>
+                    <span>Estación activa</span>
+                    <small class="d-none d-lg-inline">· @usuarioNombre</small>
+                </div>
             </div>
+        </div>
+
+        <div class="station-top-actions">
+            <div class="station-clock d-none d-sm-block">
+                <strong id="stationClock">--:--</strong>
+                <small id="stationDate"></small>
+            </div>
+
+            <button type="button" id="stationSoundToggle" class="station-sound-button">
+                🔊 <span>Sonido activado</span>
+            </button>
+
             <form asp-controller="Account" asp-action="Logout" method="post">
-                <button class="btn btn-outline-secondary btn-sm">Salir</button>
+                <button class="station-exit-button" title="Cerrar sesión" aria-label="Cerrar sesión">⎋</button>
             </form>
         </div>
     </div>
@@ -32,13 +47,20 @@
 
 @if (TempData["Error"] != null)
 {
-    <div class="garzon-flash alert alert-danger alert-dismissible fade show">
+    <div class="station-flash alert alert-danger alert-dismissible fade show">
         @TempData["Error"]
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 }
+@if (TempData["Ok"] != null)
+{
+    <div class="station-flash alert alert-success alert-dismissible fade show">
+        @TempData["Ok"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
 
-<main style="min-height:100vh;padding:92px 18px 32px;max-width:1500px;margin:0 auto;">
+<main class="station-main">
     @RenderBody()
 </main>
 
@@ -46,6 +68,33 @@
 <script src="~/lib/jquery/dist/jquery.min.js"></script>
 <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="~/js/site.js" asp-append-version="true"></script>
+<script>
+(() => {
+    const clock = document.getElementById('stationClock');
+    const date = document.getElementById('stationDate');
+
+    function tick() {
+        const now = new Date();
+        if (clock) {
+            clock.textContent = now.toLocaleTimeString('es-CL', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+        }
+        if (date) {
+            date.textContent = now.toLocaleDateString('es-CL', {
+                weekday: 'short',
+                day: '2-digit',
+                month: 'short'
+            });
+        }
+    }
+
+    tick();
+    setInterval(tick, 30000);
+})();
+</script>
 @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
