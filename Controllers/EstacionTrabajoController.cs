@@ -55,10 +55,39 @@ public class EstacionTrabajoController : RestauranteControllerBase
             })
             .ToListAsync();
 
+        var ahora = DateTime.UtcNow;
+        var pedidos = items
+            .GroupBy(i => new { i.PedidoId, i.MesaNumero })
+            .Select(g =>
+            {
+                var agrupados = g.OrderBy(i => i.DetalleId).ToList();
+                var estado = agrupados.All(i => i.Estado == EstadoDetallePedido.Listo)
+                    ? EstadoDetallePedido.Listo
+                    : agrupados.Any(i => i.Estado == EstadoDetallePedido.Pendiente)
+                        ? EstadoDetallePedido.Pendiente
+                        : EstadoDetallePedido.EnPreparacion;
+                var fecha = agrupados.Min(i => i.FechaPedido);
+                var minutos = Math.Max(0, (int)(ahora - fecha).TotalMinutes);
+
+                return new EstacionTrabajoPedidoViewModel
+                {
+                    PedidoId = g.Key.PedidoId,
+                    MesaNumero = g.Key.MesaNumero,
+                    Estado = estado,
+                    FechaPedido = fecha,
+                    MinutosEspera = minutos,
+                    Urgente = minutos >= 10 && estado != EstadoDetallePedido.Listo,
+                    Items = agrupados
+                };
+            })
+            .OrderBy(p => p.FechaPedido)
+            .ToList();
+
         return View(new EstacionTrabajoViewModel
         {
             Estacion = estacion,
-            Items = items
+            Items = items,
+            Pedidos = pedidos
         });
     }
 
