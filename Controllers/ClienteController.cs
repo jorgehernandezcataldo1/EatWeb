@@ -6,12 +6,14 @@ using EatWeb.Services.Storage;
 using EatWeb.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace EatWeb.Controllers;
 
 // Los clientes NO tienen cuenta: se identifican por una cookie con su token de comensal.
 [AllowAnonymous]
+[EnableRateLimiting("cliente")]
 public class ClienteController : Controller
 {
     private const string CookieComensal = "eatweb_comensal";
