@@ -360,7 +360,15 @@
         }
     }
 
-    setInterval(refrescarMesas, 5000);
+    let refrescoPendiente = null;
+    function solicitarRefrescoMesas() {
+        clearTimeout(refrescoPendiente);
+        refrescoPendiente = setTimeout(refrescarMesas, 250);
+    }
+
+    document.addEventListener('comidita:GarzonActualizado', solicitarRefrescoMesas);
+    document.addEventListener('comidita:OperacionActualizada', solicitarRefrescoMesas);
+    setInterval(refrescarMesas, 30000);
 })();
 </script>
 }
