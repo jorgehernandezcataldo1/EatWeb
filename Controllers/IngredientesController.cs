@@ -74,6 +74,34 @@ public class IngredientesController : RestauranteControllerBase
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CrearRapido(string nombre)
+    {
+        nombre = (nombre ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(nombre) || nombre.Length > 80)
+            return BadRequest(new { error = "Ingresa un nombre válido para el ingrediente." });
+
+        var existe = await _context.Ingredientes
+            .AnyAsync(i => i.RestauranteId == RestauranteId && i.Nombre == nombre);
+
+        if (existe)
+            return BadRequest(new { error = "Ya existe un ingrediente con este nombre." });
+
+        var ingrediente = new Ingrediente
+        {
+            RestauranteId = RestauranteId,
+            Nombre = nombre,
+            Activo = true
+        };
+
+        _context.Ingredientes.Add(ingrediente);
+        await _context.SaveChangesAsync();
+
+        return Json(new { id = ingrediente.Id, nombre = ingrediente.Nombre });
+    }
+
     [HttpGet]
     public async Task<IActionResult> Editar(int id)
     {
