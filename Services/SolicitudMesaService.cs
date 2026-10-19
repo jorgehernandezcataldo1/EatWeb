@@ -1,6 +1,7 @@
 using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
+using EatWeb.Realtime;
 using Microsoft.EntityFrameworkCore;
 
 namespace EatWeb.Services;
@@ -16,10 +17,14 @@ public class ResultadoSolicitudMesa
 public class SolicitudMesaService
 {
     private readonly ApplicationDbContext _context;
+    private readonly OperacionRealtimeService _realtime;
 
-    public SolicitudMesaService(ApplicationDbContext context)
+    public SolicitudMesaService(
+        ApplicationDbContext context,
+        OperacionRealtimeService realtime)
     {
         _context = context;
+        _realtime = realtime;
     }
 
     public async Task<ResultadoSolicitudMesa> CrearAsync(
@@ -157,6 +162,8 @@ public class SolicitudMesaService
             throw;
         }
 
+        await NotificarSesionAsync(sesionId, "SolicitudCreada");
+
         return new ResultadoSolicitudMesa
         {
             Ok = true,
@@ -226,6 +233,8 @@ public class SolicitudMesaService
                 }
             }
         }
+
+        await NotificarSesionAsync(solicitud.MesaSesionId, "SolicitudCancelada");
 
         return new ResultadoSolicitudMesa
         {
@@ -302,11 +311,42 @@ public class SolicitudMesaService
                 : Error("La solicitud fue cancelada por el cliente.");
         }
 
+        var sesionId = await _context.SolicitudesMesa
+            .AsNoTracking()
+            .Where(s => s.Id == solicitud.Id)
+            .Select(s => s.MesaSesionId)
+            .FirstAsync();
+
+        await NotificarSesionAsync(sesionId, "SolicitudAtendida");
+
         return new ResultadoSolicitudMesa
         {
             Ok = true,
             SolicitudId = solicitud.Id
         };
+    }
+
+    private async Task NotificarSesionAsync(int sesionId, string tipo)
+    {
+        var datos = await _context.MesaSesiones
+            .AsNoTracking()
+            .Where(s => s.Id == sesionId)
+            .Select(s => new
+            {
+                s.Id,
+                RestauranteId = s.Mesa!.RestauranteId,
+                GarzonId = s.GarzonId ?? s.Mesa.GarzonId
+            })
+            .FirstOrDefaultAsync();
+
+        if (datos == null)
+            return;
+
+        await _realtime.PublicarAsync(
+            datos.RestauranteId,
+            tipo,
+            datos.Id,
+            datos.GarzonId);
     }
 
     private static ResultadoSolicitudMesa Error(string mensaje) =>
