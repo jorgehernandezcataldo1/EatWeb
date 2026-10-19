@@ -2,34 +2,7 @@
 @using EatWeb.Models.Enums
 @{
     ViewData["Title"] = Model.Estacion;
-
-    var grupos = Model.Items
-        .GroupBy(i => new { i.PedidoId, i.MesaNumero })
-        .Select(g =>
-        {
-            var items = g.OrderBy(i => i.DetalleId).ToList();
-            var estado = items.All(i => i.Estado == EstadoDetallePedido.Listo)
-                ? EstadoDetallePedido.Listo
-                : items.Any(i => i.Estado == EstadoDetallePedido.Pendiente)
-                    ? EstadoDetallePedido.Pendiente
-                    : EstadoDetallePedido.EnPreparacion;
-            var fecha = items.Min(i => i.FechaPedido);
-            var minutos = Math.Max(0, (int)(DateTime.UtcNow - fecha).TotalMinutes);
-
-            return new
-            {
-                g.Key.PedidoId,
-                g.Key.MesaNumero,
-                Items = items,
-                Estado = estado,
-                Fecha = fecha,
-                Minutos = minutos,
-                Urgente = minutos >= 10 && estado != EstadoDetallePedido.Listo
-            };
-        })
-        .OrderBy(g => g.Fecha)
-        .ToList();
-
+    var grupos = Model.Pedidos;
     var nuevos = grupos.Where(g => g.Estado == EstadoDetallePedido.Pendiente).ToList();
     var preparando = grupos.Where(g => g.Estado == EstadoDetallePedido.EnPreparacion).ToList();
     var listos = grupos.Where(g => g.Estado == EstadoDetallePedido.Listo).ToList();
@@ -131,7 +104,7 @@
                             <div><strong>@nuevos.Count</strong><span>Nuevos</span></div>
                             <div><strong>@preparando.Count</strong><span>Preparando</span></div>
                             <div class="ready"><strong>@listos.Count</strong><span>Listos</span></div>
-                            <div><strong>@(grupos.Any() ? Math.Round(grupos.Average(g => g.Minutos)) : 0)</strong><span>min promedio</span></div>
+                            <div><strong>@(grupos.Any() ? Math.Round(grupos.Average(g => g.MinutosEspera)) : 0)</strong><span>min promedio</span></div>
                         </div>
                     </div>
                     <div class="station-summary-card">
