@@ -3,7 +3,7 @@
 @{
     string status = Model.Estado;
     bool urgent = Model.Urgente;
-    long timestamp = new DateTimeOffset((DateTime)Model.Fecha).ToUnixTimeMilliseconds();
+    long timestamp = new DateTimeOffset((DateTime)Model.FechaPedido).ToUnixTimeMilliseconds();
     var search = string.Join(" ", Model.Items.Select(i => i.Producto));
     var collapseId = $"pedido-{Model.PedidoId}";
 }
