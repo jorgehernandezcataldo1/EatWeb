@@ -80,8 +80,7 @@
                             @foreach (var categoria in categorias)
                             {
                                 <option value="@categoria.Id"
-                                        data-estacion="@categoria.EstacionNombre"
-                                        selected="@(Model.CategoriaId == categoria.Id ? "selected" : null)">
+                                        data-estacion="@categoria.EstacionNombre">
                                     @categoria.Nombre
                                 </option>
                             }
