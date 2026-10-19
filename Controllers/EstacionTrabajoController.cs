@@ -62,6 +62,49 @@ public class EstacionTrabajoController : RestauranteControllerBase
         });
     }
 
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CambiarEstadoPedido(int pedidoId, string nuevoEstado)
+    {
+        if (nuevoEstado != EstadoDetallePedido.EnPreparacion &&
+            nuevoEstado != EstadoDetallePedido.Listo)
+            return BadRequest();
+
+        var estacion = EstacionNombre;
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+        var ids = await _context.DetallesPedidos
+            .AsNoTracking()
+            .Where(d =>
+                d.PedidoId == pedidoId &&
+                d.EstacionNombre == estacion &&
+                d.Pedido!.MesaSesion!.FechaCierre == null &&
+                d.Pedido.MesaSesion.Mesa!.RestauranteId == RestauranteId &&
+                ((nuevoEstado == EstadoDetallePedido.EnPreparacion && d.Estado == EstadoDetallePedido.Pendiente) ||
+                 (nuevoEstado == EstadoDetallePedido.Listo && d.Estado == EstadoDetallePedido.EnPreparacion)))
+            .Select(d => d.Id)
+            .ToListAsync();
+
+        if (ids.Count == 0)
+        {
+            TempData["Error"] = "El pedido ya cambió de estado. La pantalla se actualizará automáticamente.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        foreach (var id in ids)
+        {
+            var resultado = await _pedidoService.CambiarEstadoDetalleAsync(id, nuevoEstado, userId);
+            if (!resultado.Ok)
+            {
+                TempData["Error"] = string.Join(" ", resultado.Errores);
+                break;
+            }
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CambiarEstado(int id, string nuevoEstado)
