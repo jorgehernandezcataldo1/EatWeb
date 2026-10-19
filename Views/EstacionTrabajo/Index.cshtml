@@ -1,99 +1,318 @@
 @model EstacionTrabajoViewModel
+@using EatWeb.Models.Enums
 @{
     ViewData["Title"] = Model.Estacion;
+
+    var grupos = Model.Items
+        .GroupBy(i => new { i.PedidoId, i.MesaNumero })
+        .Select(g =>
+        {
+            var items = g.OrderBy(i => i.DetalleId).ToList();
+            var estado = items.All(i => i.Estado == EstadoDetallePedido.Listo)
+                ? EstadoDetallePedido.Listo
+                : items.Any(i => i.Estado == EstadoDetallePedido.Pendiente)
+                    ? EstadoDetallePedido.Pendiente
+                    : EstadoDetallePedido.EnPreparacion;
+            var fecha = items.Min(i => i.FechaPedido);
+            var minutos = Math.Max(0, (int)(DateTime.UtcNow - fecha).TotalMinutes);
+
+            return new
+            {
+                g.Key.PedidoId,
+                g.Key.MesaNumero,
+                Items = items,
+                Estado = estado,
+                Fecha = fecha,
+                Minutos = minutos,
+                Urgente = minutos >= 10 && estado != EstadoDetallePedido.Listo
+            };
+        })
+        .OrderBy(g => g.Fecha)
+        .ToList();
+
+    var nuevos = grupos.Where(g => g.Estado == EstadoDetallePedido.Pendiente).ToList();
+    var preparando = grupos.Where(g => g.Estado == EstadoDetallePedido.EnPreparacion).ToList();
+    var listos = grupos.Where(g => g.Estado == EstadoDetallePedido.Listo).ToList();
+    var urgentes = grupos.Count(g => g.Urgente);
 }
 
-<div class="ops-page">
-    <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
-        <div>
-            <div class="small text-muted text-uppercase fw-bold">Estación de trabajo</div>
-            <h1 class="ops-title h2 mb-1">@Model.Estacion</h1>
-            <div class="ops-subtitle small">@Model.Items.Count ítem(s) pendientes de completar</div>
-        </div>
-        <span class="ops-status-pill status-warning">En vivo</span>
-    </div>
-
+<div class="station-page">
     <div id="estacionPanel">
-        @if (!Model.Items.Any())
-        {
-            <div class="card ops-table-card">
-                <div class="card-body py-5 text-center">
-                    <div class="fs-2 mb-2">✓</div>
-                    <strong>Todo al día</strong>
-                    <div class="text-muted small">No hay ítems pendientes en @Model.Estacion.</div>
+        <div class="station-toolbar">
+            <div class="station-filter-scroll">
+                <button type="button" class="station-filter active" data-filter="Todos">
+                    Todos <span>@grupos.Count</span>
+                </button>
+                <button type="button" class="station-filter" data-filter="@EstadoDetallePedido.Pendiente">
+                    Nuevos <span>@nuevos.Count</span>
+                </button>
+                <button type="button" class="station-filter" data-filter="@EstadoDetallePedido.EnPreparacion">
+                    En preparación <span>@preparando.Count</span>
+                </button>
+                <button type="button" class="station-filter" data-filter="@EstadoDetallePedido.Listo">
+                    Listos <span>@listos.Count</span>
+                </button>
+                <button type="button" class="station-filter station-filter-urgent" data-filter="Urgente">
+                    🔥 Urgentes <span>@urgentes</span>
+                </button>
+            </div>
+
+            <div class="station-toolbar-actions">
+                <select id="ordenEstacion" class="form-select form-select-sm station-order">
+                    <option value="oldest">Más antiguo</option>
+                    <option value="newest">Más reciente</option>
+                    <option value="table">Por mesa</option>
+                </select>
+                <div class="station-search-wrap">
+                    <span>⌕</span>
+                    <input id="buscarEstacion" type="search" class="form-control form-control-sm"
+                           placeholder="Buscar mesa o pedido..." />
                 </div>
+            </div>
+        </div>
+
+        @if (!grupos.Any())
+        {
+            <div class="station-empty">
+                <div class="station-empty-icon">✓</div>
+                <h2>Todo al día</h2>
+                <p>No hay pedidos pendientes en @Model.Estacion.</p>
             </div>
         }
         else
         {
-            <div class="row g-3">
-                @foreach (var item in Model.Items)
-                {
-                    var minutos = Math.Max(0, (int)(DateTime.UtcNow - item.FechaPedido).TotalMinutes);
-                    <div class="col-md-6 col-xl-4">
-                        <article class="card ops-table-card h-100 shadow-sm">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start gap-2">
-                                    <div>
-                                        <div class="small text-muted">Mesa @item.MesaNumero · Pedido #@item.PedidoId</div>
-                                        <h2 class="h5 fw-bold mt-1 mb-0">@item.Cantidad× @item.Producto</h2>
-                                    </div>
-                                    <span class="badge @(item.Estado == EstadoDetallePedido.EnPreparacion ? "text-bg-warning" : "text-bg-secondary")">
-                                        @(item.Estado == EstadoDetallePedido.EnPreparacion ? "Preparando" : "Pendiente")
-                                    </span>
-                                </div>
-
-                                @if (item.Personalizaciones.Any())
-                                {
-                                    <div class="small text-muted mt-3">@string.Join(" · ", item.Personalizaciones)</div>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(item.Observacion))
-                                {
-                                    <div class="small fst-italic mt-2">“@item.Observacion”</div>
-                                }
-
-                                <div class="small text-muted mt-3">Hace @minutos min</div>
-
-                                <div class="mt-3">
-                                    @if (item.Estado == EstadoDetallePedido.Pendiente)
-                                    {
-                                        <form asp-action="CambiarEstado" method="post">
-                                            <input type="hidden" name="id" value="@item.DetalleId" />
-                                            <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
-                                            <button class="btn btn-outline-warning w-100">Comenzar preparación</button>
-                                        </form>
-                                    }
-                                    else if (item.Estado == EstadoDetallePedido.EnPreparacion)
-                                    {
-                                        <form asp-action="CambiarEstado" method="post">
-                                            <input type="hidden" name="id" value="@item.DetalleId" />
-                                            <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Listo" />
-                                            <button class="btn btn-comidita w-100">Marcar listo</button>
-                                        </form>
-                                    }
-                                </div>
-                            </div>
-                        </article>
+            <div class="station-board">
+                <section class="station-column station-column-new" data-column="@EstadoDetallePedido.Pendiente">
+                    <div class="station-column-title">
+                        <span class="station-column-icon">▤</span>
+                        <strong>Nuevos</strong>
+                        <span>(@nuevos.Count)</span>
                     </div>
-                }
+                    <div class="station-column-list">
+                        @foreach (var pedido in nuevos)
+                        {
+                            <partial name="_PedidoCard" model="pedido" />
+                        }
+                    </div>
+                </section>
+
+                <section class="station-column station-column-progress" data-column="@EstadoDetallePedido.EnPreparacion">
+                    <div class="station-column-title">
+                        <span class="station-column-icon">♨</span>
+                        <strong>En preparación</strong>
+                        <span>(@preparando.Count)</span>
+                    </div>
+                    <div class="station-column-list">
+                        @foreach (var pedido in preparando)
+                        {
+                            <partial name="_PedidoCard" model="pedido" />
+                        }
+                    </div>
+                </section>
+
+                <section class="station-column station-column-ready" data-column="@EstadoDetallePedido.Listo">
+                    <div class="station-column-title">
+                        <span class="station-column-icon">✓</span>
+                        <strong>Listos para retirar</strong>
+                        <span>(@listos.Count)</span>
+                    </div>
+                    <div class="station-column-list">
+                        @foreach (var pedido in listos)
+                        {
+                            <partial name="_PedidoCard" model="pedido" />
+                        }
+                    </div>
+                </section>
+
+                <aside class="station-summary d-none d-xl-block">
+                    <div class="station-summary-card">
+                        <h2>Resumen rápido</h2>
+                        <div class="station-summary-grid">
+                            <div><strong>@nuevos.Count</strong><span>Nuevos</span></div>
+                            <div><strong>@preparando.Count</strong><span>Preparando</span></div>
+                            <div class="ready"><strong>@listos.Count</strong><span>Listos</span></div>
+                            <div><strong>@(grupos.Any() ? Math.Round(grupos.Average(g => g.Minutos)) : 0)</strong><span>min promedio</span></div>
+                        </div>
+                    </div>
+                    <div class="station-summary-card">
+                        <h2>Atajos de cocina</h2>
+                        @if (nuevos.Any())
+                        {
+                            var siguiente = nuevos.First();
+                            <form asp-action="CambiarEstadoPedido" method="post" class="mb-2">
+                                <input type="hidden" name="pedidoId" value="@siguiente.PedidoId" />
+                                <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.EnPreparacion" />
+                                <button class="btn btn-comidita w-100 station-next-button">
+                                    ▶ Tomar siguiente pedido
+                                    <small>Mesa @siguiente.MesaNumero · #@siguiente.PedidoId</small>
+                                </button>
+                            </form>
+                        }
+                        <button type="button" class="btn btn-outline-danger w-100 station-shortcut" data-shortcut="Urgente">
+                            🔥 Ver solo urgentes
+                        </button>
+                    </div>
+                </aside>
             </div>
         }
+
+        <nav class="station-mobile-nav d-xl-none">
+            <button type="button" class="active" data-mobile-filter="Todos">
+                <span>▤</span><small>Pedidos</small><b>@grupos.Count</b>
+            </button>
+            <button type="button" data-mobile-filter="@EstadoDetallePedido.EnPreparacion">
+                <span>♨</span><small>Preparando</small><b>@preparando.Count</b>
+            </button>
+            <button type="button" data-mobile-filter="@EstadoDetallePedido.Listo">
+                <span>✓</span><small>Listos</small><b>@listos.Count</b>
+            </button>
+            <button type="button" data-mobile-filter="Urgente">
+                <span>🔥</span><small>Urgentes</small><b>@urgentes</b>
+            </button>
+        </nav>
     </div>
 </div>
 
 @section Scripts {
 <script>
+(() => {
+    let filtro = 'Todos';
+
+    function getCards() {
+        return Array.from(document.querySelectorAll('.station-order-card'));
+    }
+
+    function aplicarFiltros() {
+        const q = (document.getElementById('buscarEstacion')?.value || '').trim().toLowerCase();
+
+        getCards().forEach(card => {
+            const coincideFiltro =
+                filtro === 'Todos' ||
+                (filtro === 'Urgente' && card.dataset.urgent === 'true') ||
+                card.dataset.status === filtro;
+
+            const texto = ('mesa ' + card.dataset.table + ' pedido ' + card.dataset.order + ' ' + (card.dataset.search || '')).toLowerCase();
+            card.classList.toggle('d-none', !coincideFiltro || (q && !texto.includes(q)));
+        });
+
+        document.querySelectorAll('.station-column').forEach(column => {
+            const visibles = column.querySelectorAll('.station-order-card:not(.d-none)').length;
+            column.classList.toggle('d-none', visibles === 0);
+        });
+
+        document.querySelectorAll('.station-filter').forEach(btn =>
+            btn.classList.toggle('active', btn.dataset.filter === filtro));
+
+        document.querySelectorAll('[data-mobile-filter]').forEach(btn =>
+            btn.classList.toggle('active', btn.dataset.mobileFilter === filtro));
+    }
+
+    function ordenar() {
+        const mode = document.getElementById('ordenEstacion')?.value || 'oldest';
+        document.querySelectorAll('.station-column-list').forEach(list => {
+            const cards = Array.from(list.querySelectorAll('.station-order-card'));
+            cards.sort((a, b) => {
+                if (mode === 'table') return Number(a.dataset.table) - Number(b.dataset.table);
+                const av = Number(a.dataset.timestamp);
+                const bv = Number(b.dataset.timestamp);
+                return mode === 'newest' ? bv - av : av - bv;
+            });
+            cards.forEach(card => list.appendChild(card));
+        });
+    }
+
+    function vincularControles() {
+        document.querySelectorAll('.station-filter').forEach(btn => {
+            btn.onclick = () => { filtro = btn.dataset.filter || 'Todos'; aplicarFiltros(); };
+        });
+
+        document.querySelectorAll('[data-mobile-filter]').forEach(btn => {
+            btn.onclick = () => { filtro = btn.dataset.mobileFilter || 'Todos'; aplicarFiltros(); };
+        });
+
+        document.querySelector('[data-shortcut="Urgente"]')?.addEventListener('click', () => {
+            filtro = 'Urgente';
+            aplicarFiltros();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        document.getElementById('buscarEstacion')?.addEventListener('input', aplicarFiltros);
+        document.getElementById('ordenEstacion')?.addEventListener('change', ordenar);
+    }
+
+    const soundKey = 'comidita-estacion-sonido';
+    let sonido = localStorage.getItem(soundKey) !== 'off';
+    const soundButton = document.getElementById('stationSoundToggle');
+
+    function pintarSonido() {
+        if (!soundButton) return;
+        soundButton.innerHTML = sonido ? '🔊 <span>Sonido activado</span>' : '🔇 <span>Sonido silenciado</span>';
+        soundButton.classList.toggle('is-muted', !sonido);
+    }
+
+    soundButton?.addEventListener('click', () => {
+        sonido = !sonido;
+        localStorage.setItem(soundKey, sonido ? 'on' : 'off');
+        pintarSonido();
+    });
+    pintarSonido();
+
+    function beep() {
+        if (!sonido) return;
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            const ctx = new AudioCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.frequency.value = 880;
+            gain.gain.value = .05;
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            setTimeout(() => { osc.stop(); ctx.close(); }, 220);
+        } catch {}
+    }
+
+    let conocidos = new Set(getCards()
+        .filter(c => c.dataset.status === '@EstadoDetallePedido.Pendiente')
+        .map(c => c.dataset.order));
+
     async function refrescarEstacion() {
         try {
             if (document.hidden || document.activeElement?.closest('#estacionPanel form')) return;
+
+            const busqueda = document.getElementById('buscarEstacion')?.value || '';
+            const orden = document.getElementById('ordenEstacion')?.value || 'oldest';
+
             const response = await fetch(window.location.href, { cache: 'no-store' });
             if (!response.ok) return;
+
             const html = await response.text();
             const doc = new DOMParser().parseFromString(html, 'text/html');
             const nuevo = doc.getElementById('estacionPanel');
-            if (nuevo) document.getElementById('estacionPanel').innerHTML = nuevo.innerHTML;
+            if (!nuevo) return;
+
+            const nuevosIds = Array.from(nuevo.querySelectorAll('.station-order-card'))
+                .filter(c => c.dataset.status === '@EstadoDetallePedido.Pendiente')
+                .map(c => c.dataset.order);
+
+            if (nuevosIds.some(id => !conocidos.has(id))) beep();
+            conocidos = new Set(nuevosIds);
+
+            document.getElementById('estacionPanel').innerHTML = nuevo.innerHTML;
+            document.getElementById('buscarEstacion').value = busqueda;
+            document.getElementById('ordenEstacion').value = orden;
+
+            vincularControles();
+            ordenar();
+            aplicarFiltros();
         } catch {}
     }
+
+    vincularControles();
+    ordenar();
+    aplicarFiltros();
     setInterval(refrescarEstacion, 5000);
+})();
 </script>
 }
