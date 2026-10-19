@@ -42,11 +42,13 @@ public class MesasController : RestauranteControllerBase
 
         var mesas = await ConstruirTableroAsync(query);
         var solicitudes = await ObtenerSolicitudesPendientesAsync(userId);
+        var acciones = await ObtenerAccionesPrioritariasAsync(userId, solicitudes);
 
         return View(new MesasIndexViewModel
         {
             Mesas = mesas,
-            SolicitudesPendientes = solicitudes
+            SolicitudesPendientes = solicitudes,
+            AccionesPrioritarias = acciones
         });
     }
 
@@ -301,6 +303,82 @@ public class MesasController : RestauranteControllerBase
 
         ViewBag.Garzones = new SelectList(garzones, "Id", "NombreCompleto");
         ViewBag.Sectores = new SelectList(sectores, "Id", "Nombre", sectorId);
+    }
+
+    private async Task<List<AccionGarzonViewModel>> ObtenerAccionesPrioritariasAsync(
+        string? userId,
+        IReadOnlyCollection<SolicitudMesaResumenViewModel> solicitudes)
+    {
+        var ahora = DateTime.UtcNow;
+
+        var listos = await _context.DetallesPedidos
+            .AsNoTracking()
+            .Where(d =>
+                d.Estado == EstadoDetallePedido.Listo &&
+                d.Pedido!.MesaSesion!.FechaCierre == null &&
+                d.Pedido.MesaSesion.Mesa!.RestauranteId == RestauranteId &&
+                (User.EsAdmin() ||
+                 d.Pedido.MesaSesion.GarzonId == userId ||
+                 d.Pedido.MesaSesion.Mesa.GarzonId == userId))
+            .Select(d => new
+            {
+                SesionId = d.Pedido!.MesaSesionId,
+                MesaNumero = d.Pedido.MesaSesion!.Mesa!.Numero,
+                d.Cantidad,
+                Fecha = d.FechaListo ?? d.Pedido.FechaCreacion
+            })
+            .ToListAsync();
+
+        var acciones = listos
+            .GroupBy(x => new { x.SesionId, x.MesaNumero })
+            .Select(g =>
+            {
+                var fecha = g.Min(x => x.Fecha);
+                var minutos = Math.Max(0, (int)(ahora - fecha).TotalMinutes);
+                var unidades = g.Sum(x => x.Cantidad);
+
+                return new AccionGarzonViewModel
+                {
+                    SesionId = g.Key.SesionId,
+                    MesaNumero = g.Key.MesaNumero,
+                    Tipo = "Listo",
+                    Titulo = "Retirar pedido listo",
+                    Detalle = unidades == 1
+                        ? "1 producto esperando retiro"
+                        : $"{unidades} productos esperando retiro",
+                    Fecha = fecha,
+                    Prioridad = 90 + Math.Min(minutos, 9)
+                };
+            })
+            .ToList();
+
+        foreach (var solicitud in solicitudes)
+        {
+            var minutos = Math.Max(0, (int)(ahora - solicitud.FechaCreacion).TotalMinutes);
+            var esCuenta = solicitud.Tipo == TipoSolicitudMesa.PedirCuenta;
+            var esLlamado = solicitud.Tipo == TipoSolicitudMesa.LlamarGarzon;
+
+            acciones.Add(new AccionGarzonViewModel
+            {
+                SesionId = solicitud.SesionId,
+                MesaNumero = solicitud.MesaNumero,
+                Tipo = solicitud.Tipo,
+                Titulo = esCuenta
+                    ? "Preparar / cobrar cuenta"
+                    : esLlamado
+                        ? "Mesa llama al garzón"
+                        : solicitud.Mensaje ?? "Atender solicitud",
+                Detalle = $"{solicitud.ComensalNombre} · hace {minutos} min",
+                Fecha = solicitud.FechaCreacion,
+                Prioridad = (esCuenta ? 100 : esLlamado ? 80 : 70) + Math.Min(minutos, 9)
+            });
+        }
+
+        return acciones
+            .OrderByDescending(a => a.Prioridad)
+            .ThenBy(a => a.Fecha)
+            .Take(8)
+            .ToList();
     }
 
     private Task<List<SolicitudMesaResumenViewModel>> ObtenerSolicitudesPendientesAsync(string? userId)

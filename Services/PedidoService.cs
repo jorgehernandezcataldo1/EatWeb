@@ -1,6 +1,7 @@
 using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
+using EatWeb.Realtime;
 using Microsoft.EntityFrameworkCore;
 
 namespace EatWeb.Services;
@@ -45,13 +46,16 @@ public class PedidoService
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<PedidoService> _logger;
+    private readonly OperacionRealtimeService _realtime;
 
     public PedidoService(
         ApplicationDbContext context,
-        ILogger<PedidoService> logger)
+        ILogger<PedidoService> logger,
+        OperacionRealtimeService realtime)
     {
         _context = context;
         _logger = logger;
+        _realtime = realtime;
     }
 
     public async Task<CarritoCalculado> CalcularCarritoAsync(CarritoSesion carrito, int? restauranteId = null)
@@ -309,6 +313,9 @@ public class PedidoService
 
         resultado.Ok = true;
         resultado.PedidoId = pedido.Id;
+
+        await NotificarPedidoAsync(pedido.Id, "PedidoCreado");
+
         return resultado;
     }
 
@@ -346,6 +353,8 @@ public class PedidoService
         await _context.SaveChangesAsync();
         await transaccion.CommitAsync();
 
+        await NotificarPedidoAsync(pedido.Id, "PedidoActualizado");
+
         return new ResultadoPedido { Ok = true, PedidoId = pedido.Id };
     }
 
@@ -366,7 +375,12 @@ public class PedidoService
             return new ResultadoPedido { Errores = { $"Transición de {detalle.Estado} a {nuevoEstado} no permitida" } };
 
         AplicarEstadoDetalle(detalle, nuevoEstado);
-        return await RecalcularYGuardarPedidoAsync(detalle.Pedido, usuarioId);
+        var resultado = await RecalcularYGuardarPedidoAsync(detalle.Pedido, usuarioId);
+
+        if (resultado.Ok)
+            await NotificarPedidoAsync(detalle.PedidoId, "PedidoActualizado");
+
+        return resultado;
     }
 
     public async Task<ResultadoPedido> CambiarEstadoMesaAsync(
@@ -429,7 +443,44 @@ public class PedidoService
         await _context.SaveChangesAsync();
         await transaccion.CommitAsync();
 
+        var pedidoReferencia = pedidos.FirstOrDefault(p => p.Detalles.Any(d =>
+            d.Estado == nuevoEstado ||
+            d.Estado == EstadoDetallePedido.Entregado));
+
+        if (pedidoReferencia != null)
+            await NotificarPedidoAsync(pedidoReferencia.Id, "PedidoActualizado");
+
         return new ResultadoPedido { Ok = true };
+    }
+
+    private async Task NotificarPedidoAsync(int pedidoId, string tipo)
+    {
+        var datos = await _context.Pedidos
+            .AsNoTracking()
+            .Where(p => p.Id == pedidoId)
+            .Select(p => new
+            {
+                p.Id,
+                SesionId = p.MesaSesionId,
+                RestauranteId = p.MesaSesion!.Mesa!.RestauranteId,
+                GarzonId = p.MesaSesion.GarzonId ?? p.MesaSesion.Mesa.GarzonId,
+                Estaciones = p.Detalles
+                    .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+                    .Select(d => d.EstacionNombre)
+                    .Distinct()
+                    .ToList()
+            })
+            .FirstOrDefaultAsync();
+
+        if (datos == null)
+            return;
+
+        await _realtime.PublicarAsync(
+            datos.RestauranteId,
+            tipo,
+            datos.SesionId,
+            datos.GarzonId,
+            datos.Estaciones);
     }
 
     private async Task<ResultadoPedido> RecalcularYGuardarPedidoAsync(Pedido pedido, string usuarioId)

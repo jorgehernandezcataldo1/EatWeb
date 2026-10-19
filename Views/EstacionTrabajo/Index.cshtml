@@ -285,7 +285,12 @@
     vincularControles();
     ordenar();
     aplicarFiltros();
-    setInterval(refrescarEstacion, 5000);
+    let refrescoRealtime = null;
+    document.addEventListener('comidita:EstacionActualizada', () => {
+        clearTimeout(refrescoRealtime);
+        refrescoRealtime = setTimeout(refrescarEstacion, 150);
+    });
+    setInterval(refrescarEstacion, 30000);
 })();
 </script>
 }

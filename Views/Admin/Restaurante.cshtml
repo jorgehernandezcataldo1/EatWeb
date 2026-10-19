@@ -7,11 +7,13 @@
     var pendientesConfig = Model.Checklist.Where(x => !x.Ok).ToList();
 }
 
+<div id="adminDashboardLive">
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
     <div>
         <div class="text-uppercase small fw-bold text-muted mb-1">Operación del restaurante</div>
         <h1 class="admin-dashboard-title h2 mb-2">@Model.RestauranteNombre</h1>
         <div class="d-flex flex-wrap gap-2">
+            <span class="admin-status ok">● En vivo</span>
             <span class="admin-status @(Model.RestauranteActivo ? "ok" : "warning")">
                 @(Model.RestauranteActivo ? "● Restaurante operativo" : "● Restaurante inactivo")
             </span>
@@ -66,6 +68,37 @@
             <div class="admin-kpi-label">Solicitudes pendientes</div>
             <div class="admin-kpi-value">@Model.SolicitudesPendientes</div>
             <div class="admin-kpi-meta">Solicitudes que requieren atención</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-xl-3">
+        <div class="admin-health-card">
+            <div class="admin-health-label">Preparación promedio</div>
+            <div class="admin-health-value">@Model.TiempoPreparacionPromedioMin.ToString("0.0") min</div>
+            <div class="admin-health-meta">Desde inicio de preparación hasta listo</div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="admin-health-card">
+            <div class="admin-health-label">Respuesta a solicitudes</div>
+            <div class="admin-health-value">@Model.TiempoAtencionPromedioMin.ToString("0.0") min</div>
+            <div class="admin-health-meta">Promedio de solicitudes atendidas hoy</div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="admin-health-card @(Model.PedidosAtrasados > 0 ? "is-alert" : "")">
+            <div class="admin-health-label">Pedidos atrasados</div>
+            <div class="admin-health-value">@Model.PedidosAtrasados</div>
+            <div class="admin-health-meta">Más de 10 min aún pendientes</div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="admin-health-card @(Model.MesasMasDe90Min > 0 ? "is-warning" : "")">
+            <div class="admin-health-label">Mesas de larga estadía</div>
+            <div class="admin-health-value">@Model.MesasMasDe90Min</div>
+            <div class="admin-health-meta">Más de 90 min con sesión abierta</div>
         </div>
     </div>
 </div>
@@ -235,3 +268,37 @@
         </section>
     </div>
 </div>
+</div>
+
+@section Scripts {
+<script>
+(() => {
+    let timer = null;
+    let actualizando = false;
+
+    async function refrescarDashboard() {
+        if (actualizando || document.hidden) return;
+        actualizando = true;
+        try {
+            const response = await fetch(window.location.href, { cache: 'no-store' });
+            if (!response.ok) return;
+            const html = await response.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const nuevo = doc.getElementById('adminDashboardLive');
+            const actual = document.getElementById('adminDashboardLive');
+            if (nuevo && actual) actual.innerHTML = nuevo.innerHTML;
+        } catch {} finally {
+            actualizando = false;
+        }
+    }
+
+    function programarRefresco() {
+        clearTimeout(timer);
+        timer = setTimeout(refrescarDashboard, 1200);
+    }
+
+    document.addEventListener('comidita:OperacionActualizada', programarRefresco);
+    setInterval(refrescarDashboard, 60000);
+})();
+</script>
+}

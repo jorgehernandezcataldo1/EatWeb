@@ -217,41 +217,53 @@
         <aside class="col-xl-3" id="notificaciones">
             <div class="ops-notifications ops-sticky-panel">
                 <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
-                    <div class="d-flex align-items-center gap-2">
-                        <h2 class="h6 mb-0 fw-bold">Notificaciones</h2>
-                        <span class="badge rounded-pill text-bg-danger">@Model.SolicitudesPendientes.Count</span>
+                    <div>
+                        <div class="small text-muted text-uppercase fw-bold">Turno actual</div>
+                        <div class="d-flex align-items-center gap-2 mt-1">
+                            <h2 class="h6 mb-0 fw-bold">Próximas acciones</h2>
+                            <span class="badge rounded-pill text-bg-danger">@Model.AccionesPrioritarias.Count</span>
+                        </div>
                     </div>
                     <a asp-controller="Pedidos" asp-action="Index" class="small text-decoration-none">Monitor</a>
                 </div>
 
                 <div class="p-2 p-md-3 d-grid gap-2">
-                    @if (!Model.SolicitudesPendientes.Any())
+                    @if (!Model.AccionesPrioritarias.Any())
                     {
-                        <div class="text-center text-muted py-4 small">No tienes solicitudes pendientes.</div>
+                        <div class="text-center text-muted py-4 small">
+                            Todo al día. No hay acciones pendientes.
+                        </div>
                     }
                     else
                     {
-                        @foreach (var solicitud in Model.SolicitudesPendientes.Take(6))
+                        @foreach (var accion in Model.AccionesPrioritarias.Take(8))
                         {
-                            var minutos = Math.Max(0, (int)(DateTime.UtcNow - solicitud.FechaCreacion).TotalMinutes);
-                            var titulo = solicitud.Tipo switch
+                            var minutos = Math.Max(0, (int)(DateTime.UtcNow - accion.Fecha).TotalMinutes);
+                            var icono = accion.Tipo switch
                             {
-                                TipoSolicitudMesa.PedirCuenta => "Solicita la cuenta",
-                                TipoSolicitudMesa.LlamarGarzon => "Llama al garzón",
-                                TipoSolicitudMesa.SolicitarAlgo => solicitud.Mensaje ?? "Solicitud del cliente",
-                                _ => solicitud.Mensaje ?? solicitud.Tipo
+                                "Listo" => "🍽️",
+                                TipoSolicitudMesa.PedirCuenta => "💳",
+                                TipoSolicitudMesa.LlamarGarzon => "🔔",
+                                _ => "•"
                             };
+                            var clase = accion.Prioridad >= 100
+                                ? "is-critical"
+                                : accion.Tipo == "Listo"
+                                    ? "is-ready"
+                                    : minutos >= 5 ? "is-urgent" : "";
 
-                            <a asp-controller="Pedidos" asp-action="Mesa" asp-route-id="@solicitud.SesionId"
-                               class="ops-notification-item @(minutos >= 5 ? "is-urgent" : "") text-decoration-none text-reset">
-                                <div class="d-flex justify-content-between gap-2">
-                                    <div>
-                                        <div class="fw-semibold small">Mesa @solicitud.MesaNumero</div>
-                                        <div class="ops-notification-type mt-1">@titulo</div>
-                                        <div class="ops-notification-time mt-1">@solicitud.ComensalNombre · hace @minutos min</div>
+                            <a asp-controller="Pedidos" asp-action="Mesa" asp-route-id="@accion.SesionId"
+                               class="ops-priority-item @clase text-decoration-none text-reset">
+                                <div class="ops-priority-rank">@icono</div>
+                                <div class="min-w-0 flex-grow-1">
+                                    <div class="d-flex justify-content-between gap-2">
+                                        <strong class="small">Mesa @accion.MesaNumero</strong>
+                                        <span class="ops-notification-time">@minutos min</span>
                                     </div>
-                                    <span class="mesa-alert-dot mt-2"></span>
+                                    <div class="ops-priority-title">@accion.Titulo</div>
+                                    <div class="ops-notification-time text-truncate">@accion.Detalle</div>
                                 </div>
+                                <span class="ops-priority-arrow">›</span>
                             </a>
                         }
                     }
@@ -360,7 +372,15 @@
         }
     }
 
-    setInterval(refrescarMesas, 5000);
+    let refrescoPendiente = null;
+    function solicitarRefrescoMesas() {
+        clearTimeout(refrescoPendiente);
+        refrescoPendiente = setTimeout(refrescarMesas, 250);
+    }
+
+    document.addEventListener('comidita:GarzonActualizado', solicitarRefrescoMesas);
+    document.addEventListener('comidita:OperacionActualizada', solicitarRefrescoMesas);
+    setInterval(refrescarMesas, 30000);
 })();
 </script>
 }

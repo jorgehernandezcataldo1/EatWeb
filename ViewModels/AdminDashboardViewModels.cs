@@ -25,6 +25,7 @@ public class RestauranteDashboardItemViewModel
     public int TotalMesas { get; set; }
     public int MesasOcupadas { get; set; }
     public int SolicitudesPendientes { get; set; }
+    public int PedidosAtrasados { get; set; }
 
     public decimal OcupacionPorcentaje =>
         TotalMesas == 0 ? 0 : Math.Round(MesasOcupadas * 100m / TotalMesas, 0);
@@ -48,6 +49,11 @@ public class AdminRestauranteDashboardViewModel
     public int SolicitudesPendientes { get; set; }
     public decimal VentasHoy { get; set; }
     public decimal PropinasHoy { get; set; }
+
+    public double TiempoPreparacionPromedioMin { get; set; }
+    public double TiempoAtencionPromedioMin { get; set; }
+    public int PedidosAtrasados { get; set; }
+    public int MesasMasDe90Min { get; set; }
 
     public List<PilotChecklistItemViewModel> Checklist { get; set; } = new();
 

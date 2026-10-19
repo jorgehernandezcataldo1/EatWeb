@@ -603,3 +603,37 @@ body.admin-body {
     grid-column: 2;
   }
 }
+
+
+.admin-health-card {
+  height: 100%;
+  padding: 1rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 15px;
+  background: #fff;
+}
+.admin-health-card.is-alert {
+  border-color: #ffc9c2;
+  background: #fff6f4;
+}
+.admin-health-card.is-warning {
+  border-color: #f1d5a5;
+  background: #fffaf0;
+}
+.admin-health-label {
+  color: var(--admin-muted);
+  font-size: .72rem;
+  font-weight: 700;
+}
+.admin-health-value {
+  margin-top: .28rem;
+  font-size: 1.35rem;
+  font-weight: 850;
+  letter-spacing: -.035em;
+}
+.admin-health-meta {
+  margin-top: .25rem;
+  color: var(--admin-muted);
+  font-size: .67rem;
+  line-height: 1.35;
+}

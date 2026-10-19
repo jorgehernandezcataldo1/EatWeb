@@ -1,10 +1,14 @@
+using System.Security.Claims;
+using System.Threading.RateLimiting;
 using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Services;
 using EatWeb.Services.Storage;
+using EatWeb.Realtime;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -65,6 +69,56 @@ builder.Services.AddAntiforgery(options =>
     options.HeaderName = "RequestVerificationToken";
 });
 
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("cliente", httpContext =>
+    {
+        var tieneComensal = httpContext.Request.Cookies
+            .TryGetValue("eatweb_comensal", out var token) &&
+            Guid.TryParse(token, out _);
+
+        var clave = tieneComensal
+            ? "comensal:" + token
+            : "ip:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconocida");
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            clave,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = tieneComensal ? 120 : 40,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+
+    options.AddPolicy("realtime", httpContext =>
+    {
+        var usuarioId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var tieneComensal = httpContext.Request.Cookies
+            .TryGetValue("eatweb_comensal", out var token) &&
+            Guid.TryParse(token, out _);
+
+        var clave = !string.IsNullOrWhiteSpace(usuarioId)
+            ? "usuario:" + usuarioId
+            : tieneComensal
+                ? "comensal:" + token
+                : "ip:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconocida");
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            clave,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+});
+
 // Session
 builder.Services.AddDistributedMemoryCache();
 
@@ -76,6 +130,11 @@ builder.Services.AddSession(options =>
 });
 
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    options.MaximumReceiveMessageSize = 16 * 1024;
+});
 
 builder.Services.Configure<StorageOptions>(
     builder.Configuration.GetSection(StorageOptions.SectionName));
@@ -98,6 +157,7 @@ builder.Services.AddScoped<DbSeeder>();
 builder.Services.AddScoped<AccesoRestauranteService>();
 builder.Services.AddScoped<RestauranteContextService>();
 builder.Services.AddScoped<AdminDashboardService>();
+builder.Services.AddScoped<OperacionRealtimeService>();
 
 var app = builder.Build();
 
@@ -128,9 +188,13 @@ app.Use(async (context, next) =>
 app.UseRouting();
 app.UseSession();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapStaticAssets();
+
+app.MapHub<ComiditaHub>("/hubs/operacion")
+    .RequireRateLimiting("realtime");
 
 app.MapControllerRoute(
     name: "default",

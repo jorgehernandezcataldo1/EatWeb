@@ -6,6 +6,18 @@ public class MesasIndexViewModel
 {
     public List<MesaViewModel> Mesas { get; set; } = new();
     public List<SolicitudMesaResumenViewModel> SolicitudesPendientes { get; set; } = new();
+    public List<AccionGarzonViewModel> AccionesPrioritarias { get; set; } = new();
+}
+
+public class AccionGarzonViewModel
+{
+    public int SesionId { get; set; }
+    public int MesaNumero { get; set; }
+    public string Tipo { get; set; } = string.Empty;
+    public string Titulo { get; set; } = string.Empty;
+    public string Detalle { get; set; } = string.Empty;
+    public DateTime Fecha { get; set; }
+    public int Prioridad { get; set; }
 }
 
 /// <summary>Una fila/tarjeta del tablero de mesas.</summary>

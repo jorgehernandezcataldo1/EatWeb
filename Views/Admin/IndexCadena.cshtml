@@ -4,8 +4,10 @@
     var clp = new CultureInfo("es-CL");
     var grados = Math.Clamp(Model.OcupacionPorcentaje * 3.6m, 0, 360);
     var maxVentas = Model.Restaurantes.Count == 0 ? 1m : Math.Max(1m, Model.Restaurantes.Max(r => r.VentasHoy));
+    var totalAtrasados = Model.Restaurantes.Sum(r => r.PedidosAtrasados);
 }
 
+<div id="adminDashboardLive">
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
     <div>
         <div class="text-uppercase small fw-bold text-muted mb-1">Resumen de la cadena</div>
@@ -45,7 +47,7 @@
             <div class="admin-kpi-icon">!</div>
             <div class="admin-kpi-label">Solicitudes pendientes</div>
             <div class="admin-kpi-value">@Model.SolicitudesPendientes</div>
-            <div class="admin-kpi-meta">Atenciones activas de clientes</div>
+            <div class="admin-kpi-meta">Atenciones activas · @totalAtrasados pedido(s) atrasado(s)</div>
         </div>
     </div>
 </div>
@@ -97,7 +99,7 @@
                             <div class="d-flex justify-content-between gap-3 mb-2">
                                 <div>
                                     <div class="fw-semibold">@local.Nombre</div>
-                                    <div class="small text-muted">@local.PedidosHoy pedidos · @local.OcupacionPorcentaje.ToString("0")% ocupación</div>
+                                    <div class="small text-muted">@local.PedidosHoy pedidos · @local.OcupacionPorcentaje.ToString("0")% ocupación · @local.PedidosAtrasados atrasados</div>
                                 </div>
                                 <strong>@local.VentasHoy.ToString("C0", clp)</strong>
                             </div>
@@ -156,3 +158,30 @@
         </div>
     }
 </div>
+</div>
+
+@section Scripts {
+<script>
+(() => {
+    let timer = null;
+    async function refrescarCadena() {
+        if (document.hidden) return;
+        try {
+            const response = await fetch(window.location.href, { cache: 'no-store' });
+            if (!response.ok) return;
+            const html = await response.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const nuevo = doc.getElementById('adminDashboardLive');
+            const actual = document.getElementById('adminDashboardLive');
+            if (nuevo && actual) actual.innerHTML = nuevo.innerHTML;
+        } catch {}
+    }
+    function programar() {
+        clearTimeout(timer);
+        timer = setTimeout(refrescarCadena, 1800);
+    }
+    document.addEventListener('comidita:OperacionActualizada', programar);
+    setInterval(refrescarCadena, 60000);
+})();
+</script>
+}
