@@ -145,7 +145,7 @@ public class PedidosController : RestauranteControllerBase
             .Where(d =>
                 d.FechaListo != null &&
                 d.FechaListo >= desde &&
-                d.Estado == EstadoDetallePedido.Listo &&
+                d.Estado != EstadoDetallePedido.Cancelado &&
                 d.Pedido!.MesaSesion!.FechaCierre == null &&
                 d.Pedido.MesaSesion.Mesa!.RestauranteId == RestauranteId &&
                 (d.Pedido.MesaSesion.GarzonId == userId ||
