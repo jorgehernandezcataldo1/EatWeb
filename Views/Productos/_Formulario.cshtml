@@ -81,7 +81,7 @@
                             {
                                 <option value="@categoria.Id"
                                         data-estacion="@categoria.EstacionNombre"
-                                        selected="@(Model.CategoriaId == categoria.Id)">
+                                        selected="@(Model.CategoriaId == categoria.Id ? "selected" : null)">
                                     @categoria.Nombre
                                 </option>
                             }
