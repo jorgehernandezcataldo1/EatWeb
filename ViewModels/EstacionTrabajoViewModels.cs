@@ -4,6 +4,18 @@ public class EstacionTrabajoViewModel
 {
     public string Estacion { get; set; } = string.Empty;
     public List<EstacionTrabajoItemViewModel> Items { get; set; } = new();
+    public List<EstacionTrabajoPedidoViewModel> Pedidos { get; set; } = new();
+}
+
+public class EstacionTrabajoPedidoViewModel
+{
+    public int MesaNumero { get; set; }
+    public int PedidoId { get; set; }
+    public string Estado { get; set; } = string.Empty;
+    public DateTime FechaPedido { get; set; }
+    public int MinutosEspera { get; set; }
+    public bool Urgente { get; set; }
+    public List<EstacionTrabajoItemViewModel> Items { get; set; } = new();
 }
 
 public class EstacionTrabajoItemViewModel
