@@ -76,6 +76,10 @@
         </nav>
 
         <div class="mt-auto p-3 border-top">
+            <button type="button" class="btn btn-outline-secondary btn-sm w-100 mb-2"
+                    id="activarAvisosGarzon">
+                🔔 Activar avisos del navegador
+            </button>
             @if (!string.IsNullOrWhiteSpace(restauranteNombre))
             {
                 <div class="small text-muted mb-2 text-truncate">@restauranteNombre</div>
@@ -104,6 +108,10 @@
             </nav>
 
             <div class="mt-auto pt-3 border-top">
+                <button type="button" class="btn btn-outline-secondary w-100 mb-3"
+                        id="activarAvisosGarzonMobile">
+                    🔔 Activar avisos del navegador
+                </button>
                 <div class="fw-semibold">@usuarioNombre</div>
                 <div class="small text-muted mb-3">@(restauranteNombre ?? "Garzón")</div>
                 <form asp-controller="Account" asp-action="Logout" method="post">
@@ -243,33 +251,70 @@ else
 @if (esGarzon)
 {
     <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1090; margin-top:70px;">
-        <div id="itemListoToast" class="toast border-0 shadow" role="alert" aria-live="assertive" aria-atomic="true">
+        <div id="garzonEventoToast" class="toast border-0 shadow" role="alert" aria-live="assertive" aria-atomic="true">
             <div class="toast-header">
-                <strong class="me-auto">🍽️ Pedido listo</strong>
+                <strong class="me-auto" id="garzonEventoToastTitulo">🔔 Comidita</strong>
                 <small>Ahora</small>
                 <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Cerrar"></button>
             </div>
-            <div class="toast-body" id="itemListoToastBody"></div>
+            <div class="toast-body" id="garzonEventoToastBody"></div>
         </div>
     </div>
     <script>
         (() => {
-            const storageKey = 'comidita-items-listos-vistos';
+            const storageKey = 'comidita-garzon-eventos-v1';
             const vistos = new Set(JSON.parse(localStorage.getItem(storageKey) || '[]'));
             let primeraCarga = true;
 
+            const botonesPermiso = [
+                document.getElementById('activarAvisosGarzon'),
+                document.getElementById('activarAvisosGarzonMobile')
+            ].filter(Boolean);
+
             function guardarVistos() {
-                localStorage.setItem(storageKey, JSON.stringify(Array.from(vistos).slice(-100)));
+                localStorage.setItem(storageKey, JSON.stringify(Array.from(vistos).slice(-250)));
             }
 
-            function beep() {
+            function actualizarBotonesPermiso() {
+                if (!('Notification' in window)) {
+                    botonesPermiso.forEach(b => {
+                        b.textContent = 'Avisos no disponibles';
+                        b.disabled = true;
+                    });
+                    return;
+                }
+
+                botonesPermiso.forEach(b => {
+                    if (Notification.permission === 'granted') {
+                        b.textContent = '✓ Avisos activados';
+                        b.classList.remove('btn-outline-secondary');
+                        b.classList.add('btn-outline-success');
+                    } else if (Notification.permission === 'denied') {
+                        b.textContent = 'Avisos bloqueados por el navegador';
+                        b.disabled = true;
+                    } else {
+                        b.textContent = '🔔 Activar avisos del navegador';
+                    }
+                });
+            }
+
+            async function pedirPermiso() {
+                if (!('Notification' in window)) return;
+                await Notification.requestPermission();
+                actualizarBotonesPermiso();
+            }
+
+            botonesPermiso.forEach(b => b.addEventListener('click', pedirPermiso));
+            actualizarBotonesPermiso();
+
+            function beep(tipo) {
                 try {
                     const AudioCtx = window.AudioContext || window.webkitAudioContext;
                     const ctx = new AudioCtx();
                     const osc = ctx.createOscillator();
                     const gain = ctx.createGain();
-                    osc.frequency.value = 880;
-                    gain.gain.value = 0.05;
+                    osc.frequency.value = tipo === 'ItemListo' ? 940 : 720;
+                    gain.gain.value = 0.045;
                     osc.connect(gain);
                     gain.connect(ctx.destination);
                     osc.start();
@@ -277,14 +322,48 @@ else
                 } catch {}
             }
 
-            async function revisarItemsListos() {
-                try {
-                    const response = await fetch('@Url.Action("AlertasListos", "Pedidos")', { cache: 'no-store' });
-                    if (!response.ok) return;
-                    const items = await response.json();
+            function mostrarToast(evento) {
+                const icono = evento.tipo === 'ItemListo' ? '🍽️' :
+                              evento.tipo === 'PedidoNuevo' ? '🧾' :
+                              evento.tipo === 'MesaOcupada' ? '🪑' :
+                              evento.tipo === 'PedirCuenta' ? '💳' : '🔔';
 
-                    for (const item of items.reverse()) {
-                        const key = String(item.id);
+                document.getElementById('garzonEventoToastTitulo').textContent =
+                    icono + ' ' + evento.titulo;
+                document.getElementById('garzonEventoToastBody').textContent = evento.mensaje;
+
+                bootstrap.Toast.getOrCreateInstance(
+                    document.getElementById('garzonEventoToast'),
+                    { delay: 7000 }
+                ).show();
+            }
+
+            function mostrarNotificacionNavegador(evento) {
+                if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+                const notification = new Notification(evento.titulo, {
+                    body: evento.mensaje,
+                    tag: evento.key
+                });
+
+                notification.onclick = () => {
+                    window.focus();
+                    if (evento.url) window.location.href = evento.url;
+                    notification.close();
+                };
+            }
+
+            async function revisarEventos() {
+                try {
+                    const response = await fetch('@Url.Action("NotificacionesGarzon", "Pedidos")', {
+                        cache: 'no-store'
+                    });
+                    if (!response.ok) return;
+
+                    const eventos = await response.json();
+
+                    for (const evento of eventos) {
+                        const key = String(evento.key);
                         if (vistos.has(key)) continue;
 
                         vistos.add(key);
@@ -292,22 +371,19 @@ else
 
                         if (primeraCarga) continue;
 
-                        const body = document.getElementById('itemListoToastBody');
-                        body.innerHTML = '<strong>Mesa ' + item.mesa + '</strong><br>' +
-                            item.cantidad + '× ' + item.producto + ' · ' + item.estacion;
-                        bootstrap.Toast.getOrCreateInstance(
-                            document.getElementById('itemListoToast'),
-                            { delay: 7000 }
-                        ).show();
-                        beep();
+                        mostrarToast(evento);
+                        mostrarNotificacionNavegador(evento);
+                        beep(evento.tipo);
                     }
 
                     primeraCarga = false;
-                } catch {}
+                } catch {
+                    // Se vuelve a intentar en el siguiente ciclo.
+                }
             }
 
-            revisarItemsListos();
-            setInterval(revisarItemsListos, 5000);
+            revisarEventos();
+            setInterval(revisarEventos, 5000);
         })();
     </script>
 }
