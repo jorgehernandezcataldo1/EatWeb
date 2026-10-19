@@ -154,7 +154,7 @@ public class SesionService
             .AsNoTracking()
             .Include(c => c.MesaSesion)
             .ThenInclude(s => s!.Mesa)
-            .ThenInclude(m => m.Restaurante)
+            .ThenInclude(m => m!.Restaurante)
             .FirstOrDefaultAsync(c => c.Token == token);
 
         if (comensal == null)
@@ -165,7 +165,7 @@ public class SesionService
             return null; // Sesión cerrada
 
         var mesa = sesion.Mesa;
-        if (!mesa.Activa)
+        if (mesa == null || !mesa.Activa)
             return null; // Mesa inactiva
 
         return new ContextoComensal
