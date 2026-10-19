@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Services;
@@ -6,6 +7,7 @@ using EatWeb.Realtime;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -64,6 +66,32 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddAntiforgery(options =>
 {
     options.HeaderName = "RequestVerificationToken";
+});
+
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("cliente", httpContext =>
+    {
+        var tieneComensal = httpContext.Request.Cookies
+            .TryGetValue("eatweb_comensal", out var token) &&
+            Guid.TryParse(token, out _);
+
+        var clave = tieneComensal
+            ? "comensal:" + token
+            : "ip:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconocida");
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            clave,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = tieneComensal ? 120 : 40,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
 });
 
 // Session
@@ -133,6 +161,7 @@ app.Use(async (context, next) =>
 });
 
 app.UseRouting();
+app.UseRateLimiter();
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
