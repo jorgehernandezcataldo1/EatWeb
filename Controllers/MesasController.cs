@@ -42,11 +42,13 @@ public class MesasController : RestauranteControllerBase
 
         var mesas = await ConstruirTableroAsync(query);
         var solicitudes = await ObtenerSolicitudesPendientesAsync(userId);
+        var acciones = await ObtenerAccionesPrioritariasAsync(userId, solicitudes);
 
         return View(new MesasIndexViewModel
         {
             Mesas = mesas,
-            SolicitudesPendientes = solicitudes
+            SolicitudesPendientes = solicitudes,
+            AccionesPrioritarias = acciones
         });
     }
 
