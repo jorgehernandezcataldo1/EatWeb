@@ -2,6 +2,7 @@ using System.Data;
 using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
+using EatWeb.Realtime;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -23,10 +24,14 @@ public class ResultadoPago
 public class CuentaService
 {
     private readonly ApplicationDbContext _context;
+    private readonly OperacionRealtimeService _realtime;
 
-    public CuentaService(ApplicationDbContext context)
+    public CuentaService(
+        ApplicationDbContext context,
+        OperacionRealtimeService realtime)
     {
         _context = context;
+        _realtime = realtime;
     }
 
     public async Task<Cuenta> ObtenerOCrearCuentaAsync(int sesionId)
@@ -122,6 +127,7 @@ public class CuentaService
             }
 
             var sesion = await _context.MesaSesiones
+                .Include(s => s.Mesa)
                 .Include(s => s.Comensales)
                     .ThenInclude(c => c.Pedidos)
                         .ThenInclude(p => p.Detalles)
@@ -258,6 +264,16 @@ public class CuentaService
 
             await _context.SaveChangesAsync();
             await tx.CommitAsync();
+
+            if (sesion.Mesa != null)
+            {
+                await _realtime.PublicarAsync(
+                    sesion.Mesa.RestauranteId,
+                    resultado.CuentaPagada ? "CuentaPagada" : "PagoRegistrado",
+                    sesion.Id,
+                    sesion.GarzonId ?? sesion.Mesa.GarzonId);
+            }
+
             return resultado;
         }
         catch (PostgresException ex) when (
