@@ -27,6 +27,8 @@ public class AdminDashboardService
             .Select(r => r.Cadena != null ? r.Cadena.Nombre : null)
             .FirstOrDefaultAsync();
 
+        var limiteAtraso = DateTime.UtcNow.AddMinutes(-10);
+
         var restaurantes = await _context.Restaurantes
             .AsNoTracking()
             .Where(r => restauranteIds.Contains(r.Id))
@@ -48,6 +50,13 @@ public class AdminDashboardService
                     .Where(s => s.FechaCierre == null)
                     .SelectMany(s => s.SolicitudesMesa)
                     .Count(s => s.Estado == EstadoSolicitudMesa.Pendiente),
+                PedidosAtrasados = r.Mesas
+                    .SelectMany(m => m.Sesiones)
+                    .Where(s => s.FechaCierre == null)
+                    .SelectMany(s => s.Pedidos)
+                    .Count(p =>
+                        p.FechaCreacion < limiteAtraso &&
+                        p.Estado == EstadoPedido.Pendiente),
                 VentasHoy = _context.Pagos
                     .Where(p =>
                         p.Estado == EstadoPago.Confirmado &&
@@ -130,6 +139,63 @@ public class AdminDashboardService
         var ventasHoy = await pagosHoy.SumAsync(p => (decimal?)p.Monto) ?? 0;
         var propinasHoy = await pagosHoy.SumAsync(p => (decimal?)p.Propina) ?? 0;
 
+        var ahora = DateTime.UtcNow;
+        var limiteAtrasoRestaurante = ahora.AddMinutes(-10);
+        var limiteMesaLarga = ahora.AddMinutes(-90);
+
+        var tiemposPreparacion = await _context.DetallesPedidos
+            .AsNoTracking()
+            .Where(d =>
+                d.Pedido!.MesaSesion!.Mesa!.RestauranteId == id &&
+                d.FechaInicioPreparacion >= inicioHoy &&
+                d.FechaInicioPreparacion != null &&
+                d.FechaListo != null)
+            .Select(d => new
+            {
+                d.FechaInicioPreparacion,
+                d.FechaListo
+            })
+            .ToListAsync();
+
+        var tiempoPreparacionPromedio = tiemposPreparacion.Count == 0
+            ? 0
+            : tiemposPreparacion.Average(x =>
+                (x.FechaListo!.Value - x.FechaInicioPreparacion!.Value).TotalMinutes);
+
+        var tiemposSolicitudes = await _context.SolicitudesMesa
+            .AsNoTracking()
+            .Where(s =>
+                s.MesaSesion!.Mesa!.RestauranteId == id &&
+                s.FechaCreacion >= inicioHoy &&
+                s.Estado == EstadoSolicitudMesa.Atendida &&
+                s.FechaResolucion != null)
+            .Select(s => new
+            {
+                s.FechaCreacion,
+                s.FechaResolucion
+            })
+            .ToListAsync();
+
+        var tiempoAtencionPromedio = tiemposSolicitudes.Count == 0
+            ? 0
+            : tiemposSolicitudes.Average(x =>
+                (x.FechaResolucion!.Value - x.FechaCreacion).TotalMinutes);
+
+        var pedidosAtrasados = await _context.Pedidos
+            .AsNoTracking()
+            .CountAsync(p =>
+                p.MesaSesion!.Mesa!.RestauranteId == id &&
+                p.MesaSesion.FechaCierre == null &&
+                p.Estado == EstadoPedido.Pendiente &&
+                p.FechaCreacion < limiteAtrasoRestaurante);
+
+        var mesasMasDe90Min = await _context.MesaSesiones
+            .AsNoTracking()
+            .CountAsync(s =>
+                s.Mesa!.RestauranteId == id &&
+                s.FechaCierre == null &&
+                s.FechaApertura < limiteMesaLarga);
+
         var estacionesBase = await _context.Estaciones.CountAsync(e =>
             e.RestauranteId == id &&
             e.Activa &&
@@ -168,6 +234,10 @@ public class AdminDashboardService
             SolicitudesPendientes = solicitudesPendientes,
             VentasHoy = ventasHoy,
             PropinasHoy = propinasHoy,
+            TiempoPreparacionPromedioMin = tiempoPreparacionPromedio,
+            TiempoAtencionPromedioMin = tiempoAtencionPromedio,
+            PedidosAtrasados = pedidosAtrasados,
+            MesasMasDe90Min = mesasMasDe90Min,
             Checklist = new List<PilotChecklistItemViewModel>
             {
                 new() { Titulo = "Estaciones", Descripcion = "Cocina y Bar activas", Ok = estacionesBase >= 2, Controller = "Estaciones" },
