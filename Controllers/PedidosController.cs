@@ -55,7 +55,7 @@ public class PedidosController : RestauranteControllerBase
 
     [HttpGet]
     [Authorize(Roles = Roles.Garzon)]
-    public async Task<IActionResult> AlertasListos()
+    public async Task<IActionResult> NotificacionesGarzon()
     {
         Response.Headers.CacheControl = "no-store";
         var userId = GetUserId();
@@ -63,27 +63,118 @@ public class PedidosController : RestauranteControllerBase
         if (string.IsNullOrWhiteSpace(userId))
             return Unauthorized();
 
-        var alertas = await _context.DetallesPedidos
+        var desde = DateTime.UtcNow.AddHours(-4);
+
+        var sesiones = await _context.MesaSesiones
+            .AsNoTracking()
+            .Where(s =>
+                s.FechaCierre == null &&
+                s.FechaApertura >= desde &&
+                s.Mesa!.RestauranteId == RestauranteId &&
+                (s.GarzonId == userId || s.Mesa.GarzonId == userId))
+            .Select(s => new NotificacionGarzonViewModel
+            {
+                Key = "mesa:" + s.Id,
+                Tipo = "MesaOcupada",
+                Titulo = "Mesa " + s.Mesa!.Numero + " ocupada",
+                Mensaje = "Se inició una nueva atención.",
+                SesionId = s.Id,
+                MesaNumero = s.Mesa.Numero,
+                Fecha = s.FechaApertura
+            })
+            .ToListAsync();
+
+        var pedidos = await _context.Pedidos
+            .AsNoTracking()
+            .Where(p =>
+                p.FechaCreacion >= desde &&
+                p.MesaSesion!.FechaCierre == null &&
+                p.MesaSesion.Mesa!.RestauranteId == RestauranteId &&
+                (p.MesaSesion.GarzonId == userId || p.MesaSesion.Mesa.GarzonId == userId))
+            .Select(p => new NotificacionGarzonViewModel
+            {
+                Key = "pedido:" + p.Id,
+                Tipo = "PedidoNuevo",
+                Titulo = "Nuevo pedido · Mesa " + p.MesaSesion!.Mesa!.Numero,
+                Mensaje = p.Detalles.Count + " ítem(s) · " + p.Comensal!.Nombre,
+                SesionId = p.MesaSesionId,
+                MesaNumero = p.MesaSesion.Mesa.Numero,
+                Fecha = p.FechaCreacion
+            })
+            .ToListAsync();
+
+        var solicitudes = await _context.SolicitudesMesa
+            .AsNoTracking()
+            .Where(s =>
+                s.FechaCreacion >= desde &&
+                s.MesaSesion!.FechaCierre == null &&
+                s.MesaSesion.Mesa!.RestauranteId == RestauranteId &&
+                (s.MesaSesion.GarzonId == userId || s.MesaSesion.Mesa.GarzonId == userId))
+            .Select(s => new
+            {
+                s.Id,
+                s.Tipo,
+                s.Mensaje,
+                s.FechaCreacion,
+                SesionId = s.MesaSesionId,
+                MesaNumero = s.MesaSesion!.Mesa!.Numero,
+                ComensalNombre = s.Comensal!.Nombre
+            })
+            .ToListAsync();
+
+        var eventosSolicitudes = solicitudes.Select(s => new NotificacionGarzonViewModel
+        {
+            Key = "solicitud:" + s.Id,
+            Tipo = s.Tipo,
+            Titulo = s.Tipo switch
+            {
+                TipoSolicitudMesa.PedirCuenta => "Cuenta solicitada · Mesa " + s.MesaNumero,
+                TipoSolicitudMesa.LlamarGarzon => "Llaman al garzón · Mesa " + s.MesaNumero,
+                TipoSolicitudMesa.SolicitarAlgo => "Solicitud · Mesa " + s.MesaNumero,
+                _ => "Solicitud · Mesa " + s.MesaNumero
+            },
+            Mensaje = s.Tipo == TipoSolicitudMesa.SolicitarAlgo
+                ? (s.Mensaje ?? "Solicitud del cliente")
+                : s.ComensalNombre,
+            SesionId = s.SesionId,
+            MesaNumero = s.MesaNumero,
+            Fecha = s.FechaCreacion
+        });
+
+        var listos = await _context.DetallesPedidos
             .AsNoTracking()
             .Where(d =>
+                d.FechaListo != null &&
+                d.FechaListo >= desde &&
                 d.Estado == EstadoDetallePedido.Listo &&
                 d.Pedido!.MesaSesion!.FechaCierre == null &&
                 d.Pedido.MesaSesion.Mesa!.RestauranteId == RestauranteId &&
                 (d.Pedido.MesaSesion.GarzonId == userId ||
                  d.Pedido.MesaSesion.Mesa.GarzonId == userId))
-            .OrderBy(d => d.FechaListo)
-            .Select(d => new
+            .Select(d => new NotificacionGarzonViewModel
             {
-                id = d.Id,
-                mesa = d.Pedido!.MesaSesion!.Mesa!.Numero,
-                producto = d.NombreProducto,
-                cantidad = d.Cantidad,
-                estacion = d.EstacionNombre,
-                fechaListo = d.FechaListo
+                Key = "listo:" + d.Id,
+                Tipo = "ItemListo",
+                Titulo = "Plato listo · Mesa " + d.Pedido!.MesaSesion!.Mesa!.Numero,
+                Mensaje = d.Cantidad + "× " + d.NombreProducto + " · " + d.EstacionNombre,
+                SesionId = d.Pedido.MesaSesionId,
+                MesaNumero = d.Pedido.MesaSesion.Mesa.Numero,
+                Fecha = d.FechaListo!.Value
             })
             .ToListAsync();
 
-        return Json(alertas);
+        var eventos = sesiones
+            .Concat(pedidos)
+            .Concat(eventosSolicitudes)
+            .Concat(listos)
+            .OrderBy(e => e.Fecha)
+            .ThenBy(e => e.Key)
+            .ToList();
+
+        foreach (var evento in eventos)
+            evento.Url = Url.Action(nameof(Mesa), "Pedidos", new { id = evento.SesionId });
+
+        return Json(eventos);
     }
 
     [HttpGet]
