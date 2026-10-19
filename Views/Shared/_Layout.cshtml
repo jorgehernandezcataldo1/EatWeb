@@ -386,7 +386,8 @@ else
             }
 
             revisarEventos();
-            setInterval(revisarEventos, 5000);
+            document.addEventListener('comidita:GarzonActualizado', revisarEventos);
+            setInterval(revisarEventos, 30000);
         })();
     </script>
 }
