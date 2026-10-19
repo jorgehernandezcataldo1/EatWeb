@@ -2,6 +2,7 @@ using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Services;
 using EatWeb.Services.Storage;
+using EatWeb.Realtime;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
@@ -76,6 +77,11 @@ builder.Services.AddSession(options =>
 });
 
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    options.MaximumReceiveMessageSize = 16 * 1024;
+});
 
 builder.Services.Configure<StorageOptions>(
     builder.Configuration.GetSection(StorageOptions.SectionName));
@@ -98,6 +104,7 @@ builder.Services.AddScoped<DbSeeder>();
 builder.Services.AddScoped<AccesoRestauranteService>();
 builder.Services.AddScoped<RestauranteContextService>();
 builder.Services.AddScoped<AdminDashboardService>();
+builder.Services.AddScoped<OperacionRealtimeService>();
 
 var app = builder.Build();
 
@@ -131,6 +138,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();
+
+app.MapHub<ComiditaHub>("/hubs/operacion");
 
 app.MapControllerRoute(
     name: "default",
