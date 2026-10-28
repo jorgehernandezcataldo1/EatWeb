@@ -1,6 +1,8 @@
 using Xunit;
 using EatWeb.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
 using EatWeb.Services;
@@ -114,7 +116,22 @@ public class MigrationSnapshotTests
         using var context = new ApplicationDbContext(options);
 
         // Compara metadata en memoria; no abre conexión ni modifica Supabase.
-        Assert.False(context.Database.HasPendingModelChanges(),
-            "El modelo EF tiene cambios pendientes respecto al snapshot de migraciones.");
+        var snapshot = context.GetService<IMigrationsAssembly>().ModelSnapshot;
+        var actual = context.GetService<IDesignTimeModel>().Model;
+        var differ = context.GetService<IMigrationsModelDiffer>();
+        var changes = differ.GetDifferences(
+            snapshot!.Model.GetRelationalModel(),
+            actual.GetRelationalModel());
+
+        Assert.False(changes.Count > 0,
+            "Operaciones EF pendientes: " + string.Join("; ", changes.Select(op =>
+                op.GetType().Name + " " +
+                (op is Microsoft.EntityFrameworkCore.Migrations.Operations.ColumnOperation column
+                    ? column.Table + "." + column.Name
+                    : op is Microsoft.EntityFrameworkCore.Migrations.Operations.TableOperation table
+                        ? table.Name
+                        : op is Microsoft.EntityFrameworkCore.Migrations.Operations.IndexOperation index
+                            ? index.Table + "." + index.Name
+                            : ""))));
     }
 }
