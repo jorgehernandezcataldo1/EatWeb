@@ -248,6 +248,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IDataPro
             .IsUnique();
 
         modelBuilder.Entity<Pago>()
+            .Property(p => p.RequestFingerprint)
+            .HasMaxLength(64);
+
+        modelBuilder.Entity<Pago>()
             .Property(p => p.Monto)
             .HasPrecision(18, 0);
 
