@@ -342,6 +342,15 @@ public class PedidoService
                     });
                 }
 
+                detalle.Historial.Add(new HistorialEstadoDetallePedido
+                {
+                    EstadoAnterior = null,
+                    EstadoNuevo = EstadoDetallePedido.Pendiente,
+                    Fecha = DateTime.UtcNow,
+                    UsuarioId = null,
+                    Motivo = null
+                });
+
                 pedido.Detalles.Add(detalle);
             }
 
@@ -488,7 +497,7 @@ public class PedidoService
         }
 
         foreach (var detalle in detallesElegibles)
-            AplicarEstadoDetalle(detalle, nuevoEstado);
+            AplicarEstadoDetalle(detalle, nuevoEstado, usuarioId);
 
         await RecalcularPedidoAsync(pedido, usuarioId);
         await _context.SaveChangesAsync();
@@ -502,7 +511,8 @@ public class PedidoService
     public async Task<ResultadoPedido> CambiarEstadoDetalleAsync(
         int detalleId,
         string nuevoEstado,
-        string usuarioId)
+        string usuarioId,
+        string? motivo = null)
     {
         var detalle = await _context.DetallesPedidos
             .Include(d => d.Pedido)
@@ -515,7 +525,36 @@ public class PedidoService
         if (!EsTransicionValida(detalle.Estado, nuevoEstado))
             return new ResultadoPedido { Errores = { $"Transición de {detalle.Estado} a {nuevoEstado} no permitida" } };
 
-        AplicarEstadoDetalle(detalle, nuevoEstado);
+        var motivoNormalizado = string.IsNullOrWhiteSpace(motivo)
+            ? null
+            : motivo.Trim();
+
+        if (nuevoEstado == EstadoDetallePedido.Cancelado)
+        {
+            if (motivoNormalizado == null || motivoNormalizado.Length < 3 || motivoNormalizado.Length > 200)
+            {
+                return new ResultadoPedido
+                {
+                    Errores = { "La anulación requiere un motivo entre 3 y 200 caracteres." }
+                };
+            }
+
+            var tienePagoConfirmado = await _context.PagoDetalles
+                .AsNoTracking()
+                .AnyAsync(pd =>
+                    pd.DetallePedidoId == detalleId &&
+                    pd.Pago!.Estado == EstadoPago.Confirmado);
+
+            if (tienePagoConfirmado)
+            {
+                return new ResultadoPedido
+                {
+                    Errores = { "No se puede anular un consumo que ya tiene un pago confirmado." }
+                };
+            }
+        }
+
+        AplicarEstadoDetalle(detalle, nuevoEstado, usuarioId, motivoNormalizado);
         var resultado = await RecalcularYGuardarPedidoAsync(detalle.Pedido, usuarioId);
 
         if (resultado.Ok)
@@ -559,7 +598,7 @@ public class PedidoService
 
             foreach (var detalle in detallesElegibles)
             {
-                AplicarEstadoDetalle(detalle, nuevoEstado);
+                AplicarEstadoDetalle(detalle, nuevoEstado, usuarioId);
                 cambios++;
             }
 
@@ -669,13 +708,36 @@ public class PedidoService
         return EstadoPedido.Pendiente;
     }
 
-    private static void AplicarEstadoDetalle(DetallePedido detalle, string nuevoEstado)
+    private static void AplicarEstadoDetalle(
+        DetallePedido detalle,
+        string nuevoEstado,
+        string? usuarioId,
+        string? motivo = null)
     {
+        var anterior = detalle.Estado;
+        if (anterior == nuevoEstado)
+            return;
+
         detalle.Estado = nuevoEstado;
         var ahora = DateTime.UtcNow;
-        if (nuevoEstado == EstadoDetallePedido.EnPreparacion) detalle.FechaInicioPreparacion ??= ahora;
-        if (nuevoEstado == EstadoDetallePedido.Listo) detalle.FechaListo ??= ahora;
-        if (nuevoEstado == EstadoDetallePedido.Entregado) detalle.FechaEntregado ??= ahora;
+
+        if (nuevoEstado == EstadoDetallePedido.EnPreparacion)
+            detalle.FechaInicioPreparacion ??= ahora;
+
+        if (nuevoEstado == EstadoDetallePedido.Listo)
+            detalle.FechaListo ??= ahora;
+
+        if (nuevoEstado == EstadoDetallePedido.Entregado)
+            detalle.FechaEntregado ??= ahora;
+
+        detalle.Historial.Add(new HistorialEstadoDetallePedido
+        {
+            EstadoAnterior = anterior,
+            EstadoNuevo = nuevoEstado,
+            Fecha = ahora,
+            UsuarioId = string.IsNullOrWhiteSpace(usuarioId) ? null : usuarioId,
+            Motivo = motivo
+        });
     }
 
     private static bool EsTransicionValida(string estadoActual, string nuevoEstado)
