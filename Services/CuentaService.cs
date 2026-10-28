@@ -318,6 +318,7 @@ public class CuentaService
         }
         catch (PostgresException ex) when (
             ex.SqlState == PostgresErrorCodes.SerializationFailure ||
+            ex.SqlState == PostgresErrorCodes.DeadlockDetected ||
             ex.SqlState == PostgresErrorCodes.UniqueViolation)
         {
             await tx.RollbackAsync();
@@ -331,7 +332,11 @@ public class CuentaService
 
             return Error("La cuenta cambió mientras se registraba el pago. Intenta nuevamente.");
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) when (
+            ex.InnerException is PostgresException pg &&
+            (pg.SqlState == PostgresErrorCodes.SerializationFailure ||
+             pg.SqlState == PostgresErrorCodes.DeadlockDetected ||
+             pg.SqlState == PostgresErrorCodes.UniqueViolation))
         {
             await tx.RollbackAsync();
             _context.ChangeTracker.Clear();
@@ -340,7 +345,7 @@ public class CuentaService
             if (existente != null)
                 return await ResolverPagoExistenteAsync(existente, sesionId, fingerprint);
 
-            return Error("No se pudo registrar el pago de forma segura. Intenta nuevamente.");
+            return Error("La cuenta cambió mientras se registraba el pago. Intenta nuevamente.");
         }
     }
 
