@@ -59,6 +59,9 @@ public class DetallePedidoResumenViewModel
     public decimal Subtotal { get; set; }
 
     public string? Observacion { get; set; }
+    public string? MotivoCancelacion { get; set; }
+    public DateTime? FechaCancelacion { get; set; }
+    public string? CanceladoPor { get; set; }
 
     public List<string> Personalizaciones { get; set; } = new();
 }
