@@ -278,6 +278,51 @@ public class PedidosController : RestauranteControllerBase
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CancelarDetalle(int id, string? motivo)
+    {
+        var detalle = await _context.DetallesPedidos
+            .AsNoTracking()
+            .Where(d =>
+                d.Id == id &&
+                d.Pedido!.MesaSesion!.FechaCierre == null &&
+                d.Pedido.MesaSesion.Mesa!.RestauranteId == RestauranteId &&
+                (User.EsAdmin() ||
+                 d.Pedido.MesaSesion.GarzonId == GetUserId() ||
+                 d.Pedido.MesaSesion.Mesa.GarzonId == GetUserId()))
+            .Select(d => new
+            {
+                d.Id,
+                d.Estado,
+                SesionId = d.Pedido!.MesaSesionId
+            })
+            .FirstOrDefaultAsync();
+
+        if (detalle == null)
+            return NotFound();
+
+        if (detalle.Estado != EstadoDetallePedido.Pendiente &&
+            detalle.Estado != EstadoDetallePedido.EnPreparacion)
+        {
+            TempData["Error"] = "Solo se pueden anular productos pendientes o en preparación.";
+            return RedirectToAction(nameof(Mesa), new { id = detalle.SesionId });
+        }
+
+        var resultado = await _pedidoService.CambiarEstadoDetalleAsync(
+            id,
+            EstadoDetallePedido.Cancelado,
+            GetUserId() ?? string.Empty,
+            motivo);
+
+        if (!resultado.Ok)
+            TempData["Error"] = string.Join(" ", resultado.Errores);
+        else
+            TempData["Ok"] = "Producto anulado y registrado en auditoría.";
+
+        return RedirectToAction(nameof(Mesa), new { id = detalle.SesionId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> CambiarEstadoMesa(int id, string nuevoEstado, int? estacionId = null)
     {
         if (nuevoEstado != EstadoDetallePedido.Entregado) return BadRequest();
@@ -722,6 +767,11 @@ public class PedidosController : RestauranteControllerBase
                         .ThenInclude(d => d.Ingredientes)
             .Include(s => s.Comensales)
                 .ThenInclude(c => c.Pedidos)
+                    .ThenInclude(p => p.Detalles)
+                        .ThenInclude(d => d.Historial)
+                            .ThenInclude(h => h.Usuario)
+            .Include(s => s.Comensales)
+                .ThenInclude(c => c.Pedidos)
                     .ThenInclude(p => p.Historial)
                         .ThenInclude(h => h.Usuario)
             .OrderBy(s => s.Mesa!.Numero)
@@ -774,6 +824,21 @@ public class PedidosController : RestauranteControllerBase
                             Cantidad = d.Cantidad,
                             Subtotal = d.Subtotal,
                             Observacion = d.Observacion,
+                            MotivoCancelacion = d.Historial
+                                .Where(h => h.EstadoNuevo == EstadoDetallePedido.Cancelado)
+                                .OrderByDescending(h => h.Fecha)
+                                .Select(h => h.Motivo)
+                                .FirstOrDefault(),
+                            FechaCancelacion = d.Historial
+                                .Where(h => h.EstadoNuevo == EstadoDetallePedido.Cancelado)
+                                .OrderByDescending(h => h.Fecha)
+                                .Select(h => (DateTime?)h.Fecha)
+                                .FirstOrDefault(),
+                            CanceladoPor = d.Historial
+                                .Where(h => h.EstadoNuevo == EstadoDetallePedido.Cancelado)
+                                .OrderByDescending(h => h.Fecha)
+                                .Select(h => h.Usuario != null ? h.Usuario.NombreCompleto : "Sistema")
+                                .FirstOrDefault(),
                             Personalizaciones = d.Ingredientes
                                 .Select(i =>
                                     $"{(i.Accion == AccionIngrediente.Quitar ? "Sin" : "Agregar")} " +
