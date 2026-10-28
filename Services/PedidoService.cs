@@ -444,7 +444,7 @@ public class PedidoService
         return resultado;
     }
 
-    private ResultadoPedido ResolverReintento(
+    internal static ResultadoPedido ResolverReintento(
         Pedido existente,
         CarritoSesion carrito,
         string observacion,
@@ -478,7 +478,7 @@ public class PedidoService
         };
     }
 
-    private static string CalcularFingerprint(
+    internal static string CalcularFingerprint(
         CarritoSesion carrito,
         string observacionGeneral)
     {
