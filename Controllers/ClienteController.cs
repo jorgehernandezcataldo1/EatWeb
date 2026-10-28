@@ -275,6 +275,26 @@ public class ClienteController : Controller
             return RedirectToAction(nameof(Producto), new { id = modelo.ProductoId });
         }
 
+        // El id del producto llega desde el navegador: nunca confiar en él.
+        // Validamos el tenant y la disponibilidad también en este POST.
+        var disponible = await _context.Productos
+            .AsNoTracking()
+            .AnyAsync(p =>
+                p.Id == modelo.ProductoId &&
+                p.RestauranteId == ctx.RestauranteId &&
+                p.Activo &&
+                p.Disponible &&
+                p.Categoria != null &&
+                p.Categoria.Activa &&
+                p.Categoria.Estacion != null &&
+                p.Categoria.Estacion.Activa);
+
+        if (!disponible)
+        {
+            TempData["Error"] = "El producto ya no está disponible.";
+            return RedirectToAction(nameof(Carta));
+        }
+
         _carrito.Agregar(
             ctx.ComensalId,
             modelo.ProductoId,
