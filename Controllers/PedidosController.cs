@@ -7,6 +7,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 namespace EatWeb.Controllers;
 
 [Authorize(Roles = Roles.AdminOGarzon)]
@@ -572,9 +575,12 @@ public class PedidosController : RestauranteControllerBase
         if (acceso == null)
             return NotFound();
 
+        var requestFingerprint = CalcularFingerprintPago(modelo);
+
         var repetido = await _cuentaService.ObtenerResultadoIdempotenteAsync(
             modelo.SesionId,
-            modelo.IdempotencyKey);
+            modelo.IdempotencyKey,
+            requestFingerprint);
 
         if (repetido != null)
         {
@@ -710,7 +716,8 @@ public class PedidosController : RestauranteControllerBase
             modelo.Metodo,
             modelo.Propina,
             modelo.PropinaPorcentaje,
-            modelo.IdempotencyKey);
+            modelo.IdempotencyKey,
+            requestFingerprint);
 
         if (!resultado.Ok)
         {
@@ -856,6 +863,29 @@ public class PedidosController : RestauranteControllerBase
             .Where(m => m.Pedidos.Count > 0 || m.CuentaSolicitada || sesionId.HasValue)
             .ToList()
         };
+    }
+
+    private static string CalcularFingerprintPago(CerrarConDivisionInputViewModel modelo)
+    {
+        var ids = string.Join(
+            ",",
+            modelo.DetallePedidoIds
+                .Distinct()
+                .OrderBy(id => id));
+
+        var raw = string.Join(
+            "|",
+            modelo.SesionId.ToString(CultureInfo.InvariantCulture),
+            (modelo.Modo ?? string.Empty).Trim().ToLowerInvariant(),
+            modelo.CantidadPartes.ToString(CultureInfo.InvariantCulture),
+            modelo.ComensalId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+            ids,
+            (modelo.Metodo ?? string.Empty).Trim().ToLowerInvariant(),
+            modelo.Propina.ToString(CultureInfo.InvariantCulture),
+            modelo.PropinaPorcentaje?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+
+        return Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
     }
 
     private sealed record SaldoDetallePago(
