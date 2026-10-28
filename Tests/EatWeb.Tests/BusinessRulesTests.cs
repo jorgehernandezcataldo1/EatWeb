@@ -119,9 +119,11 @@ public class MigrationSnapshotTests
         // Compara metadata en memoria; no abre conexión ni modifica Supabase.
         var snapshot = context.GetService<IMigrationsAssembly>().ModelSnapshot;
         var actual = context.GetService<IDesignTimeModel>().Model;
+        var finalizedSnapshot = context.GetService<IModelRuntimeInitializer>()
+            .Initialize(snapshot!.Model, designTime: true);
         var differ = context.GetService<IMigrationsModelDiffer>();
         var changes = differ.GetDifferences(
-            snapshot!.Model.GetRelationalModel(),
+            finalizedSnapshot.GetRelationalModel(),
             actual.GetRelationalModel());
 
         Assert.False(changes.Count > 0,
