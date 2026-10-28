@@ -374,6 +374,45 @@ namespace EatWeb.Migrations
                     b.ToTable("Estaciones");
                 });
 
+            modelBuilder.Entity("EatWeb.Models.HistorialEstadoDetallePedido", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DetallePedidoId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EstadoAnterior")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("EstadoNuevo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("UsuarioId")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.HasIndex("DetallePedidoId", "Fecha");
+
+                    b.ToTable("HistorialesEstadoDetallePedido");
+                });
+
             modelBuilder.Entity("EatWeb.Models.HistorialEstadoPedido", b =>
                 {
                     b.Property<int>("Id")
@@ -1137,6 +1176,24 @@ namespace EatWeb.Migrations
                     b.Navigation("Restaurante");
                 });
 
+            modelBuilder.Entity("EatWeb.Models.HistorialEstadoDetallePedido", b =>
+                {
+                    b.HasOne("EatWeb.Models.DetallePedido", "DetallePedido")
+                        .WithMany("Historial")
+                        .HasForeignKey("DetallePedidoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("EatWeb.Models.ApplicationUser", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("DetallePedido");
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("EatWeb.Models.HistorialEstadoPedido", b =>
                 {
                     b.HasOne("EatWeb.Models.Pedido", "Pedido")
@@ -1461,6 +1518,8 @@ namespace EatWeb.Migrations
 
             modelBuilder.Entity("EatWeb.Models.DetallePedido", b =>
                 {
+                    b.Navigation("Historial");
+
                     b.Navigation("Ingredientes");
 
                     b.Navigation("Pagos");
