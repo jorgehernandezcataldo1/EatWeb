@@ -23,25 +23,29 @@ public class OperadoresController : RestauranteControllerBase
 
     public async Task<IActionResult> Index()
     {
-        var usuarios = await _context.RestaurantesMiembros
+        var membresias = await _context.RestaurantesMiembros
             .AsNoTracking()
-            .Where(rm => rm.RestauranteId == RestauranteId && rm.Rol == RolRestaurante.Cocina)
-            .Select(rm => rm.Usuario)
-            .OrderBy(u => u.NombreCompleto)
+            .Where(rm =>
+                rm.RestauranteId == RestauranteId &&
+                rm.Rol == RolRestaurante.Cocina)
+            .Include(rm => rm.Usuario)
+            .OrderBy(rm => rm.Usuario.NombreCompleto)
             .ToListAsync();
 
         var modelos = new List<OperadorEstacionViewModel>();
-        foreach (var usuario in usuarios)
+
+        foreach (var membresia in membresias)
         {
-            var roles = await _userManager.GetRolesAsync(usuario);
+            var roles = await _userManager.GetRolesAsync(membresia.Usuario);
             var estacion = roles.Contains(Roles.Bar) ? Roles.Bar : Roles.Cocina;
+
             modelos.Add(new OperadorEstacionViewModel
             {
-                Id = usuario.Id,
-                NombreCompleto = usuario.NombreCompleto,
-                Email = usuario.Email ?? string.Empty,
+                Id = membresia.UsuarioId,
+                NombreCompleto = membresia.Usuario.NombreCompleto,
+                Email = membresia.Usuario.Email ?? string.Empty,
                 Estacion = estacion,
-                Activo = usuario.Activo
+                Activo = membresia.Activo
             });
         }
 
@@ -66,7 +70,8 @@ public class OperadoresController : RestauranteControllerBase
 
         if (await _userManager.FindByEmailAsync(modelo.Email) != null)
         {
-            ModelState.AddModelError(nameof(modelo.Email), "Ya existe un usuario con ese email");
+            ModelState.AddModelError(nameof(modelo.Email),
+                "Ya existe una cuenta con ese email. Por seguridad no se vincula automáticamente a otro restaurante.");
             return View(modelo);
         }
 
@@ -75,7 +80,7 @@ public class OperadoresController : RestauranteControllerBase
             UserName = modelo.Email,
             Email = modelo.Email,
             NombreCompleto = modelo.NombreCompleto.Trim(),
-            Activo = modelo.Activo
+            Activo = true
         };
 
         var creado = await _userManager.CreateAsync(usuario, modelo.Password!);
@@ -83,16 +88,20 @@ public class OperadoresController : RestauranteControllerBase
         {
             foreach (var error in creado.Errors)
                 ModelState.AddModelError(string.Empty, error.Description);
+
             return View(modelo);
         }
 
         await _userManager.AddToRoleAsync(usuario, modelo.Estacion);
+
         _context.RestaurantesMiembros.Add(new RestauranteMiembro
         {
             RestauranteId = RestauranteId,
             UsuarioId = usuario.Id,
-            Rol = RolRestaurante.Cocina
+            Rol = RolRestaurante.Cocina,
+            Activo = modelo.Activo
         });
+
         await _context.SaveChangesAsync();
 
         TempData["Ok"] = $"Operador de {modelo.Estacion} creado.";
@@ -103,23 +112,22 @@ public class OperadoresController : RestauranteControllerBase
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Activar(string id)
     {
-        var usuario = await _context.RestaurantesMiembros
-            .Where(rm => rm.RestauranteId == RestauranteId &&
-                         rm.UsuarioId == id &&
-                         rm.Rol == RolRestaurante.Cocina)
-            .Select(rm => rm.Usuario)
-            .FirstOrDefaultAsync();
+        var membresia = await _context.RestaurantesMiembros
+            .FirstOrDefaultAsync(rm =>
+                rm.RestauranteId == RestauranteId &&
+                rm.UsuarioId == id &&
+                rm.Rol == RolRestaurante.Cocina);
 
-        if (usuario == null)
+        if (membresia == null)
             return NotFound();
 
-        usuario.Activo = !usuario.Activo;
-        await _userManager.UpdateAsync(usuario);
+        membresia.Activo = !membresia.Activo;
+        await _context.SaveChangesAsync();
 
-        if (!usuario.Activo)
-            await _userManager.UpdateSecurityStampAsync(usuario);
+        TempData["Ok"] = membresia.Activo
+            ? "Operador activado en este restaurante."
+            : "Operador desactivado en este restaurante.";
 
-        TempData["Ok"] = usuario.Activo ? "Operador activado." : "Operador desactivado.";
         return RedirectToAction(nameof(Index));
     }
 }
