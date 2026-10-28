@@ -10,7 +10,7 @@ namespace EatWeb.Realtime;
 public static class RealtimeGroups
 {
     public static string Restaurante(int restauranteId) => $"restaurante:{restauranteId}";
-    public static string Garzon(string usuarioId) => $"garzon:{usuarioId}";
+    public static string Garzon(int restauranteId, string usuarioId) => $"garzon:{restauranteId}:{usuarioId}";
     public static string Estacion(int restauranteId, string estacion) =>
         $"estacion:{restauranteId}:{estacion.Trim().ToLowerInvariant()}";
     public static string Sesion(int sesionId) => $"sesion:{sesionId}";
@@ -133,14 +133,16 @@ public class ComiditaHub : Hub
                         RealtimeGroups.Restaurante(restauranteId));
                 }
 
-                var esGarzonLocal = Context.User.IsInRole(Roles.Garzon) &&
-                    membresias.Any(m => m.Rol == RolRestaurante.Garzon);
-
-                if (esGarzonLocal)
+                if (Context.User.IsInRole(Roles.Garzon))
                 {
-                    await Groups.AddToGroupAsync(
-                        Context.ConnectionId,
-                        RealtimeGroups.Garzon(usuarioId));
+                    foreach (var restauranteId in membresias
+                        .Where(m => m.Rol == RolRestaurante.Garzon)
+                        .Select(m => m.RestauranteId))
+                    {
+                        await Groups.AddToGroupAsync(
+                            Context.ConnectionId,
+                            RealtimeGroups.Garzon(restauranteId, usuarioId));
+                    }
                 }
 
                 var estaciones = membresias
