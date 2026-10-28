@@ -84,6 +84,7 @@ public class CuentaService
         IEnumerable<AsignacionPagoInput> asignaciones,
         string metodo,
         decimal propina = 0,
+        decimal? propinaPorcentaje = null,
         string? idempotencyKey = null)
     {
         var key = idempotencyKey?.Trim() ?? string.Empty;
@@ -105,6 +106,17 @@ public class CuentaService
 
         if (propina < 0 || decimal.Truncate(propina) != propina)
             return Error("La propina debe ser un monto CLP válido y no negativo.");
+
+        if (propinaPorcentaje.HasValue)
+        {
+            var porcentaje = propinaPorcentaje.Value;
+
+            if (porcentaje < 0 || porcentaje > 100 || decimal.Round(porcentaje, 2) != porcentaje)
+                return Error("El porcentaje de propina debe estar entre 0 y 100 y usar como máximo dos decimales.");
+
+            if (propina > 0)
+                return Error("La propina debe enviarse como monto o porcentaje, no ambos.");
+        }
 
         var items = asignaciones.ToList();
         if (items.Count == 0 || items.Any(a => a.Monto <= 0 || decimal.Truncate(a.Monto) != a.Monto))
@@ -219,6 +231,18 @@ public class CuentaService
             }
 
             var ahora = DateTime.UtcNow;
+            var montoConsumo = items.Sum(a => a.Monto);
+            var porcentajePropina = propinaPorcentaje.HasValue
+                ? decimal.Round(propinaPorcentaje.Value, 2)
+                : (decimal?)null;
+
+            var montoPropina = porcentajePropina.HasValue
+                ? Math.Round(
+                    montoConsumo * porcentajePropina.Value / 100m,
+                    0,
+                    MidpointRounding.AwayFromZero)
+                : propina;
+
             var pago = new Pago
             {
                 Cuenta = cuenta,
@@ -226,8 +250,10 @@ public class CuentaService
                 Estado = EstadoPago.Confirmado,
                 Metodo = metodoNormalizado,
                 IdempotencyKey = key,
-                Monto = items.Sum(a => a.Monto),
-                Propina = propina,
+                Monto = montoConsumo,
+                Propina = montoPropina,
+                PropinaPorcentaje = porcentajePropina,
+                PropinaBase = porcentajePropina.HasValue ? montoConsumo : null,
                 FechaCreacion = ahora,
                 FechaConfirmacion = ahora,
                 Detalles = items.Select(a => new PagoDetalle
