@@ -428,7 +428,18 @@ public class PedidoService
         resultado.PedidoId = pedido!.Id;
 
         // SignalR ocurre después del commit: es una notificación, no la fuente de verdad.
-        await NotificarPedidoAsync(pedido.Id, "PedidoCreado");
+        try
+        {
+            await NotificarPedidoAsync(pedido.Id, "PedidoCreado");
+        }
+        catch (Exception ex)
+        {
+            // El pedido ya fue confirmado en PostgreSQL: no informar un fallo
+            // ni inducir al cliente a reenviar por una caída de SignalR.
+            _logger.LogError(ex,
+                "Pedido {PedidoId} confirmado, pero falló la notificación realtime",
+                pedido.Id);
+        }
 
         return resultado;
     }
