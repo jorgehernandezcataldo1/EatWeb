@@ -43,7 +43,7 @@ public class OperacionRealtimeService
             if (!string.IsNullOrWhiteSpace(garzonId))
             {
                 await _hub.Clients
-                    .Group(RealtimeGroups.Garzon(garzonId))
+                    .Group(RealtimeGroups.Garzon(restauranteId, garzonId))
                     .SendAsync("GarzonActualizado", evento);
             }
 
