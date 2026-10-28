@@ -24,6 +24,7 @@ public class ClienteController : Controller
     private readonly PedidoService _pedidoService;
     private readonly SolicitudMesaService _solicitudMesaService;
     private readonly IStorageService _storage;
+    private readonly IWebHostEnvironment _environment;
 
     public ClienteController(
         ApplicationDbContext context,
@@ -31,7 +32,8 @@ public class ClienteController : Controller
         CarritoService carrito,
         PedidoService pedidoService,
         SolicitudMesaService solicitudMesaService,
-        IStorageService storage)
+        IStorageService storage,
+        IWebHostEnvironment environment)
     {
         _context = context;
         _sesionService = sesionService;
@@ -39,6 +41,7 @@ public class ClienteController : Controller
         _pedidoService = pedidoService;
         _solicitudMesaService = solicitudMesaService;
         _storage = storage;
+        _environment = environment;
     }
 
     // Datos mínimos de la mesa escaneada (nada de entidades completas)
@@ -675,7 +678,7 @@ public class ClienteController : Controller
             HttpOnly = true,                 // JavaScript no puede leerla
             IsEssential = true,
             SameSite = SameSiteMode.Lax,     // Lax: se envía al abrir el link del QR
-            Secure = Request.IsHttps,
+            Secure = !_environment.IsDevelopment() || Request.IsHttps,
             Expires = DateTimeOffset.UtcNow.AddHours(12)
         });
     }
