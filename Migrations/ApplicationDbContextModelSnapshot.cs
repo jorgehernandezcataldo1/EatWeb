@@ -125,6 +125,9 @@ namespace EatWeb.Migrations
                     b.Property<string>("UsuarioId")
                         .HasColumnType("text");
 
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime>("FechaAsignacion")
                         .HasColumnType("timestamp with time zone");
 
