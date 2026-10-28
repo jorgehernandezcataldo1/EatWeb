@@ -371,6 +371,45 @@ namespace EatWeb.Migrations
                     b.ToTable("Estaciones");
                 });
 
+            modelBuilder.Entity("EatWeb.Models.HistorialEstadoDetallePedido", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DetallePedidoId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EstadoAnterior")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("EstadoNuevo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("UsuarioId")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.HasIndex("DetallePedidoId", "Fecha");
+
+                    b.ToTable("HistorialesEstadoDetallePedido");
+                });
+
             modelBuilder.Entity("EatWeb.Models.HistorialEstadoPedido", b =>
                 {
                     b.Property<int>("Id")
@@ -591,6 +630,14 @@ namespace EatWeb.Migrations
                         .HasPrecision(18)
                         .HasColumnType("numeric(18,0)");
 
+                    b.Property<decimal?>("PropinaBase")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<decimal?>("PropinaPorcentaje")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
                     b.Property<string>("Proveedor")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
@@ -598,6 +645,10 @@ namespace EatWeb.Migrations
                     b.Property<string>("ReferenciaExterna")
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
+
+                    b.Property<string>("RequestFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.HasKey("Id");
 
@@ -716,17 +767,26 @@ namespace EatWeb.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<string>("RequestFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("RequestId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("Total")
                         .HasPrecision(18)
                         .HasColumnType("numeric(18,0)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ComensalId");
-
                     b.HasIndex("MesaSesionId");
 
                     b.HasIndex("Estado", "FechaCreacion");
+
+                    b.HasIndex("ComensalId", "RequestId")
+                        .IsUnique()
+                        .HasFilter("\"RequestId\" IS NOT NULL");
 
                     b.ToTable("Pedidos");
                 });
@@ -841,6 +901,9 @@ namespace EatWeb.Migrations
 
                     b.Property<string>("UsuarioId")
                         .HasColumnType("text");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean");
 
                     b.Property<DateTime>("FechaAsignacion")
                         .HasColumnType("timestamp with time zone");
@@ -1121,6 +1184,24 @@ namespace EatWeb.Migrations
                         .IsRequired();
 
                     b.Navigation("Restaurante");
+                });
+
+            modelBuilder.Entity("EatWeb.Models.HistorialEstadoDetallePedido", b =>
+                {
+                    b.HasOne("EatWeb.Models.DetallePedido", "DetallePedido")
+                        .WithMany("Historial")
+                        .HasForeignKey("DetallePedidoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("EatWeb.Models.ApplicationUser", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("DetallePedido");
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("EatWeb.Models.HistorialEstadoPedido", b =>
@@ -1447,6 +1528,8 @@ namespace EatWeb.Migrations
 
             modelBuilder.Entity("EatWeb.Models.DetallePedido", b =>
                 {
+                    b.Navigation("Historial");
+
                     b.Navigation("Ingredientes");
 
                     b.Navigation("Pagos");

@@ -1,5 +1,6 @@
 using EatWeb.Data;
 using EatWeb.Models;
+using EatWeb.Models.Enums;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -29,6 +30,8 @@ public class ComiditaHub : Hub
     {
         var http = Context.GetHttpContext();
 
+        // Cliente QR: la cookie solo habilita grupo si el token existe y toda la
+        // cadena sesión -> mesa -> restaurante sigue activa.
         if (http?.Request.Cookies.TryGetValue(CookieComensal, out var valor) == true &&
             Guid.TryParse(valor, out var token))
         {
@@ -43,7 +46,11 @@ public class ComiditaHub : Hub
                 .FirstOrDefaultAsync();
 
             if (sesionId.HasValue)
-                await Groups.AddToGroupAsync(Context.ConnectionId, RealtimeGroups.Sesion(sesionId.Value));
+            {
+                await Groups.AddToGroupAsync(
+                    Context.ConnectionId,
+                    RealtimeGroups.Sesion(sesionId.Value));
+            }
         }
 
         if (Context.User?.Identity?.IsAuthenticated == true)
@@ -52,52 +59,114 @@ public class ComiditaHub : Hub
 
             if (!string.IsNullOrWhiteSpace(usuarioId))
             {
-                var restaurantes = new List<int>();
+                var usuarioActivo = await _context.Users
+                    .AsNoTracking()
+                    .AnyAsync(u => u.Id == usuarioId && u.Activo);
+
+                if (!usuarioActivo)
+                {
+                    Context.Abort();
+                    return;
+                }
+
+                var membresias = await _context.RestaurantesMiembros
+                    .AsNoTracking()
+                    .Where(rm =>
+                        rm.UsuarioId == usuarioId &&
+                        rm.Activo &&
+                        rm.Restaurante.Activo)
+                    .Select(rm => new
+                    {
+                        rm.RestauranteId,
+                        rm.Rol
+                    })
+                    .ToListAsync();
+
+                var restaurantes = new HashSet<int>();
+
+                if (Context.User.IsInRole(Roles.AdminRestaurante))
+                {
+                    foreach (var membresia in membresias.Where(m =>
+                                 m.Rol == RolRestaurante.Administrador ||
+                                 m.Rol == RolRestaurante.Encargado))
+                    {
+                        restaurantes.Add(membresia.RestauranteId);
+                    }
+                }
+
+                if (Context.User.IsInRole(Roles.Garzon))
+                {
+                    foreach (var membresia in membresias.Where(m => m.Rol == RolRestaurante.Garzon))
+                        restaurantes.Add(membresia.RestauranteId);
+                }
+
+                if (Context.User.IsInRole(Roles.Cocina) ||
+                    Context.User.IsInRole(Roles.Bar))
+                {
+                    foreach (var membresia in membresias.Where(m => m.Rol == RolRestaurante.Cocina))
+                        restaurantes.Add(membresia.RestauranteId);
+                }
 
                 if (Context.User.IsInRole(Roles.AdminCadena))
                 {
-                    restaurantes = await _context.Restaurantes
+                    var restaurantesCadena = await _context.Restaurantes
                         .AsNoTracking()
                         .Where(r =>
+                            r.Activo &&
                             r.CadenaId != null &&
                             _context.CadenasMiembros.Any(cm =>
                                 cm.UsuarioId == usuarioId &&
-                                cm.CadenaId == r.CadenaId))
+                                cm.CadenaId == r.CadenaId &&
+                                (cm.Rol == RolCadena.Administrador ||
+                                 cm.Rol == RolCadena.Gerente)))
                         .Select(r => r.Id)
                         .ToListAsync();
-                }
-                else
-                {
-                    restaurantes = await _context.RestaurantesMiembros
-                        .AsNoTracking()
-                        .Where(rm => rm.UsuarioId == usuarioId)
-                        .Select(rm => rm.RestauranteId)
-                        .Distinct()
-                        .ToListAsync();
+
+                    foreach (var restauranteId in restaurantesCadena)
+                        restaurantes.Add(restauranteId);
                 }
 
                 foreach (var restauranteId in restaurantes)
+                {
                     await Groups.AddToGroupAsync(
                         Context.ConnectionId,
                         RealtimeGroups.Restaurante(restauranteId));
+                }
 
-                if (Context.User.IsInRole(Roles.Garzon))
-                    await Groups.AddToGroupAsync(Context.ConnectionId, RealtimeGroups.Garzon(usuarioId));
+                var esGarzonLocal = Context.User.IsInRole(Roles.Garzon) &&
+                    membresias.Any(m => m.Rol == RolRestaurante.Garzon);
+
+                if (esGarzonLocal)
+                {
+                    await Groups.AddToGroupAsync(
+                        Context.ConnectionId,
+                        RealtimeGroups.Garzon(usuarioId));
+                }
+
+                var estaciones = membresias
+                    .Where(m => m.Rol == RolRestaurante.Cocina)
+                    .Select(m => m.RestauranteId)
+                    .Distinct()
+                    .ToList();
 
                 if (Context.User.IsInRole(Roles.Cocina))
                 {
-                    foreach (var restauranteId in restaurantes)
+                    foreach (var restauranteId in estaciones)
+                    {
                         await Groups.AddToGroupAsync(
                             Context.ConnectionId,
                             RealtimeGroups.Estacion(restauranteId, "Cocina"));
+                    }
                 }
 
                 if (Context.User.IsInRole(Roles.Bar))
                 {
-                    foreach (var restauranteId in restaurantes)
+                    foreach (var restauranteId in estaciones)
+                    {
                         await Groups.AddToGroupAsync(
                             Context.ConnectionId,
                             RealtimeGroups.Estacion(restauranteId, "Bar"));
+                    }
                 }
             }
         }

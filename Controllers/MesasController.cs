@@ -266,6 +266,7 @@ public class MesasController : RestauranteControllerBase
             .Where(rm =>
                 rm.RestauranteId == restauranteId &&
                 rm.Rol == RolRestaurante.Garzon &&
+                rm.Activo &&
                 rm.Usuario.Activo)
             .Select(rm => rm.Usuario);
     }

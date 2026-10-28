@@ -26,6 +26,13 @@
     </div>
 </form>
 
+@if ((Model.Hasta - Model.Desde).TotalDays >= 366)
+{
+    <div class="alert alert-warning py-2 small">
+        Para mantener el historial ágil, cada consulta muestra como máximo 367 días. Ajusta las fechas para revisar períodos anteriores.
+    </div>
+}
+
 <div class="row mb-3">
     <div class="col-md-4">
         <div class="card text-white bg-primary">
@@ -110,4 +117,50 @@ else
             </tbody>
         </table>
     </div>
+
+    @if (Model.TotalPaginas > 1)
+    {
+        <nav class="mt-3" aria-label="Paginación del historial">
+            <ul class="pagination justify-content-center flex-wrap">
+                <li class="page-item @(Model.Pagina <= 1 ? "disabled" : "")">
+                    <a class="page-link"
+                       asp-action="Index"
+                       asp-route-desde="@Model.Desde.ToString("yyyy-MM-dd")"
+                       asp-route-hasta="@Model.Hasta.ToString("yyyy-MM-dd")"
+                       asp-route-pagina="@(Model.Pagina - 1)">
+                        Anterior
+                    </a>
+                </li>
+
+                @{
+                    var desdePagina = Math.Max(1, Model.Pagina - 2);
+                    var hastaPagina = Math.Min(Model.TotalPaginas, Model.Pagina + 2);
+                }
+
+                @for (var p = desdePagina; p <= hastaPagina; p++)
+                {
+                    <li class="page-item @(p == Model.Pagina ? "active" : "")">
+                        <a class="page-link"
+                           asp-action="Index"
+                           asp-route-desde="@Model.Desde.ToString("yyyy-MM-dd")"
+                           asp-route-hasta="@Model.Hasta.ToString("yyyy-MM-dd")"
+                           asp-route-pagina="@p">@p</a>
+                    </li>
+                }
+
+                <li class="page-item @(Model.Pagina >= Model.TotalPaginas ? "disabled" : "")">
+                    <a class="page-link"
+                       asp-action="Index"
+                       asp-route-desde="@Model.Desde.ToString("yyyy-MM-dd")"
+                       asp-route-hasta="@Model.Hasta.ToString("yyyy-MM-dd")"
+                       asp-route-pagina="@(Model.Pagina + 1)">
+                        Siguiente
+                    </a>
+                </li>
+            </ul>
+            <div class="text-center text-muted small">
+                Página @Model.Pagina de @Model.TotalPaginas · @Model.CantidadSesiones sesiones en el período
+            </div>
+        </nav>
+    }
 }

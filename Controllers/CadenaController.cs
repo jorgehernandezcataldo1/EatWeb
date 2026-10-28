@@ -1,4 +1,4 @@
-﻿using EatWeb.Data;
+using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
 using EatWeb.Services;
@@ -31,12 +31,15 @@ public class CadenasController : Controller
     private string UsuarioId =>
         User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-    // Lista los restaurantes de la cadena del admin
+    private IQueryable<CadenaMiembro> MembresiasAdministrables =>
+        _context.CadenasMiembros.Where(cm =>
+            cm.UsuarioId == UsuarioId &&
+            (cm.Rol == RolCadena.Administrador || cm.Rol == RolCadena.Gerente));
+
     [HttpGet]
     public async Task<IActionResult> Index()
     {
-        var cadenaId = await _context.CadenasMiembros
-            .Where(cm => cm.UsuarioId == UsuarioId)
+        var cadenaId = await MembresiasAdministrables
             .Select(cm => (int?)cm.CadenaId)
             .FirstOrDefaultAsync();
 
@@ -55,7 +58,9 @@ public class CadenasController : Controller
                 TotalMesas = r.Mesas.Count(),
                 TotalProductos = r.Productos.Count(),
                 Admins = r.Miembros
-                    .Where(m => m.Rol == RolRestaurante.Administrador)
+                    .Where(m =>
+                        m.Activo &&
+                        (m.Rol == RolRestaurante.Administrador || m.Rol == RolRestaurante.Encargado))
                     .Select(m => m.Usuario.Email!)
                     .ToList()
             })
@@ -74,51 +79,50 @@ public class CadenasController : Controller
         if (!ModelState.IsValid)
             return View(modelo);
 
-        var cadenaId = await _context.CadenasMiembros
-            .Where(cm => cm.UsuarioId == UsuarioId)
+        var cadenaId = await MembresiasAdministrables
             .Select(cm => (int?)cm.CadenaId)
             .FirstOrDefaultAsync();
 
         if (cadenaId == null)
             return Forbid();
 
-        // ¿Ya existe un usuario con ese email?
-        var adminUser = await _userManager.FindByEmailAsync(modelo.AdminEmail);
-
-        if (adminUser != null)
+        var adminExistente = await _userManager.FindByEmailAsync(modelo.AdminEmail);
+        if (adminExistente != null)
         {
-            // Ya existe: solo lo vinculamos como admin del nuevo restaurante
-        }
-        else
-        {
-            if (string.IsNullOrWhiteSpace(modelo.AdminPassword))
-            {
-                ModelState.AddModelError(nameof(modelo.AdminPassword), "La contraseña es requerida para un administrador nuevo.");
-                return View(modelo);
-            }
-
-            adminUser = new ApplicationUser
-            {
-                UserName = modelo.AdminEmail,
-                Email = modelo.AdminEmail,
-                NombreCompleto = modelo.AdminNombre,
-                Activo = true
-            };
-
-            var result = await _userManager.CreateAsync(adminUser, modelo.AdminPassword);
-
-            if (!result.Succeeded)
-            {
-                foreach (var e in result.Errors)
-                    ModelState.AddModelError(string.Empty, e.Description);
-                return View(modelo);
-            }
-
-            if (!await _userManager.IsInRoleAsync(adminUser, Roles.AdminRestaurante))
-                await _userManager.AddToRoleAsync(adminUser, Roles.AdminRestaurante);
+            ModelState.AddModelError(
+                nameof(modelo.AdminEmail),
+                "Ese correo ya pertenece a una cuenta. Por seguridad no se vincula automáticamente; usa otro correo mientras se implementa el flujo de invitaciones.");
+            return View(modelo);
         }
 
-        // Crear restaurante
+        if (string.IsNullOrWhiteSpace(modelo.AdminPassword))
+        {
+            ModelState.AddModelError(
+                nameof(modelo.AdminPassword),
+                "La contraseña es requerida para un administrador nuevo.");
+            return View(modelo);
+        }
+
+        var adminUser = new ApplicationUser
+        {
+            UserName = modelo.AdminEmail,
+            Email = modelo.AdminEmail,
+            NombreCompleto = modelo.AdminNombre,
+            Activo = true
+        };
+
+        var result = await _userManager.CreateAsync(adminUser, modelo.AdminPassword);
+        if (!result.Succeeded)
+        {
+            foreach (var e in result.Errors)
+                ModelState.AddModelError(string.Empty, e.Description);
+
+            return View(modelo);
+        }
+
+        if (!await _userManager.IsInRoleAsync(adminUser, Roles.AdminRestaurante))
+            await _userManager.AddToRoleAsync(adminUser, Roles.AdminRestaurante);
+
         var restaurante = new Restaurante
         {
             Nombre = modelo.Nombre,
@@ -129,17 +133,15 @@ public class CadenasController : Controller
         _context.Restaurantes.Add(restaurante);
         await _context.SaveChangesAsync();
 
-        // Asignar admin al restaurante
         _context.RestaurantesMiembros.Add(new RestauranteMiembro
         {
             RestauranteId = restaurante.Id,
             UsuarioId = adminUser.Id,
-            Rol = RolRestaurante.Administrador
+            Rol = RolRestaurante.Administrador,
+            Activo = true
         });
 
         await _context.SaveChangesAsync();
-
-        // Asegurar estaciones por defecto (Cocina, Bar)
         await _defaults.AsegurarEstacionesAsync(restaurante.Id);
 
         TempData["Ok"] = $"Restaurante {restaurante.Nombre} creado";

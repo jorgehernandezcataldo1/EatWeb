@@ -26,8 +26,10 @@ public class AdminController : Controller
     [HttpGet("SeleccionarRestaurante/{id:int}")]
     public async Task<IActionResult> SeleccionarRestaurante(int id)
     {
-        var seleccionado = await _restauranteContext.SeleccionarAsync(id);
+        if (!await _acceso.PuedeAdministrarAsync(id))
+            return Forbid();
 
+        var seleccionado = await _restauranteContext.SeleccionarAsync(id);
         if (!seleccionado)
             return Forbid();
 
@@ -38,19 +40,13 @@ public class AdminController : Controller
     [HttpGet("Index")]
     public async Task<IActionResult> Index()
     {
-        var restaurantes = await _acceso.ObtenerRestaurantesAccesiblesAsync();
+        var restaurantes = await _acceso.ObtenerRestaurantesAdministrablesAsync();
 
         if (!restaurantes.Any())
             return Forbid();
 
-        if (User.IsInRole(Roles.AdminRestaurante))
-        {
-            var restaurante = restaurantes.SingleOrDefault();
-            if (restaurante == null)
-                return Forbid();
-
-            return RedirectToAction(nameof(Restaurante), new { id = restaurante.Id });
-        }
+        if (restaurantes.Count == 1)
+            return RedirectToAction(nameof(Restaurante), new { id = restaurantes[0].Id });
 
         var model = await _dashboard.ObtenerCadenaAsync(
             restaurantes.Select(r => r.Id).ToList());
@@ -61,16 +57,17 @@ public class AdminController : Controller
     [HttpGet("Restaurante/{id:int}")]
     public async Task<IActionResult> Restaurante(int id)
     {
-        if (!await _acceso.PuedeAccederAsync(id))
+        if (!await _acceso.PuedeAdministrarAsync(id))
             return Forbid();
 
         var model = await _dashboard.ObtenerRestauranteAsync(id);
         if (model == null)
             return NotFound();
 
-        await _restauranteContext.SeleccionarAsync(id);
-        ViewData["RestauranteNombre"] = model.RestauranteNombre;
+        if (!await _restauranteContext.SeleccionarAsync(id))
+            return Forbid();
 
+        ViewData["RestauranteNombre"] = model.RestauranteNombre;
         return View("Restaurante", model);
     }
 }

@@ -1,4 +1,4 @@
-﻿using EatWeb.Data;
+using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
 using EatWeb.ViewModels;
@@ -21,19 +21,27 @@ public class GarzonesController : RestauranteControllerBase
         _userManager = userManager;
     }
 
-
     public async Task<IActionResult> Index()
     {
-        var garzones = await GarzonesDelRestaurante(RestauranteId)
+        var restauranteId = RestauranteId;
+
+        var garzones = await _context.RestaurantesMiembros
             .AsNoTracking()
-            .OrderBy(u => u.NombreCompleto)
-            .Select(u => new GarzonViewModel
+            .Where(rm =>
+                rm.RestauranteId == restauranteId &&
+                rm.Rol == RolRestaurante.Garzon)
+            .OrderBy(rm => rm.Usuario.NombreCompleto)
+            .Select(rm => new GarzonViewModel
             {
-                Id = u.Id,
-                NombreCompleto = u.NombreCompleto,
-                Email = u.Email ?? "",
-                Activo = u.Activo,
-                Mesas = u.Mesas.Select(m => m.Numero).OrderBy(n => n).ToList()
+                Id = rm.UsuarioId,
+                NombreCompleto = rm.Usuario.NombreCompleto,
+                Email = rm.Usuario.Email ?? "",
+                Activo = rm.Activo,
+                Mesas = rm.Usuario.Mesas
+                    .Where(m => m.RestauranteId == restauranteId)
+                    .Select(m => m.Numero)
+                    .OrderBy(n => n)
+                    .ToList()
             })
             .ToListAsync();
 
@@ -55,23 +63,20 @@ public class GarzonesController : RestauranteControllerBase
 
         if (await _userManager.FindByEmailAsync(modelo.Email) != null)
         {
-            ModelState.AddModelError(nameof(modelo.Email), "Ya existe un usuario con ese email");
+            ModelState.AddModelError(nameof(modelo.Email),
+                "Ya existe una cuenta con ese email. Por seguridad no se vincula automáticamente a otro restaurante.");
             return View(modelo);
         }
-
-        var restauranteId = RestauranteId;
 
         var garzon = new ApplicationUser
         {
             UserName = modelo.Email,
             Email = modelo.Email,
             NombreCompleto = modelo.NombreCompleto.Trim(),
-            Activo = modelo.Activo
+            Activo = true
         };
 
-        var resultado = await _userManager.CreateAsync(
-            garzon,
-            modelo.Password!);
+        var resultado = await _userManager.CreateAsync(garzon, modelo.Password!);
 
         if (!resultado.Succeeded)
         {
@@ -79,17 +84,15 @@ public class GarzonesController : RestauranteControllerBase
             return View(modelo);
         }
 
-        await _userManager.AddToRoleAsync(
-            garzon,
-            Roles.Garzon);
+        await _userManager.AddToRoleAsync(garzon, Roles.Garzon);
 
-        _context.RestaurantesMiembros.Add(
-            new RestauranteMiembro
-            {
-                RestauranteId = restauranteId,
-                UsuarioId = garzon.Id,
-                Rol = RolRestaurante.Garzon
-            });
+        _context.RestaurantesMiembros.Add(new RestauranteMiembro
+        {
+            RestauranteId = RestauranteId,
+            UsuarioId = garzon.Id,
+            Rol = RolRestaurante.Garzon,
+            Activo = modelo.Activo
+        });
 
         await _context.SaveChangesAsync();
 
@@ -100,15 +103,16 @@ public class GarzonesController : RestauranteControllerBase
     [HttpGet]
     public async Task<IActionResult> Editar(string id)
     {
-        var garzon = await BuscarGarzonAsync(id);
-        if (garzon == null) return NotFound();
+        var membresia = await BuscarMembresiaGarzonAsync(id);
+        if (membresia == null)
+            return NotFound();
 
         return View(new GarzonViewModel
         {
-            Id = garzon.Id,
-            NombreCompleto = garzon.NombreCompleto,
-            Email = garzon.Email ?? "",
-            Activo = garzon.Activo
+            Id = membresia.UsuarioId,
+            NombreCompleto = membresia.Usuario.NombreCompleto,
+            Email = membresia.Usuario.Email ?? "",
+            Activo = membresia.Activo
         });
     }
 
@@ -116,51 +120,92 @@ public class GarzonesController : RestauranteControllerBase
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Editar(string id, GarzonViewModel modelo)
     {
-        if (id != modelo.Id) return BadRequest();
-        if (!ModelState.IsValid) return View(modelo);
+        if (id != modelo.Id)
+            return BadRequest();
 
-        var garzon = await BuscarGarzonAsync(id);
-        if (garzon == null) return NotFound();
+        var membresia = await BuscarMembresiaGarzonAsync(id);
+        if (membresia == null)
+            return NotFound();
+
+        var garzon = membresia.Usuario;
+        var esCompartido =
+            await _context.RestaurantesMiembros.CountAsync(rm => rm.UsuarioId == id) > 1 ||
+            await _context.CadenasMiembros.AnyAsync(cm => cm.UsuarioId == id);
 
         var cambiaEmail = !string.Equals(garzon.Email, modelo.Email, StringComparison.OrdinalIgnoreCase);
-        if (cambiaEmail)
+        var cambiaNombre = !string.Equals(
+            garzon.NombreCompleto?.Trim(),
+            modelo.NombreCompleto?.Trim(),
+            StringComparison.Ordinal);
+
+        if (esCompartido &&
+            (cambiaEmail || cambiaNombre || !string.IsNullOrWhiteSpace(modelo.Password)))
+        {
+            ModelState.AddModelError(string.Empty,
+                "Esta cuenta pertenece a más de un restaurante. Desde este local solo puedes activar o desactivar su membresía; los datos de identidad se administran de forma global.");
+        }
+
+        if (cambiaEmail && !esCompartido)
         {
             var otro = await _userManager.FindByEmailAsync(modelo.Email);
             if (otro != null && otro.Id != garzon.Id)
-            {
                 ModelState.AddModelError(nameof(modelo.Email), "Ya existe un usuario con ese email");
-                return View(modelo);
-            }
         }
 
-        // 1) Contraseña primero: si falla la política, no se cambia nada más
-        if (!string.IsNullOrWhiteSpace(modelo.Password))
+        if (!ModelState.IsValid)
+        {
+            modelo.Activo = membresia.Activo;
+            return View(modelo);
+        }
+
+        if (!esCompartido && !string.IsNullOrWhiteSpace(modelo.Password))
         {
             var token = await _userManager.GeneratePasswordResetTokenAsync(garzon);
             var reset = await _userManager.ResetPasswordAsync(garzon, token, modelo.Password);
             if (!reset.Succeeded)
             {
                 AgregarErrores(reset);
+                modelo.Activo = membresia.Activo;
                 return View(modelo);
             }
         }
 
-        // 2) Resto de datos
-        if (cambiaEmail)
+        if (!esCompartido)
         {
-            await _userManager.SetEmailAsync(garzon, modelo.Email);
-            await _userManager.SetUserNameAsync(garzon, modelo.Email); // el login usa UserName
+            if (cambiaEmail)
+            {
+                var emailResult = await _userManager.SetEmailAsync(garzon, modelo.Email);
+                if (!emailResult.Succeeded)
+                {
+                    AgregarErrores(emailResult);
+                    return View(modelo);
+                }
+
+                var userNameResult = await _userManager.SetUserNameAsync(garzon, modelo.Email);
+                if (!userNameResult.Succeeded)
+                {
+                    AgregarErrores(userNameResult);
+                    return View(modelo);
+                }
+            }
+
+            garzon.NombreCompleto = modelo.NombreCompleto.Trim();
+            garzon.Activo = true;
+
+            var actualizado = await _userManager.UpdateAsync(garzon);
+            if (!actualizado.Succeeded)
+            {
+                AgregarErrores(actualizado);
+                return View(modelo);
+            }
         }
 
-        garzon.NombreCompleto = modelo.NombreCompleto.Trim();
-        garzon.Activo = modelo.Activo;
+        var estabaActivo = membresia.Activo;
+        membresia.Activo = modelo.Activo;
+        await _context.SaveChangesAsync();
 
-        var actualizado = await _userManager.UpdateAsync(garzon);
-        if (!actualizado.Succeeded)
-        {
-            AgregarErrores(actualizado);
-            return View(modelo);
-        }
+        if (estabaActivo && !membresia.Activo)
+            await LiberarMesasLocalesAsync(garzon.Id);
 
         TempData["Ok"] = "Garzón actualizado";
         return RedirectToAction(nameof(Index));
@@ -170,66 +215,47 @@ public class GarzonesController : RestauranteControllerBase
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Activar(string id)
     {
-        var garzon = await BuscarGarzonAsync(id);
-        if (garzon == null) return NotFound();
+        var membresia = await BuscarMembresiaGarzonAsync(id);
+        if (membresia == null)
+            return NotFound();
 
-        garzon.Activo = !garzon.Activo;
-        await _userManager.UpdateAsync(garzon);
+        membresia.Activo = !membresia.Activo;
+        await _context.SaveChangesAsync();
 
-        if (garzon.Activo)
+        if (membresia.Activo)
         {
-            TempData["Ok"] = "Garzón activado";
+            TempData["Ok"] = "Garzón activado en este restaurante";
         }
         else
         {
-            // Invalida su sesión abierta y libera sus mesas
-            await _userManager.UpdateSecurityStampAsync(garzon);
-            var liberadas = await _context.Mesas
-                .Where(m => m.GarzonId == garzon.Id)
-                .ExecuteUpdateAsync(s => s.SetProperty(m => m.GarzonId, (string?)null));
-
-            TempData["Ok"] = $"Garzón desactivado. Mesas liberadas: {liberadas}";
+            var liberadas = await LiberarMesasLocalesAsync(membresia.UsuarioId);
+            TempData["Ok"] = $"Garzón desactivado en este restaurante. Mesas liberadas: {liberadas}";
         }
 
         return RedirectToAction(nameof(Index));
     }
 
-    // ---------- Helpers ----------
-    private IQueryable<ApplicationUser> GarzonesDelRestaurante(int restauranteId)
+    private Task<RestauranteMiembro?> BuscarMembresiaGarzonAsync(string id)
     {
         return _context.RestaurantesMiembros
-            .Where(rm =>
-                rm.RestauranteId == restauranteId &&
-                rm.Rol == RolRestaurante.Garzon)
-            .Select(rm => rm.Usuario);
+            .Include(rm => rm.Usuario)
+            .FirstOrDefaultAsync(rm =>
+                rm.UsuarioId == id &&
+                rm.RestauranteId == RestauranteId &&
+                rm.Rol == RolRestaurante.Garzon);
     }
 
-
-    /// <summary>Solo devuelve usuarios GARZÓN de MI restaurante (un admin no se edita aquí).</summary>
-    private async Task<ApplicationUser?> BuscarGarzonAsync(string id)
+    private Task<int> LiberarMesasLocalesAsync(string usuarioId)
     {
         var restauranteId = RestauranteId;
 
-        var user = await _userManager.FindByIdAsync(id);
-
-        if (user == null)
-            return null;
-
-        if (!await _userManager.IsInRoleAsync(user, Roles.Garzon))
-            return null;
-
-        var pertenece = await _context.RestaurantesMiembros
-            .AnyAsync(rm =>
-                rm.UsuarioId == id &&
-                rm.RestauranteId == restauranteId &&
-                rm.Rol == RolRestaurante.Garzon);
-
-        if (!pertenece)
-            return null;
-
-        return user;
+        return _context.Mesas
+            .Where(m =>
+                m.RestauranteId == restauranteId &&
+                m.GarzonId == usuarioId)
+            .ExecuteUpdateAsync(s =>
+                s.SetProperty(m => m.GarzonId, (string?)null));
     }
-
 
     private void AgregarErrores(IdentityResult resultado)
     {
@@ -245,6 +271,7 @@ public class GarzonesController : RestauranteControllerBase
                 "DuplicateUserName" or "DuplicateEmail" => "Ya existe un usuario con ese email",
                 _ => e.Description
             };
+
             ModelState.AddModelError(string.Empty, mensaje);
         }
     }

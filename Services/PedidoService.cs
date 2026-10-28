@@ -1,3 +1,6 @@
+using System.Data;
+using System.Security.Cryptography;
+using System.Text;
 using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
@@ -58,7 +61,9 @@ public class PedidoService
         _realtime = realtime;
     }
 
-    public async Task<CarritoCalculado> CalcularCarritoAsync(CarritoSesion carrito, int? restauranteId = null)
+    public async Task<CarritoCalculado> CalcularCarritoAsync(
+        CarritoSesion carrito,
+        int? restauranteId = null)
     {
         var resultado = new CarritoCalculado();
 
@@ -68,15 +73,35 @@ public class PedidoService
             return resultado;
         }
 
+        var productoIds = carrito.Lineas
+            .Select(l => l.ProductoId)
+            .Distinct()
+            .ToList();
+
+        // Dos lecturas en lote en vez de dos consultas por cada línea del carrito.
+        var productosQuery = _context.Productos
+            .AsNoTracking()
+            .Include(p => p.Categoria)
+                .ThenInclude(c => c!.Estacion)
+            .Where(p => productoIds.Contains(p.Id));
+
+        if (restauranteId.HasValue)
+            productosQuery = productosQuery.Where(p => p.RestauranteId == restauranteId.Value);
+
+        var productos = await productosQuery
+            .ToDictionaryAsync(p => p.Id);
+
+        var ingredientesPorProducto = (await _context.ProductoIngredientes
+                .AsNoTracking()
+                .Include(pi => pi.Ingrediente)
+                .Where(pi => productoIds.Contains(pi.ProductoId))
+                .ToListAsync())
+            .GroupBy(pi => pi.ProductoId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         foreach (var linea in carrito.Lineas)
         {
-            var producto = await _context.Productos
-                .AsNoTracking()
-                .Include(p => p.Categoria)
-                    .ThenInclude(c => c!.Estacion)
-                .FirstOrDefaultAsync(p => p.Id == linea.ProductoId && (!restauranteId.HasValue || p.RestauranteId == restauranteId.Value));
-
-            if (producto == null)
+            if (!productos.TryGetValue(linea.ProductoId, out var producto))
             {
                 resultado.Errores.Add($"Producto {linea.ProductoId} no encontrado");
                 continue;
@@ -88,23 +113,28 @@ public class PedidoService
                 continue;
             }
 
-            if (producto.Categoria?.Estacion == null || !producto.Categoria.Estacion.Activa)
+            if (producto.Categoria == null || !producto.Categoria.Activa)
+            {
+                resultado.Errores.Add($"{producto.Nombre} pertenece a una categoría no disponible");
+                continue;
+            }
+
+            if (producto.Categoria.Estacion == null || !producto.Categoria.Estacion.Activa)
             {
                 resultado.Errores.Add($"{producto.Nombre} no tiene una estación de preparación activa");
                 continue;
             }
 
-            var ingredientesProducto = await _context.ProductoIngredientes
-                .AsNoTracking()
-                .Include(pi => pi.Ingrediente)
-                .Where(pi => pi.ProductoId == linea.ProductoId)
-                .ToListAsync();
+            ingredientesPorProducto.TryGetValue(
+                linea.ProductoId,
+                out var ingredientesProducto);
+
+            ingredientesProducto ??= new List<ProductoIngrediente>();
 
             var personalizaciones = new List<PersonalizacionLegible>();
             var montoPrecioExtra = 0m;
 
-            // QUITAR: solo válidos si son "Incluido"
-            foreach (var idQuitar in linea.IngredientesQuitar)
+            foreach (var idQuitar in linea.IngredientesQuitar.Distinct())
             {
                 var pi = ingredientesProducto.FirstOrDefault(x => x.IngredienteId == idQuitar);
 
@@ -130,8 +160,7 @@ public class PedidoService
                 });
             }
 
-            // AGREGAR: solo válidos si son "Extra"
-            foreach (var idAgregar in linea.IngredientesAgregar)
+            foreach (var idAgregar in linea.IngredientesAgregar.Distinct())
             {
                 var pi = ingredientesProducto.FirstOrDefault(x => x.IngredienteId == idAgregar);
 
@@ -185,39 +214,34 @@ public class PedidoService
     public async Task<ResultadoPedido> CrearPedidoAsync(
         int comensalId,
         CarritoSesion carrito,
-        string? observacionGeneral)
+        string? observacionGeneral,
+        Guid requestId)
     {
         var resultado = new ResultadoPedido();
 
-        var comensal = await _context.Comensales
-            .Include(c => c.MesaSesion)
-                .ThenInclude(s => s!.Mesa)
-            .FirstOrDefaultAsync(c => c.Id == comensalId);
-
-        if (comensal == null)
+        if (requestId == Guid.Empty)
         {
-            resultado.Errores.Add("Comensal no encontrado");
+            resultado.Errores.Add("Identificador de envío inválido. Recarga el carrito.");
             return resultado;
         }
 
-        var sesion = comensal.MesaSesion;
-        if (sesion == null || sesion.FechaCierre.HasValue)
+        var observacion = (observacionGeneral ?? string.Empty).Trim();
+        if (observacion.Length > 300)
         {
-            resultado.Errores.Add("Sesión cerrada o no disponible");
+            resultado.Errores.Add("La nota general no puede superar 300 caracteres.");
             return resultado;
         }
 
-        if (sesion.Mesa == null || !sesion.Mesa.Activa)
-        {
-            resultado.Errores.Add("Mesa no disponible");
-            return resultado;
-        }
+        // Si el primer POST alcanzó a persistir y la respuesta se perdió,
+        // un reintento con la misma clave devuelve el pedido ya creado.
+        var existente = await _context.Pedidos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p =>
+                p.ComensalId == comensalId &&
+                p.RequestId == requestId);
 
-        if (sesion.CuentaSolicitadaEn.HasValue)
-        {
-            resultado.Errores.Add("La cuenta ya ha sido solicitada");
-            return resultado;
-        }
+        if (existente != null)
+            return ResolverReintento(existente, carrito, observacion);
 
         if (carrito.Lineas.Count == 0)
         {
@@ -234,77 +258,160 @@ public class PedidoService
             }
         }
 
-        var carritoCalculado = await CalcularCarritoAsync(carrito, sesion.Mesa.RestauranteId);
-        if (carritoCalculado.Errores.Count > 0)
-        {
-            resultado.Errores = carritoCalculado.Errores;
-            return resultado;
-        }
+        var fingerprint = CalcularFingerprint(carrito, observacion);
 
-        // === Crear pedido ===
-        var pedido = new Pedido
-        {
-            MesaSesionId = sesion.Id,
-            ComensalId = comensalId,
-            Estado = EstadoPedido.Pendiente,
-            Total = carritoCalculado.Total,
-            ObservacionGeneral = observacionGeneral ?? string.Empty,
-            FechaCreacion = DateTime.UtcNow
-        };
+        await using var transaccion = await _context.Database
+            .BeginTransactionAsync(IsolationLevel.Serializable);
 
-        _context.Pedidos.Add(pedido);
-
-        // === Crear detalles ===
-        foreach (var lineaCalculada in carritoCalculado.Lineas)
-        {
-            var detalle = new DetallePedido
-            {
-                ProductoId = lineaCalculada.ProductoId,
-                NombreProducto = lineaCalculada.NombreProducto,
-                PrecioUnitario = lineaCalculada.PrecioUnitario,
-                Cantidad = lineaCalculada.Cantidad,
-                Observacion = lineaCalculada.Observacion,
-                Subtotal = lineaCalculada.Subtotal,
-                EstacionId = lineaCalculada.EstacionId,
-                EstacionNombre = lineaCalculada.EstacionNombre,
-                Estado = EstadoDetallePedido.Pendiente
-            };
-
-            foreach (var pers in lineaCalculada.Personalizaciones)
-            {
-                detalle.Ingredientes.Add(new DetallePedidoIngrediente
-                {
-                    IngredienteId = pers.IngredienteId,
-                    NombreIngrediente = pers.NombreIngrediente,
-                    Accion = pers.TipoAccion == "Sin"
-                        ? AccionIngrediente.Quitar
-                        : AccionIngrediente.Agregar,
-                    PrecioExtra = pers.PrecioExtra
-                });
-            }
-
-            pedido.Detalles.Add(detalle);
-        }
-
-        // === Historial ===
-        pedido.Historial.Add(new HistorialEstadoPedido
-        {
-            EstadoAnterior = null,
-            EstadoNuevo = EstadoPedido.Pendiente,
-            Fecha = DateTime.UtcNow,
-            UsuarioId = null
-        });
+        Pedido? pedido = null;
 
         try
         {
+            // Segunda lectura dentro de la transacción para cubrir reintentos que
+            // entraron entre la comprobación inicial y el BeginTransaction.
+            existente = await _context.Pedidos
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p =>
+                    p.ComensalId == comensalId &&
+                    p.RequestId == requestId);
+
+            if (existente != null)
+            {
+                await transaccion.RollbackAsync();
+                return ResolverReintento(existente, carrito, observacion, fingerprint);
+            }
+
+            var comensal = await _context.Comensales
+                .Include(c => c.MesaSesion)
+                    .ThenInclude(s => s!.Mesa)
+                .FirstOrDefaultAsync(c => c.Id == comensalId);
+
+            if (comensal == null)
+            {
+                await transaccion.RollbackAsync();
+                resultado.Errores.Add("Comensal no encontrado");
+                return resultado;
+            }
+
+            var sesion = comensal.MesaSesion;
+            if (sesion == null || sesion.FechaCierre.HasValue)
+            {
+                await transaccion.RollbackAsync();
+                resultado.Errores.Add("Sesión cerrada o no disponible");
+                return resultado;
+            }
+
+            if (sesion.Mesa == null || !sesion.Mesa.Activa)
+            {
+                await transaccion.RollbackAsync();
+                resultado.Errores.Add("Mesa no disponible");
+                return resultado;
+            }
+
+            if (sesion.CuentaSolicitadaEn.HasValue)
+            {
+                await transaccion.RollbackAsync();
+                resultado.Errores.Add("La cuenta ya ha sido solicitada");
+                return resultado;
+            }
+
+            var carritoCalculado = await CalcularCarritoAsync(
+                carrito,
+                sesion.Mesa.RestauranteId);
+
+            if (carritoCalculado.Errores.Count > 0)
+            {
+                await transaccion.RollbackAsync();
+                resultado.Errores = carritoCalculado.Errores;
+                return resultado;
+            }
+
+            pedido = new Pedido
+            {
+                MesaSesionId = sesion.Id,
+                ComensalId = comensalId,
+                RequestId = requestId,
+                RequestFingerprint = fingerprint,
+                Estado = EstadoPedido.Pendiente,
+                Total = carritoCalculado.Total,
+                ObservacionGeneral = observacion,
+                FechaCreacion = DateTime.UtcNow
+            };
+
+            _context.Pedidos.Add(pedido);
+
+            foreach (var lineaCalculada in carritoCalculado.Lineas)
+            {
+                var detalle = new DetallePedido
+                {
+                    ProductoId = lineaCalculada.ProductoId,
+                    NombreProducto = lineaCalculada.NombreProducto,
+                    PrecioUnitario = lineaCalculada.PrecioUnitario,
+                    Cantidad = lineaCalculada.Cantidad,
+                    Observacion = lineaCalculada.Observacion,
+                    Subtotal = lineaCalculada.Subtotal,
+                    EstacionId = lineaCalculada.EstacionId,
+                    EstacionNombre = lineaCalculada.EstacionNombre,
+                    Estado = EstadoDetallePedido.Pendiente
+                };
+
+                foreach (var pers in lineaCalculada.Personalizaciones)
+                {
+                    detalle.Ingredientes.Add(new DetallePedidoIngrediente
+                    {
+                        IngredienteId = pers.IngredienteId,
+                        NombreIngrediente = pers.NombreIngrediente,
+                        Accion = pers.TipoAccion == "Sin"
+                            ? AccionIngrediente.Quitar
+                            : AccionIngrediente.Agregar,
+                        PrecioExtra = pers.PrecioExtra
+                    });
+                }
+
+                detalle.Historial.Add(new HistorialEstadoDetallePedido
+                {
+                    EstadoAnterior = null,
+                    EstadoNuevo = EstadoDetallePedido.Pendiente,
+                    Fecha = DateTime.UtcNow,
+                    UsuarioId = null,
+                    Motivo = null
+                });
+
+                pedido.Detalles.Add(detalle);
+            }
+
+            pedido.Historial.Add(new HistorialEstadoPedido
+            {
+                EstadoAnterior = null,
+                EstadoNuevo = EstadoPedido.Pendiente,
+                Fecha = DateTime.UtcNow,
+                UsuarioId = null
+            });
+
             await _context.SaveChangesAsync();
+            await transaccion.CommitAsync();
         }
         catch (DbUpdateException ex)
         {
+            await transaccion.RollbackAsync();
+            _context.ChangeTracker.Clear();
+
+            // La carrera esperable es que otro POST con el mismo RequestId
+            // haya ganado el índice único. Si existe y el payload coincide,
+            // el resultado es idempotente y no un error.
+            existente = await _context.Pedidos
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p =>
+                    p.ComensalId == comensalId &&
+                    p.RequestId == requestId);
+
+            if (existente != null)
+                return ResolverReintento(existente, carrito, observacion, fingerprint);
+
             _logger.LogError(ex,
-                "Error persistiendo pedido para comensal {ComensalId} en sesión {SesionId}",
+                "Error persistiendo pedido idempotente para comensal {ComensalId}, request {RequestId}",
                 comensalId,
-                sesion.Id);
+                requestId);
 
             resultado.Errores.Add(
                 "No pudimos guardar el pedido. Intenta nuevamente o avisa al personal.");
@@ -312,11 +419,80 @@ public class PedidoService
         }
 
         resultado.Ok = true;
-        resultado.PedidoId = pedido.Id;
+        resultado.PedidoId = pedido!.Id;
 
+        // SignalR ocurre después del commit: es una notificación, no la fuente de verdad.
         await NotificarPedidoAsync(pedido.Id, "PedidoCreado");
 
         return resultado;
+    }
+
+    private ResultadoPedido ResolverReintento(
+        Pedido existente,
+        CarritoSesion carrito,
+        string observacion,
+        string? fingerprintActual = null)
+    {
+        // Tras un envío exitoso el controller vacía el carrito. En ese caso la
+        // misma RequestId puede recuperarse sin exigir reconstruir el payload.
+        if (carrito.Lineas.Count > 0)
+        {
+            fingerprintActual ??= CalcularFingerprint(carrito, observacion);
+
+            if (!string.Equals(
+                    existente.RequestFingerprint,
+                    fingerprintActual,
+                    StringComparison.Ordinal))
+            {
+                return new ResultadoPedido
+                {
+                    Errores =
+                    {
+                        "Este identificador de envío ya fue usado con un pedido distinto. Recarga el carrito."
+                    }
+                };
+            }
+        }
+
+        return new ResultadoPedido
+        {
+            Ok = true,
+            PedidoId = existente.Id
+        };
+    }
+
+    private static string CalcularFingerprint(
+        CarritoSesion carrito,
+        string observacionGeneral)
+    {
+        var builder = new StringBuilder();
+        builder.Append("obs:")
+            .Append(observacionGeneral.Length)
+            .Append(':')
+            .Append(observacionGeneral)
+            .Append('|');
+
+        foreach (var linea in carrito.Lineas.OrderBy(l => l.LineaId))
+        {
+            builder.Append(linea.LineaId).Append(';')
+                .Append(linea.ProductoId).Append(';')
+                .Append(linea.Cantidad).Append(';')
+                .Append(linea.Observacion?.Length ?? 0).Append(':')
+                .Append(linea.Observacion ?? string.Empty).Append(';');
+
+            builder.Append("q[");
+            foreach (var id in linea.IngredientesQuitar.Distinct().OrderBy(x => x))
+                builder.Append(id).Append(',');
+
+            builder.Append("];a[");
+            foreach (var id in linea.IngredientesAgregar.Distinct().OrderBy(x => x))
+                builder.Append(id).Append(',');
+
+            builder.Append("]|");
+        }
+
+        return Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString())));
     }
 
     public async Task<ResultadoPedido> CambiarEstadoAsync(
@@ -347,7 +523,7 @@ public class PedidoService
         }
 
         foreach (var detalle in detallesElegibles)
-            AplicarEstadoDetalle(detalle, nuevoEstado);
+            AplicarEstadoDetalle(detalle, nuevoEstado, usuarioId);
 
         await RecalcularPedidoAsync(pedido, usuarioId);
         await _context.SaveChangesAsync();
@@ -361,7 +537,8 @@ public class PedidoService
     public async Task<ResultadoPedido> CambiarEstadoDetalleAsync(
         int detalleId,
         string nuevoEstado,
-        string usuarioId)
+        string usuarioId,
+        string? motivo = null)
     {
         var detalle = await _context.DetallesPedidos
             .Include(d => d.Pedido)
@@ -374,7 +551,36 @@ public class PedidoService
         if (!EsTransicionValida(detalle.Estado, nuevoEstado))
             return new ResultadoPedido { Errores = { $"Transición de {detalle.Estado} a {nuevoEstado} no permitida" } };
 
-        AplicarEstadoDetalle(detalle, nuevoEstado);
+        var motivoNormalizado = string.IsNullOrWhiteSpace(motivo)
+            ? null
+            : motivo.Trim();
+
+        if (nuevoEstado == EstadoDetallePedido.Cancelado)
+        {
+            if (motivoNormalizado == null || motivoNormalizado.Length < 3 || motivoNormalizado.Length > 200)
+            {
+                return new ResultadoPedido
+                {
+                    Errores = { "La anulación requiere un motivo entre 3 y 200 caracteres." }
+                };
+            }
+
+            var tienePagoConfirmado = await _context.PagoDetalles
+                .AsNoTracking()
+                .AnyAsync(pd =>
+                    pd.DetallePedidoId == detalleId &&
+                    pd.Pago!.Estado == EstadoPago.Confirmado);
+
+            if (tienePagoConfirmado)
+            {
+                return new ResultadoPedido
+                {
+                    Errores = { "No se puede anular un consumo que ya tiene un pago confirmado." }
+                };
+            }
+        }
+
+        AplicarEstadoDetalle(detalle, nuevoEstado, usuarioId, motivoNormalizado);
         var resultado = await RecalcularYGuardarPedidoAsync(detalle.Pedido, usuarioId);
 
         if (resultado.Ok)
@@ -418,7 +624,7 @@ public class PedidoService
 
             foreach (var detalle in detallesElegibles)
             {
-                AplicarEstadoDetalle(detalle, nuevoEstado);
+                AplicarEstadoDetalle(detalle, nuevoEstado, usuarioId);
                 cambios++;
             }
 
@@ -528,13 +734,36 @@ public class PedidoService
         return EstadoPedido.Pendiente;
     }
 
-    private static void AplicarEstadoDetalle(DetallePedido detalle, string nuevoEstado)
+    private static void AplicarEstadoDetalle(
+        DetallePedido detalle,
+        string nuevoEstado,
+        string? usuarioId,
+        string? motivo = null)
     {
+        var anterior = detalle.Estado;
+        if (anterior == nuevoEstado)
+            return;
+
         detalle.Estado = nuevoEstado;
         var ahora = DateTime.UtcNow;
-        if (nuevoEstado == EstadoDetallePedido.EnPreparacion) detalle.FechaInicioPreparacion ??= ahora;
-        if (nuevoEstado == EstadoDetallePedido.Listo) detalle.FechaListo ??= ahora;
-        if (nuevoEstado == EstadoDetallePedido.Entregado) detalle.FechaEntregado ??= ahora;
+
+        if (nuevoEstado == EstadoDetallePedido.EnPreparacion)
+            detalle.FechaInicioPreparacion ??= ahora;
+
+        if (nuevoEstado == EstadoDetallePedido.Listo)
+            detalle.FechaListo ??= ahora;
+
+        if (nuevoEstado == EstadoDetallePedido.Entregado)
+            detalle.FechaEntregado ??= ahora;
+
+        detalle.Historial.Add(new HistorialEstadoDetallePedido
+        {
+            EstadoAnterior = anterior,
+            EstadoNuevo = nuevoEstado,
+            Fecha = ahora,
+            UsuarioId = string.IsNullOrWhiteSpace(usuarioId) ? null : usuarioId,
+            Motivo = motivo
+        });
     }
 
     private static bool EsTransicionValida(string estadoActual, string nuevoEstado)

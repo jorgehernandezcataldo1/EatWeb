@@ -19,10 +19,13 @@ public class SesionesController : RestauranteControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> Index(DateTime? desde, DateTime? hasta)
+    public async Task<IActionResult> Index(
+        DateTime? desde,
+        DateTime? hasta,
+        int pagina = 1)
     {
-        // El filtro se interpreta como fechas de calendario de Santiago,
-        // no como la zona horaria del servidor.
+        const int tamanoPagina = 25;
+
         var hoyLocal = ZonaHorariaService.HoyLocal();
         var desdeLocal = (desde ?? hoyLocal.AddDays(-6)).Date;
         var hastaLocal = (hasta ?? hoyLocal).Date;
@@ -30,16 +33,42 @@ public class SesionesController : RestauranteControllerBase
         if (hastaLocal < desdeLocal)
             (desdeLocal, hastaLocal) = (hastaLocal, desdeLocal);
 
+        // Evita consultas accidentales de rangos enormes desde la UI.
+        // El usuario puede navegar períodos más antiguos cambiando las fechas.
+        if ((hastaLocal - desdeLocal).TotalDays > 366)
+            desdeLocal = hastaLocal.AddDays(-366);
+
         var inicio = ZonaHorariaService.InicioFechaLocalUtc(desdeLocal);
         var fin = ZonaHorariaService.InicioFechaLocalUtc(hastaLocal.AddDays(1));
 
-        var sesiones = await _context.MesaSesiones
+        var baseQuery = _context.MesaSesiones
             .AsNoTracking()
-            .Where(s => s.Mesa!.RestauranteId == RestauranteId
-                        && s.FechaCierre != null
-                        && s.FechaApertura >= inicio
-                        && s.FechaApertura < fin)
+            .Where(s =>
+                s.Mesa!.RestauranteId == RestauranteId &&
+                s.FechaCierre != null &&
+                s.FechaApertura >= inicio &&
+                s.FechaApertura < fin);
+
+        var cantidadSesiones = await baseQuery.CountAsync();
+
+        var totalPeriodo = await baseQuery
+            .SelectMany(s => s.Pedidos)
+            .Where(p => p.Estado != EstadoPedido.Cancelado)
+            .SelectMany(p => p.Detalles)
+            .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
+            .SumAsync(d => (decimal?)d.Subtotal) ?? 0;
+
+        var totalPaginas = Math.Max(
+            1,
+            (int)Math.Ceiling(cantidadSesiones / (double)tamanoPagina));
+
+        pagina = Math.Clamp(pagina, 1, totalPaginas);
+
+        var sesiones = await baseQuery
             .OrderByDescending(s => s.FechaCierre)
+            .ThenByDescending(s => s.Id)
+            .Skip((pagina - 1) * tamanoPagina)
+            .Take(tamanoPagina)
             .Select(s => new SesionHistorialViewModel
             {
                 Id = s.Id,
@@ -62,8 +91,11 @@ public class SesionesController : RestauranteControllerBase
             Desde = desdeLocal,
             Hasta = hastaLocal,
             Sesiones = sesiones,
-            TotalPeriodo = sesiones.Sum(s => s.Total),
-            CantidadSesiones = sesiones.Count
+            TotalPeriodo = totalPeriodo,
+            CantidadSesiones = cantidadSesiones,
+            Pagina = pagina,
+            TamanoPagina = tamanoPagina,
+            TotalPaginas = totalPaginas
         });
     }
 
@@ -161,6 +193,8 @@ public class SesionesController : RestauranteControllerBase
                 Metodo = p.Metodo,
                 Monto = p.Monto,
                 Propina = p.Propina,
+                PropinaPorcentaje = p.PropinaPorcentaje,
+                PropinaBase = p.PropinaBase,
                 Fecha = p.FechaConfirmacion ?? p.FechaCreacion,
                 ComensalNombre = p.Comensal != null ? p.Comensal.Nombre : null
             })

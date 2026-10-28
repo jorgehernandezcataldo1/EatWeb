@@ -29,6 +29,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IDataPro
     public DbSet<DetallePedido> DetallesPedidos { get; set; } = null!;
     public DbSet<DetallePedidoIngrediente> DetallesIngredientes { get; set; } = null!;
     public DbSet<HistorialEstadoPedido> HistorialesEstadoPedido { get; set; } = null!;
+    public DbSet<HistorialEstadoDetallePedido> HistorialesEstadoDetallePedido { get; set; } = null!;
     public DbSet<Cuenta> Cuentas { get; set; } = null!;
     public DbSet<Pago> Pagos { get; set; } = null!;
     public DbSet<PagoDetalle> PagoDetalles { get; set; } = null!;
@@ -247,11 +248,23 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IDataPro
             .IsUnique();
 
         modelBuilder.Entity<Pago>()
+            .Property(p => p.RequestFingerprint)
+            .HasMaxLength(64);
+
+        modelBuilder.Entity<Pago>()
             .Property(p => p.Monto)
             .HasPrecision(18, 0);
 
         modelBuilder.Entity<Pago>()
             .Property(p => p.Propina)
+            .HasPrecision(18, 0);
+
+        modelBuilder.Entity<Pago>()
+            .Property(p => p.PropinaPorcentaje)
+            .HasPrecision(5, 2);
+
+        modelBuilder.Entity<Pago>()
+            .Property(p => p.PropinaBase)
             .HasPrecision(18, 0);
 
         modelBuilder.Entity<Pago>()
@@ -475,6 +488,15 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IDataPro
             .HasMaxLength(300);
 
         modelBuilder.Entity<Pedido>()
+            .Property(p => p.RequestFingerprint)
+            .HasMaxLength(64);
+
+        modelBuilder.Entity<Pedido>()
+            .HasIndex(p => new { p.ComensalId, p.RequestId })
+            .IsUnique()
+            .HasFilter("\"RequestId\" IS NOT NULL");
+
+        modelBuilder.Entity<Pedido>()
             .HasIndex(p => p.MesaSesionId);
 
         modelBuilder.Entity<Pedido>()
@@ -564,6 +586,35 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IDataPro
             .WithMany(i => i.DetallesIngredientes)
             .HasForeignKey(d => d.IngredienteId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // HistorialEstadoDetallePedido
+        modelBuilder.Entity<HistorialEstadoDetallePedido>()
+            .Property(h => h.EstadoAnterior)
+            .HasMaxLength(30);
+
+        modelBuilder.Entity<HistorialEstadoDetallePedido>()
+            .Property(h => h.EstadoNuevo)
+            .HasMaxLength(30)
+            .IsRequired();
+
+        modelBuilder.Entity<HistorialEstadoDetallePedido>()
+            .Property(h => h.Motivo)
+            .HasMaxLength(200);
+
+        modelBuilder.Entity<HistorialEstadoDetallePedido>()
+            .HasIndex(h => new { h.DetallePedidoId, h.Fecha });
+
+        modelBuilder.Entity<HistorialEstadoDetallePedido>()
+            .HasOne(h => h.DetallePedido)
+            .WithMany(d => d.Historial)
+            .HasForeignKey(h => h.DetallePedidoId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<HistorialEstadoDetallePedido>()
+            .HasOne(h => h.Usuario)
+            .WithMany()
+            .HasForeignKey(h => h.UsuarioId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         // HistorialEstadoPedido
         modelBuilder.Entity<HistorialEstadoPedido>()

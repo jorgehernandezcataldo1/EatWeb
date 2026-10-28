@@ -59,6 +59,9 @@ public class DetallePedidoResumenViewModel
     public decimal Subtotal { get; set; }
 
     public string? Observacion { get; set; }
+    public string? MotivoCancelacion { get; set; }
+    public DateTime? FechaCancelacion { get; set; }
+    public string? CanceladoPor { get; set; }
 
     public List<string> Personalizaciones { get; set; } = new();
 }
@@ -136,6 +139,8 @@ public class PagoResumenViewModel
     public string Metodo { get; set; } = string.Empty;
     public decimal Monto { get; set; }
     public decimal Propina { get; set; }
+    public decimal? PropinaPorcentaje { get; set; }
+    public decimal? PropinaBase { get; set; }
     public DateTime Fecha { get; set; }
     public string? ComensalNombre { get; set; }
 }
@@ -161,7 +166,11 @@ public class CerrarConDivisionInputViewModel
     public List<int> DetallePedidoIds { get; set; } = new();
     public int? ComensalId { get; set; }
     public string Metodo { get; set; } = "Efectivo";
+
+    // Compatibilidad con formularios anteriores que enviaban un monto.
     public decimal Propina { get; set; }
+    public decimal? PropinaPorcentaje { get; set; }
+
     public string IdempotencyKey { get; set; } = string.Empty;
 }
 

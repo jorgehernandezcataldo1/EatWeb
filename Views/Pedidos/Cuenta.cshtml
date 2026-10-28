@@ -153,7 +153,17 @@
                                         <td>@pago.Metodo</td>
                                         <td>@(pago.ComensalNombre ?? "Mesa")</td>
                                         <td class="text-end">@pago.Monto.ToString("C0", clp)</td>
-                                        <td class="text-end">@pago.Propina.ToString("C0", clp)</td>
+                                        <td class="text-end">
+                                            @if (pago.PropinaPorcentaje.HasValue)
+                                            {
+                                                <div>@pago.Propina.ToString("C0", clp)</div>
+                                                <div class="small text-muted">@pago.PropinaPorcentaje.Value.ToString("0.##")%</div>
+                                            }
+                                            else
+                                            {
+                                                @pago.Propina.ToString("C0", clp)
+                                            }
+                                        </td>
                                     </tr>
                                 }
                             </tbody>
@@ -221,11 +231,11 @@
 
                             <div id="panelConsumo" class="payment-mode-panel mb-3 d-none">
                                 <label class="form-label">Persona que paga</label>
-                                <select name="ComensalId" class="form-select">
-                                    <option value="">Seleccionar...</option>
+                                <select name="ComensalId" id="comensalPago" class="form-select" onchange="actualizarPropinaEstimada()">
+                                    <option value="" data-saldo="0">Seleccionar...</option>
                                     @foreach (var p in Model.Personas.Where(p => p.SaldoPendiente > 0))
                                     {
-                                        <option value="@p.ComensalId">
+                                        <option value="@p.ComensalId" data-saldo="@p.SaldoPendiente">
                                             @p.Nombre — @p.SaldoPendiente.ToString("C0", clp)
                                         </option>
                                     }
@@ -242,7 +252,9 @@
                                                    type="checkbox"
                                                    name="DetallePedidoIds"
                                                    value="@item.DetallePedidoId"
-                                                   id="detalle-@item.DetallePedidoId" />
+                                                   data-saldo="@item.SaldoPendiente"
+                                                   id="detalle-@item.DetallePedidoId"
+                                                   onchange="actualizarPropinaEstimada()" />
                                             <label class="form-check-label small" for="detalle-@item.DetallePedidoId">
                                                 <strong>@item.ComensalNombre:</strong>
                                                 @item.Cantidad× @item.Producto · @item.SaldoPendiente.ToString("C0", clp)
@@ -270,12 +282,40 @@
                                 }
                             </div>
 
-                            <label class="form-label fw-semibold">Propina</label>
-                            <div class="input-group">
-                                <span class="input-group-text">$</span>
-                                <input type="number" name="Propina" min="0" step="1" class="form-control" value="0" />
+                            <label class="form-label fw-semibold">Propina voluntaria</label>
+                            <input type="hidden" name="Propina" value="0" />
+                            <input type="hidden" name="PropinaPorcentaje" id="propinaPorcentaje" value="0" />
+
+                            <div class="row g-2 mb-2" role="group" aria-label="Porcentaje de propina">
+                                <div class="col-4">
+                                    <button type="button" class="btn btn-outline-secondary w-100 propina-opcion active"
+                                            data-porcentaje="0" onclick="seleccionarPropina(0, this)">0%</button>
+                                </div>
+                                <div class="col-4">
+                                    <button type="button" class="btn btn-outline-secondary w-100 propina-opcion"
+                                            data-porcentaje="10" onclick="seleccionarPropina(10, this)">10%</button>
+                                </div>
+                                <div class="col-4">
+                                    <button type="button" class="btn btn-outline-secondary w-100 propina-opcion"
+                                            data-porcentaje="15" onclick="seleccionarPropina(15, this)">15%</button>
+                                </div>
                             </div>
-                            <div class="form-text">La propina se registra aparte del consumo.</div>
+
+                            <div class="input-group">
+                                <span class="input-group-text">%</span>
+                                <input type="number" id="propinaPersonalizada"
+                                       min="0" max="100" step="0.01"
+                                       class="form-control"
+                                       placeholder="Otro porcentaje"
+                                       oninput="usarPropinaPersonalizada()" />
+                            </div>
+
+                            <div class="form-text">
+                                Se calcula en el servidor sobre el consumo incluido en este pago, no sobre propinas anteriores.
+                            </div>
+                            <div class="small mt-2">
+                                Propina estimada: <strong id="propinaEstimada">@((0m).ToString("C0", clp))</strong>
+                            </div>
                         </div>
 
                         <div class="card-footer bg-white">
@@ -338,6 +378,7 @@
         document.getElementById(id)?.classList.remove('d-none');
 
         if (modo === 'Igual') actualizarParte();
+        actualizarPropinaEstimada();
     }
 
     function actualizarParte() {
@@ -347,12 +388,69 @@
         const parte = Math.min(Math.ceil(totalCuenta / n), saldoPendiente);
         const salida = document.getElementById('montoParte');
         if (salida) salida.textContent = clp.format(parte);
+        actualizarPropinaEstimada();
     }
 
     function seleccionarTodo() {
         document.querySelectorAll('input[name="DetallePedidoIds"]').forEach(x => x.checked = true);
+        actualizarPropinaEstimada();
     }
 
-    document.addEventListener('DOMContentLoaded', actualizarParte);
+    function seleccionarPropina(porcentaje, boton) {
+        document.getElementById('propinaPorcentaje').value = porcentaje;
+        document.getElementById('propinaPersonalizada').value = '';
+
+        document.querySelectorAll('.propina-opcion').forEach(x => x.classList.remove('active'));
+        boton?.classList.add('active');
+
+        actualizarPropinaEstimada();
+    }
+
+    function usarPropinaPersonalizada() {
+        const input = document.getElementById('propinaPersonalizada');
+        const valor = Math.min(100, Math.max(0, parseFloat(input?.value || '0') || 0));
+
+        document.getElementById('propinaPorcentaje').value = valor;
+        document.querySelectorAll('.propina-opcion').forEach(x => x.classList.remove('active'));
+        actualizarPropinaEstimada();
+    }
+
+    function obtenerBasePago() {
+        const modo = document.getElementById('inputModo')?.value || 'Todo';
+
+        if (modo === 'Todo')
+            return saldoPendiente;
+
+        if (modo === 'Igual') {
+            const n = Math.max(1, parseInt(document.getElementById('cantidadPartes')?.value || '1') || 1);
+            return Math.min(Math.ceil(totalCuenta / n), saldoPendiente);
+        }
+
+        if (modo === 'PorConsumo') {
+            const opcion = document.getElementById('comensalPago')?.selectedOptions?.[0];
+            return Number(opcion?.dataset?.saldo || 0);
+        }
+
+        if (modo === 'Personalizado' || modo === 'Seleccion') {
+            return Array.from(document.querySelectorAll('input[name="DetallePedidoIds"]:checked'))
+                .reduce((suma, item) => suma + Number(item.dataset.saldo || 0), 0);
+        }
+
+        return 0;
+    }
+
+    function actualizarPropinaEstimada() {
+        const porcentaje = Number(document.getElementById('propinaPorcentaje')?.value || 0);
+        const base = obtenerBasePago();
+        const monto = Math.round(base * porcentaje / 100);
+        const salida = document.getElementById('propinaEstimada');
+
+        if (salida) salida.textContent = clp.format(monto);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        actualizarParte();
+        actualizarPropinaEstimada();
+    });
 </script>
 }

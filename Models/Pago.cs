@@ -12,8 +12,16 @@ public class Pago
     public string? Proveedor { get; set; }
     public string? ReferenciaExterna { get; set; }
     public string IdempotencyKey { get; set; } = Guid.NewGuid().ToString("N");
+    public string? RequestFingerprint { get; set; }
+
     public decimal Monto { get; set; }
+
+    // Propina mantiene el monto final CLP por compatibilidad.
+    // Cuando se usa porcentaje, guardamos también base y porcentaje como snapshot.
     public decimal Propina { get; set; }
+    public decimal? PropinaPorcentaje { get; set; }
+    public decimal? PropinaBase { get; set; }
+
     public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
     public DateTime? FechaConfirmacion { get; set; }
 

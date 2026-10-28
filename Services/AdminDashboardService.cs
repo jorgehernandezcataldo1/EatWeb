@@ -209,6 +209,7 @@ public class AdminDashboardService
         var garzonesActivos = await _context.RestaurantesMiembros.CountAsync(rm =>
             rm.RestauranteId == id &&
             rm.Rol == RolRestaurante.Garzon &&
+            rm.Activo &&
             rm.Usuario.Activo);
 
         var mesasAsignadas = await _context.Mesas.CountAsync(m =>
