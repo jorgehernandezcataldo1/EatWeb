@@ -65,17 +65,22 @@ public class CuentaService
 
     public async Task<ResultadoPago?> ObtenerResultadoIdempotenteAsync(
         int sesionId,
-        string? idempotencyKey)
+        string? idempotencyKey,
+        string? requestFingerprint = null)
     {
         var key = idempotencyKey?.Trim() ?? string.Empty;
         if (key.Length is < 8 or > 64)
             return null;
 
+        var fingerprint = NormalizarFingerprint(requestFingerprint);
+        if (requestFingerprint != null && fingerprint == null)
+            return Error("La huella de la solicitud de pago es inválida.");
+
         var existente = await BuscarPagoPorIdempotenciaAsync(key);
         if (existente == null)
             return null;
 
-        return await ResolverPagoExistenteAsync(existente, sesionId);
+        return await ResolverPagoExistenteAsync(existente, sesionId, fingerprint);
     }
 
     public async Task<ResultadoPago> RegistrarPagoConfirmadoAsync(
@@ -85,7 +90,8 @@ public class CuentaService
         string metodo,
         decimal propina = 0,
         decimal? propinaPorcentaje = null,
-        string? idempotencyKey = null)
+        string? idempotencyKey = null,
+        string? requestFingerprint = null)
     {
         var key = idempotencyKey?.Trim() ?? string.Empty;
         if (key.Length is < 8 or > 64)
@@ -93,12 +99,16 @@ public class CuentaService
             return Error("El identificador idempotente del pago es inválido.");
         }
 
+        var fingerprint = NormalizarFingerprint(requestFingerprint);
+        if (requestFingerprint != null && fingerprint == null)
+            return Error("La huella de la solicitud de pago es inválida.");
+
         // La idempotencia se resuelve antes de exigir que la sesión siga abierta.
         // Así, un reintento del mismo POST después de cerrar la mesa devuelve
         // exactamente el pago ya confirmado en vez de crear uno nuevo o fallar.
         var existente = await BuscarPagoPorIdempotenciaAsync(key);
         if (existente != null)
-            return await ResolverPagoExistenteAsync(existente, sesionId);
+            return await ResolverPagoExistenteAsync(existente, sesionId, fingerprint);
 
         var metodoNormalizado = NormalizarMetodo(metodo);
         if (metodoNormalizado == null)
@@ -135,7 +145,7 @@ public class CuentaService
             if (existente != null)
             {
                 await tx.RollbackAsync();
-                return await ResolverPagoExistenteAsync(existente, sesionId);
+                return await ResolverPagoExistenteAsync(existente, sesionId, fingerprint);
             }
 
             var sesion = await _context.MesaSesiones
@@ -247,6 +257,7 @@ public class CuentaService
                 Estado = EstadoPago.Confirmado,
                 Metodo = metodoNormalizado,
                 IdempotencyKey = key,
+                RequestFingerprint = fingerprint,
                 Monto = montoConsumo,
                 Propina = montoPropina,
                 PropinaPorcentaje = porcentajePropina,
@@ -310,7 +321,7 @@ public class CuentaService
             // ganó la carrera. En ese caso se devuelve el resultado ya persistido.
             existente = await BuscarPagoPorIdempotenciaAsync(key);
             if (existente != null)
-                return await ResolverPagoExistenteAsync(existente, sesionId);
+                return await ResolverPagoExistenteAsync(existente, sesionId, fingerprint);
 
             return Error("La cuenta cambió mientras se registraba el pago. Intenta nuevamente.");
         }
@@ -321,7 +332,7 @@ public class CuentaService
 
             existente = await BuscarPagoPorIdempotenciaAsync(key);
             if (existente != null)
-                return await ResolverPagoExistenteAsync(existente, sesionId);
+                return await ResolverPagoExistenteAsync(existente, sesionId, fingerprint);
 
             return Error("No se pudo registrar el pago de forma segura. Intenta nuevamente.");
         }
@@ -335,16 +346,28 @@ public class CuentaService
             .Select(p => new PagoIdempotenteInfo(
                 p.Id,
                 p.Estado,
-                p.Cuenta!.MesaSesionId))
+                p.Cuenta!.MesaSesionId,
+                p.RequestFingerprint))
             .FirstOrDefaultAsync();
     }
 
     private async Task<ResultadoPago> ResolverPagoExistenteAsync(
         PagoIdempotenteInfo existente,
-        int sesionId)
+        int sesionId,
+        string? requestFingerprint = null)
     {
         if (existente.MesaSesionId != sesionId)
             return Error("El identificador de pago ya fue utilizado en otra cuenta.");
+
+        if (!string.IsNullOrWhiteSpace(requestFingerprint) &&
+            !string.IsNullOrWhiteSpace(existente.RequestFingerprint) &&
+            !string.Equals(
+                existente.RequestFingerprint,
+                requestFingerprint,
+                StringComparison.Ordinal))
+        {
+            return Error("El identificador de pago ya fue utilizado con datos distintos. Genera un nuevo intento.");
+        }
 
         var resultado = new ResultadoPago
         {
@@ -398,11 +421,24 @@ public class CuentaService
         };
     }
 
+    private static string? NormalizarFingerprint(string? fingerprint)
+    {
+        if (string.IsNullOrWhiteSpace(fingerprint))
+            return null;
+
+        var value = fingerprint.Trim().ToUpperInvariant();
+        if (value.Length != 64 || value.Any(c => !Uri.IsHexDigit(c)))
+            return null;
+
+        return value;
+    }
+
     private static ResultadoPago Error(string mensaje) =>
         new() { Errores = { mensaje } };
 
     private sealed record PagoIdempotenteInfo(
         int Id,
         string Estado,
-        int MesaSesionId);
+        int MesaSesionId,
+        string? RequestFingerprint);
 }
