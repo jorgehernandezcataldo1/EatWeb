@@ -1,4 +1,6 @@
 using Xunit;
+using EatWeb.Data;
+using Microsoft.EntityFrameworkCore;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
 using EatWeb.Services;
@@ -97,5 +99,22 @@ public class PagoCalculosTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(
             () => PagoCalculos.CalcularPropina(10000, 10.123m));
+    }
+}
+
+public class MigrationSnapshotTests
+{
+    [Fact]
+    public void ApplicationDbContext_SnapshotCoincideConModeloActual()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseNpgsql("Host=localhost;Database=solo_modelo;Username=test;Password=test")
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        // Compara metadata en memoria; no abre conexión ni modifica Supabase.
+        Assert.False(context.Database.HasPendingModelChanges(),
+            "El modelo EF tiene cambios pendientes respecto al snapshot de migraciones.");
     }
 }
