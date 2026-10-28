@@ -12,6 +12,8 @@ public class Pago
     public string? Proveedor { get; set; }
     public string? ReferenciaExterna { get; set; }
     public string IdempotencyKey { get; set; } = Guid.NewGuid().ToString("N");
+    public string? RequestFingerprint { get; set; }
+
     public decimal Monto { get; set; }
 
     // Propina mantiene el monto final CLP por compatibilidad.
