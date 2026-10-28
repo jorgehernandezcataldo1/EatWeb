@@ -192,6 +192,7 @@ public class SesionService
         var sesion = await _context.MesaSesiones
             .Include(s => s.Comensales)
             .ThenInclude(c => c.Pedidos)
+            .ThenInclude(p => p.Detalles)
             .FirstOrDefaultAsync(s => s.Id == sesionId);
 
         if (sesion == null)
@@ -213,14 +214,35 @@ public class SesionService
         {
             foreach (var pedido in pedidosActivos)
             {
+                var ahora = DateTime.UtcNow;
+
+                foreach (var detalle in pedido.Detalles.Where(d =>
+                             d.Estado == EstadoDetallePedido.Pendiente ||
+                             d.Estado == EstadoDetallePedido.EnPreparacion ||
+                             d.Estado == EstadoDetallePedido.Listo))
+                {
+                    var estadoDetalleAnterior = detalle.Estado;
+                    detalle.Estado = EstadoDetallePedido.Cancelado;
+                    detalle.Historial.Add(new HistorialEstadoDetallePedido
+                    {
+                        EstadoAnterior = estadoDetalleAnterior,
+                        EstadoNuevo = EstadoDetallePedido.Cancelado,
+                        Fecha = ahora,
+                        UsuarioId = usuarioId,
+                        Motivo = "Cierre forzado de sesión"
+                    });
+                }
+
                 var estadoAnterior = pedido.Estado;
                 pedido.Estado = Models.Enums.EstadoPedido.Cancelado;
+                pedido.Total = 0;
+
                 _context.HistorialesEstadoPedido.Add(new HistorialEstadoPedido
                 {
                     PedidoId = pedido.Id,
                     EstadoAnterior = estadoAnterior,
                     EstadoNuevo = Models.Enums.EstadoPedido.Cancelado,
-                    Fecha = DateTime.UtcNow,
+                    Fecha = ahora,
                     UsuarioId = usuarioId
                 });
             }
