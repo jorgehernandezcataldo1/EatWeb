@@ -28,7 +28,7 @@ public class ApplicationUserClaimsPrincipalFactory
 
         var restaurante = await _context.RestaurantesMiembros
             .AsNoTracking()
-            .Where(rm => rm.UsuarioId == user.Id)
+            .Where(rm => rm.UsuarioId == user.Id && rm.Activo)
             .Select(rm => new
             {
                 rm.RestauranteId,
