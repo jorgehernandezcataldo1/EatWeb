@@ -61,7 +61,9 @@ public class PedidoService
         _realtime = realtime;
     }
 
-    public async Task<CarritoCalculado> CalcularCarritoAsync(CarritoSesion carrito, int? restauranteId = null)
+    public async Task<CarritoCalculado> CalcularCarritoAsync(
+        CarritoSesion carrito,
+        int? restauranteId = null)
     {
         var resultado = new CarritoCalculado();
 
@@ -71,15 +73,35 @@ public class PedidoService
             return resultado;
         }
 
+        var productoIds = carrito.Lineas
+            .Select(l => l.ProductoId)
+            .Distinct()
+            .ToList();
+
+        // Dos lecturas en lote en vez de dos consultas por cada línea del carrito.
+        var productosQuery = _context.Productos
+            .AsNoTracking()
+            .Include(p => p.Categoria)
+                .ThenInclude(c => c!.Estacion)
+            .Where(p => productoIds.Contains(p.Id));
+
+        if (restauranteId.HasValue)
+            productosQuery = productosQuery.Where(p => p.RestauranteId == restauranteId.Value);
+
+        var productos = await productosQuery
+            .ToDictionaryAsync(p => p.Id);
+
+        var ingredientesPorProducto = (await _context.ProductoIngredientes
+                .AsNoTracking()
+                .Include(pi => pi.Ingrediente)
+                .Where(pi => productoIds.Contains(pi.ProductoId))
+                .ToListAsync())
+            .GroupBy(pi => pi.ProductoId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         foreach (var linea in carrito.Lineas)
         {
-            var producto = await _context.Productos
-                .AsNoTracking()
-                .Include(p => p.Categoria)
-                    .ThenInclude(c => c!.Estacion)
-                .FirstOrDefaultAsync(p => p.Id == linea.ProductoId && (!restauranteId.HasValue || p.RestauranteId == restauranteId.Value));
-
-            if (producto == null)
+            if (!productos.TryGetValue(linea.ProductoId, out var producto))
             {
                 resultado.Errores.Add($"Producto {linea.ProductoId} no encontrado");
                 continue;
@@ -91,23 +113,28 @@ public class PedidoService
                 continue;
             }
 
-            if (producto.Categoria?.Estacion == null || !producto.Categoria.Estacion.Activa)
+            if (producto.Categoria == null || !producto.Categoria.Activa)
+            {
+                resultado.Errores.Add($"{producto.Nombre} pertenece a una categoría no disponible");
+                continue;
+            }
+
+            if (producto.Categoria.Estacion == null || !producto.Categoria.Estacion.Activa)
             {
                 resultado.Errores.Add($"{producto.Nombre} no tiene una estación de preparación activa");
                 continue;
             }
 
-            var ingredientesProducto = await _context.ProductoIngredientes
-                .AsNoTracking()
-                .Include(pi => pi.Ingrediente)
-                .Where(pi => pi.ProductoId == linea.ProductoId)
-                .ToListAsync();
+            ingredientesPorProducto.TryGetValue(
+                linea.ProductoId,
+                out var ingredientesProducto);
+
+            ingredientesProducto ??= new List<ProductoIngrediente>();
 
             var personalizaciones = new List<PersonalizacionLegible>();
             var montoPrecioExtra = 0m;
 
-            // QUITAR: solo válidos si son "Incluido"
-            foreach (var idQuitar in linea.IngredientesQuitar)
+            foreach (var idQuitar in linea.IngredientesQuitar.Distinct())
             {
                 var pi = ingredientesProducto.FirstOrDefault(x => x.IngredienteId == idQuitar);
 
@@ -133,8 +160,7 @@ public class PedidoService
                 });
             }
 
-            // AGREGAR: solo válidos si son "Extra"
-            foreach (var idAgregar in linea.IngredientesAgregar)
+            foreach (var idAgregar in linea.IngredientesAgregar.Distinct())
             {
                 var pi = ingredientesProducto.FirstOrDefault(x => x.IngredienteId == idAgregar);
 
