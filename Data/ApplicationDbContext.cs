@@ -475,6 +475,15 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IDataPro
             .HasMaxLength(300);
 
         modelBuilder.Entity<Pedido>()
+            .Property(p => p.RequestFingerprint)
+            .HasMaxLength(64);
+
+        modelBuilder.Entity<Pedido>()
+            .HasIndex(p => new { p.ComensalId, p.RequestId })
+            .IsUnique()
+            .HasFilter("\"RequestId\" IS NOT NULL");
+
+        modelBuilder.Entity<Pedido>()
             .HasIndex(p => p.MesaSesionId);
 
         modelBuilder.Entity<Pedido>()
