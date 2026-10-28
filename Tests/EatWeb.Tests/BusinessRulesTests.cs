@@ -3,6 +3,7 @@ using EatWeb.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Metadata;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
 using EatWeb.Services;
@@ -130,7 +131,7 @@ public class MigrationSnapshotTests
                     ? column.Table + "." + column.Name
                     : op is Microsoft.EntityFrameworkCore.Migrations.Operations.TableOperation table
                         ? table.Name
-                        : op is Microsoft.EntityFrameworkCore.Migrations.Operations.IndexOperation index
+                        : op is Microsoft.EntityFrameworkCore.Migrations.Operations.CreateIndexOperation index
                             ? index.Table + "." + index.Name
                             : ""))));
     }
