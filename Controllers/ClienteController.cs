@@ -409,14 +409,20 @@ public class ClienteController : Controller
     // ---------- 3e) Enviar pedido ----------
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EnviarPedido(string? observacionGeneral)
+    public async Task<IActionResult> EnviarPedido(string? observacionGeneral, Guid? requestId)
     {
         var ctx = await ObtenerContextoAsync();
         if (ctx == null) return RedirectToAction(nameof(SinSesion));
 
+        if (!requestId.HasValue || requestId.Value == Guid.Empty)
+        {
+            TempData["Error"] = "El formulario de pedido venció. Recarga el carrito antes de enviar.";
+            return RedirectToAction(nameof(Carrito));
+        }
+
         var carrito = _carrito.Obtener(ctx.ComensalId);
         var resultado = await _pedidoService.CrearPedidoAsync(
-            ctx.ComensalId, carrito, observacionGeneral);
+            ctx.ComensalId, carrito, observacionGeneral, requestId.Value);
 
         if (!resultado.Ok)
         {
