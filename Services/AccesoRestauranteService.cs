@@ -68,7 +68,8 @@ public class AccesoRestauranteService
         return await _context.Restaurantes
             .AsNoTracking()
             .Where(r =>
-                (esAdminCadena &&
+                r.Activo &&
+                ((esAdminCadena &&
                  r.CadenaId != null &&
                  _context.CadenasMiembros.Any(cm =>
                      cm.UsuarioId == usuarioId &&
@@ -94,7 +95,7 @@ public class AccesoRestauranteService
                      rm.UsuarioId == usuarioId &&
                      rm.RestauranteId == r.Id &&
                      rm.Activo &&
-                     rm.Rol == RolRestaurante.Cocina)))
+                     rm.Rol == RolRestaurante.Cocina))))
             .OrderBy(r => r.Nombre)
             .ToListAsync();
     }
@@ -116,7 +117,8 @@ public class AccesoRestauranteService
         return await _context.Restaurantes
             .AsNoTracking()
             .Where(r =>
-                (esAdminCadena &&
+                r.Activo &&
+                ((esAdminCadena &&
                  r.CadenaId != null &&
                  _context.CadenasMiembros.Any(cm =>
                      cm.UsuarioId == usuarioId &&
@@ -128,7 +130,7 @@ public class AccesoRestauranteService
                      rm.UsuarioId == usuarioId &&
                      rm.RestauranteId == r.Id &&
                      rm.Activo &&
-                     (rm.Rol == RolRestaurante.Administrador || rm.Rol == RolRestaurante.Encargado))))
+                     (rm.Rol == RolRestaurante.Administrador || rm.Rol == RolRestaurante.Encargado)))))
             .OrderBy(r => r.Nombre)
             .ToListAsync();
     }
@@ -162,6 +164,13 @@ public class AccesoRestauranteService
 
         var usuarioId = acceso.Value.Usuario.Id;
         var rolesGlobales = acceso.Value.Roles;
+
+        var restauranteActivo = await _context.Restaurantes
+            .AsNoTracking()
+            .AnyAsync(r => r.Id == restauranteId && r.Activo);
+
+        if (!restauranteActivo)
+            return false;
 
         var membresiaLocal = await _context.RestaurantesMiembros
             .AsNoTracking()
