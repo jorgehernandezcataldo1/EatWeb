@@ -237,10 +237,7 @@ public class CuentaService
                 : (decimal?)null;
 
             var montoPropina = porcentajePropina.HasValue
-                ? Math.Round(
-                    montoConsumo * porcentajePropina.Value / 100m,
-                    0,
-                    MidpointRounding.AwayFromZero)
+                ? PagoCalculos.CalcularPropina(montoConsumo, porcentajePropina.Value)
                 : propina;
 
             var pago = new Pago
