@@ -2,6 +2,7 @@ using EatWeb.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 
 namespace EatWeb.Controllers;
@@ -30,6 +31,7 @@ public class AccountController : Controller
     [AllowAnonymous]
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> Login(string email, string password, string? returnUrl = null)
     {
         ViewData["ReturnUrl"] = returnUrl;
