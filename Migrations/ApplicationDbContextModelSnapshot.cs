@@ -780,8 +780,6 @@ namespace EatWeb.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ComensalId");
-
                     b.HasIndex("MesaSesionId");
 
                     b.HasIndex("Estado", "FechaCreacion");
