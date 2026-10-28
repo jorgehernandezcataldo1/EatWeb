@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="EatWeb.csproj" />
+  <Project Path="Tests/EatWeb.Tests/EatWeb.Tests.csproj" />
 </Solution>
