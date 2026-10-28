@@ -719,6 +719,13 @@ namespace EatWeb.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<string>("RequestFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("RequestId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("Total")
                         .HasPrecision(18)
                         .HasColumnType("numeric(18,0)");
@@ -730,6 +737,10 @@ namespace EatWeb.Migrations
                     b.HasIndex("MesaSesionId");
 
                     b.HasIndex("Estado", "FechaCreacion");
+
+                    b.HasIndex("ComensalId", "RequestId")
+                        .IsUnique()
+                        .HasFilter("\"RequestId\" IS NOT NULL");
 
                     b.ToTable("Pedidos");
                 });
