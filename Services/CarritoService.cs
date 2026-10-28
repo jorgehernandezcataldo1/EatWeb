@@ -71,6 +71,14 @@ public class CarritoService
     {
         var carrito = Obtener(comensalId);
 
+        // El orden del navegador no cambia la identidad de la personalización.
+        // Evita dos líneas distintas para exactamente el mismo plato.
+        ingredientesQuitar = (ingredientesQuitar ?? new List<int>())
+            .Distinct().OrderBy(id => id).ToList();
+        ingredientesAgregar = (ingredientesAgregar ?? new List<int>())
+            .Distinct().OrderBy(id => id).ToList();
+        observacion = (observacion ?? string.Empty).Trim();
+
         // Buscar línea idéntica
         var lineaExistente = carrito.Lineas.FirstOrDefault(l =>
             l.ProductoId == productoId &&
