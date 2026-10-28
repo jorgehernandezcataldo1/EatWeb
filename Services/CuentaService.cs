@@ -56,8 +56,14 @@ public class CuentaService
             await _context.SaveChangesAsync();
             return cuenta;
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) when (
+            ex.InnerException is PostgresException pg &&
+            pg.SqlState == PostgresErrorCodes.UniqueViolation &&
+            pg.ConstraintName == "IX_Cuentas_MesaSesionId")
         {
+            // Solo recuperamos la carrera de creación de la MISMA cuenta.
+            // Fallos de conexión, otras restricciones y errores de esquema
+            // deben propagarse, no confundirse con una cuenta ya creada.
             _context.Entry(cuenta).State = EntityState.Detached;
             return await _context.Cuentas.SingleAsync(c => c.MesaSesionId == sesionId);
         }
