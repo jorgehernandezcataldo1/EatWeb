@@ -1,4 +1,5 @@
 using EatWeb.Data;
+using EatWeb.Realtime;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
 using EatWeb.ViewModels;
@@ -14,11 +15,13 @@ public class OperadoresController : RestauranteControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly RealtimeAccessRevoker _revoker;
 
-    public OperadoresController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+    public OperadoresController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, RealtimeAccessRevoker revoker)
     {
         _context = context;
         _userManager = userManager;
+        _revoker = revoker;
     }
 
     public async Task<IActionResult> Index()
@@ -123,6 +126,9 @@ public class OperadoresController : RestauranteControllerBase
 
         membresia.Activo = !membresia.Activo;
         await _context.SaveChangesAsync();
+
+        if (!membresia.Activo)
+            await _revoker.RevokeRestaurantAsync(membresia.UsuarioId, RestauranteId);
 
         TempData["Ok"] = membresia.Activo
             ? "Operador activado en este restaurante."
