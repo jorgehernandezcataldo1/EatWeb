@@ -1,4 +1,5 @@
 using EatWeb.Data;
+using EatWeb.Realtime;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
 using EatWeb.ViewModels;
@@ -14,11 +15,13 @@ public class GarzonesController : RestauranteControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly RealtimeAccessRevoker _revoker;
 
-    public GarzonesController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+    public GarzonesController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, RealtimeAccessRevoker revoker)
     {
         _context = context;
         _userManager = userManager;
+        _revoker = revoker;
     }
 
     public async Task<IActionResult> Index()
@@ -205,7 +208,10 @@ public class GarzonesController : RestauranteControllerBase
         await _context.SaveChangesAsync();
 
         if (estabaActivo && !membresia.Activo)
+        {
+            await _revoker.RevokeRestaurantAsync(garzon.Id, RestauranteId);
             await LiberarMesasLocalesAsync(garzon.Id);
+        }
 
         TempData["Ok"] = "Garzón actualizado";
         return RedirectToAction(nameof(Index));
@@ -228,6 +234,7 @@ public class GarzonesController : RestauranteControllerBase
         }
         else
         {
+            await _revoker.RevokeRestaurantAsync(membresia.UsuarioId, RestauranteId);
             var liberadas = await LiberarMesasLocalesAsync(membresia.UsuarioId);
             TempData["Ok"] = $"Garzón desactivado en este restaurante. Mesas liberadas: {liberadas}";
         }
