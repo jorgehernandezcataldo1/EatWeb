@@ -256,6 +256,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IDataPro
             .HasPrecision(18, 0);
 
         modelBuilder.Entity<Pago>()
+            .Property(p => p.PropinaPorcentaje)
+            .HasPrecision(5, 2);
+
+        modelBuilder.Entity<Pago>()
+            .Property(p => p.PropinaBase)
+            .HasPrecision(18, 0);
+
+        modelBuilder.Entity<Pago>()
             .HasOne(p => p.Cuenta)
             .WithMany(c => c.Pagos)
             .HasForeignKey(p => p.CuentaId)
