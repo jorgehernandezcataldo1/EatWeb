@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="EatWeb.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Remove="Tests/**/*.cs" />
   </ItemGroup>
 
