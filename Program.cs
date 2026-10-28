@@ -216,6 +216,8 @@ builder.Services.AddScoped<AccesoRestauranteService>();
 builder.Services.AddScoped<RestauranteContextService>();
 builder.Services.AddScoped<AdminDashboardService>();
 builder.Services.AddScoped<OperacionRealtimeService>();
+builder.Services.AddSingleton<RealtimeConnectionRegistry>();
+builder.Services.AddScoped<RealtimeAccessRevoker>();
 
 var app = builder.Build();
 
