@@ -178,6 +178,22 @@
                                                                 </div>
                                                             }
 
+                                                            @if (d.Estado == EstadoDetallePedido.Cancelado &&
+                                                                 !string.IsNullOrWhiteSpace(d.MotivoCancelacion))
+                                                            {
+                                                                <div class="small text-danger mt-2">
+                                                                    Anulado: @d.MotivoCancelacion
+                                                                    @if (!string.IsNullOrWhiteSpace(d.CanceladoPor))
+                                                                    {
+                                                                        <span> · @d.CanceladoPor</span>
+                                                                    }
+                                                                    @if (d.FechaCancelacion.HasValue)
+                                                                    {
+                                                                        <span> · @ZonaHorariaService.ALocal(d.FechaCancelacion.Value).ToString("HH:mm")</span>
+                                                                    }
+                                                                </div>
+                                                            }
+
                                                             <div class="d-flex flex-wrap gap-1 mt-2 ops-actions">
                                                                 @if (d.Estado == EstadoDetallePedido.Listo)
                                                                 {
@@ -185,6 +201,22 @@
                                                                         <input type="hidden" name="id" value="@d.Id" />
                                                                         <input type="hidden" name="nuevoEstado" value="@EstadoDetallePedido.Entregado" />
                                                                         <button class="btn btn-sm btn-comidita">Entregar</button>
+                                                                    </form>
+                                                                }
+
+                                                                @if (d.Estado == EstadoDetallePedido.Pendiente ||
+                                                                     d.Estado == EstadoDetallePedido.EnPreparacion)
+                                                                {
+                                                                    <form asp-action="CancelarDetalle" method="post"
+                                                                          class="d-flex flex-wrap gap-1 align-items-center"
+                                                                          onsubmit="return confirm('¿Anular este producto? El motivo quedará registrado.');">
+                                                                        <input type="hidden" name="id" value="@d.Id" />
+                                                                        <input type="text" name="motivo"
+                                                                               class="form-control form-control-sm"
+                                                                               minlength="3" maxlength="200" required
+                                                                               placeholder="Motivo de anulación"
+                                                                               style="min-width: 180px; max-width: 280px;" />
+                                                                        <button class="btn btn-sm btn-outline-danger">Anular</button>
                                                                     </form>
                                                                 }
                                                             </div>
