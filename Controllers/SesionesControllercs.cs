@@ -193,6 +193,8 @@ public class SesionesController : RestauranteControllerBase
                 Metodo = p.Metodo,
                 Monto = p.Monto,
                 Propina = p.Propina,
+                PropinaPorcentaje = p.PropinaPorcentaje,
+                PropinaBase = p.PropinaBase,
                 Fecha = p.FechaConfirmacion ?? p.FechaCreacion,
                 ComensalNombre = p.Comensal != null ? p.Comensal.Nombre : null
             })
