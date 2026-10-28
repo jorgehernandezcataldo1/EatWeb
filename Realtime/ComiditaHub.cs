@@ -20,10 +20,18 @@ public class ComiditaHub : Hub
 {
     private const string CookieComensal = "eatweb_comensal";
     private readonly ApplicationDbContext _context;
+    private readonly RealtimeConnectionRegistry _registry;
 
-    public ComiditaHub(ApplicationDbContext context)
+    public ComiditaHub(ApplicationDbContext context, RealtimeConnectionRegistry registry)
     {
         _context = context;
+        _registry = registry;
+    }
+
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        _registry.Unregister(Context.ConnectionId);
+        await base.OnDisconnectedAsync(exception);
     }
 
     public override async Task OnConnectedAsync()
@@ -126,12 +134,9 @@ public class ComiditaHub : Hub
                         restaurantes.Add(restauranteId);
                 }
 
-                foreach (var restauranteId in restaurantes)
-                {
-                    await Groups.AddToGroupAsync(
-                        Context.ConnectionId,
-                        RealtimeGroups.Restaurante(restauranteId));
-                }
+                var gruposPorRestaurante = restaurantes.ToDictionary(
+                    id => id,
+                    id => new List<string> { RealtimeGroups.Restaurante(id) });
 
                 if (Context.User.IsInRole(Roles.Garzon))
                 {
@@ -139,8 +144,7 @@ public class ComiditaHub : Hub
                         .Where(m => m.Rol == RolRestaurante.Garzon)
                         .Select(m => m.RestauranteId))
                     {
-                        await Groups.AddToGroupAsync(
-                            Context.ConnectionId,
+                        gruposPorRestaurante[restauranteId].Add(
                             RealtimeGroups.Garzon(restauranteId, usuarioId));
                     }
                 }
@@ -155,8 +159,7 @@ public class ComiditaHub : Hub
                 {
                     foreach (var restauranteId in estaciones)
                     {
-                        await Groups.AddToGroupAsync(
-                            Context.ConnectionId,
+                        gruposPorRestaurante[restauranteId].Add(
                             RealtimeGroups.Estacion(restauranteId, "Cocina"));
                     }
                 }
@@ -165,10 +168,17 @@ public class ComiditaHub : Hub
                 {
                     foreach (var restauranteId in estaciones)
                     {
-                        await Groups.AddToGroupAsync(
-                            Context.ConnectionId,
+                        gruposPorRestaurante[restauranteId].Add(
                             RealtimeGroups.Estacion(restauranteId, "Bar"));
                     }
+                }
+                foreach (var (restauranteId, grupos) in gruposPorRestaurante)
+                {
+                    // Registrar antes de suscribir para que una baja concurrente
+                    // pueda identificar la conexión desde el primer momento.
+                    _registry.Register(Context.ConnectionId, usuarioId, restauranteId, grupos);
+                    foreach (var grupo in grupos)
+                        await Groups.AddToGroupAsync(Context.ConnectionId, grupo);
                 }
             }
         }
