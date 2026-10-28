@@ -649,6 +649,10 @@ namespace EatWeb.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
 
+                    b.Property<string>("RequestFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ComensalId");
