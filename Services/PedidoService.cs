@@ -6,6 +6,7 @@ using EatWeb.Models;
 using EatWeb.Models.Enums;
 using EatWeb.Realtime;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace EatWeb.Services;
 
@@ -391,8 +392,13 @@ public class PedidoService
             await _context.SaveChangesAsync();
             await transaccion.CommitAsync();
         }
-        catch (DbUpdateException ex)
+        catch (Exception ex) when (
+            ex is DbUpdateException ||
+            ex is PostgresException pg && pg.SqlState is "40001" or "40P01" or "23505")
         {
+            // PostgreSQL puede rechazar transacciones SERIALIZABLE por conflicto
+            // (40001), deadlock (40P01) o clave duplicada (23505).
+            // Releer tras rollback permite recuperar un pedido ya confirmado.
             await transaccion.RollbackAsync();
             _context.ChangeTracker.Clear();
 
