@@ -633,6 +633,14 @@ namespace EatWeb.Migrations
                         .HasPrecision(18)
                         .HasColumnType("numeric(18,0)");
 
+                    b.Property<decimal?>("PropinaBase")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<decimal?>("PropinaPorcentaje")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
                     b.Property<string>("Proveedor")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
