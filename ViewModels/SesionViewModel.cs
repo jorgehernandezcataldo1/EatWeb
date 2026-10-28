@@ -7,6 +7,9 @@ public class SesionesIndexViewModel
     public List<SesionHistorialViewModel> Sesiones { get; set; } = new();
     public decimal TotalPeriodo { get; set; }
     public int CantidadSesiones { get; set; }
+    public int Pagina { get; set; } = 1;
+    public int TamanoPagina { get; set; } = 25;
+    public int TotalPaginas { get; set; } = 1;
 }
 
 public class SesionHistorialViewModel
