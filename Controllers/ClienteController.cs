@@ -713,7 +713,7 @@ public class ClienteController : Controller
             .AsNoTracking()
             .Where(m => m.CodigoQr == codigo)
             .Select(m => new MesaQrInfo(
-                m.Id, m.Numero, m.Activa, m.Restaurante!.Nombre, m.Restaurante!.Activo))
+                m.Id, m.Numero, m.Activa, m.Restaurante!.Nombre, m.Restaurante!.Activo && (m.Restaurante.CadenaId == null || m.Restaurante.Cadena!.Activo)))
             .FirstOrDefaultAsync();
     }
 
