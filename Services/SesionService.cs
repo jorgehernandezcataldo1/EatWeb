@@ -45,7 +45,7 @@ public class SesionService
         // Crear nueva sesión. La asignación actual de la mesa se conserva como snapshot histórico.
         var mesa = await _context.Mesas
             .AsNoTracking()
-            .Where(m => m.Id == mesaId && m.Activa && m.Restaurante!.Activo)
+            .Where(m => m.Id == mesaId && m.Activa && m.Restaurante!.Activo && (m.Restaurante.CadenaId == null || m.Restaurante.Cadena!.Activo))
             .Select(m => new
             {
                 m.Id,
@@ -165,7 +165,7 @@ public class SesionService
             return null; // Sesión cerrada
 
         var mesa = sesion.Mesa;
-        if (mesa == null || !mesa.Activa)
+        if (mesa == null || !mesa.Activa || mesa.Restaurante == null || !mesa.Restaurante.Activo || (mesa.Restaurante.CadenaId != null && mesa.Restaurante.Cadena?.Activo != true))
             return null; // Mesa inactiva
 
         return new ContextoComensal
