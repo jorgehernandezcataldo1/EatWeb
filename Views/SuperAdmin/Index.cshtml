@@ -31,6 +31,10 @@
                                 <form asp-action="GuardarCadena" method="post" class="d-flex gap-2">
                                     <input type="hidden" name="id" value="@c.Id" />
                                     <input name="nombre" value="@c.Nombre" maxlength="120" class="form-control form-control-sm" required aria-label="Nombre de cadena" />
+                                    <select name="activo" class="form-select form-select-sm" aria-label="Estado cadena">
+                                        @if (c.Activo) { <option value="true" selected>Activa</option><option value="false">Suspendida</option> }
+                                        else { <option value="true">Activa</option><option value="false" selected>Suspendida</option> }
+                                    </select>
                                     <button class="btn btn-sm btn-outline-primary">Guardar</button>
                                 </form>
                             </td></tr>
