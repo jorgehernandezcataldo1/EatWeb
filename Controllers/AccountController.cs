@@ -59,6 +59,9 @@ public class AccountController : Controller
         {
             var roles = await _userManager.GetRolesAsync(user);
 
+            if (roles.Contains(Roles.SuperAdmin))
+                return RedirectToAction("Index", "SuperAdmin");
+
             if (roles.Contains(Roles.AdminCadena))
                 return RedirectToAction("Index", "Admin");
 
