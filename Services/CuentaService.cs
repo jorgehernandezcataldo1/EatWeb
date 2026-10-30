@@ -167,54 +167,20 @@ public class CuentaService
                 return Error("Sesión no encontrada o cerrada.");
             }
 
-            if (comensalId.HasValue &&
-                sesion.Comensales.All(c => c.Id != comensalId.Value))
+            if (comensalId.HasValue)
             {
-                await tx.RollbackAsync();
-                return Error("El comensal indicado no pertenece a esta mesa.");
-            }
-
-            var hayPedidosActivos = sesion.Comensales
-                .SelectMany(c => c.Pedidos)
-                .Any(p =>
-                    p.Estado == EstadoPedido.Pendiente ||
-                    p.Estado == EstadoPedido.EnPreparacion ||
-                    p.Estado == EstadoPedido.Listo);
-
-            if (hayPedidosActivos)
-            {
-                await tx.RollbackAsync();
-                return Error("No se puede cobrar mientras existan pedidos activos.");
-            }
-
-            var detallesValidos = sesion.Comensales
-                .SelectMany(c => c.Pedidos)
-                .Where(p => p.Estado != EstadoPedido.Cancelado)
-                .SelectMany(p => p.Detalles)
-                .Where(d => d.Estado != EstadoDetallePedido.Cancelado)
-                .ToDictionary(d => d.Id);
-
-            if (items.Any(a => !detallesValidos.ContainsKey(a.DetallePedidoId)))
-            {
-                await tx.RollbackAsync();
-                return Error("El pago contiene consumos que no pertenecen a esta cuenta.");
-            }
-
-            // Cuando el cobro se atribuye a un comensal concreto (modo
-            // PorConsumo), todos los detalles deben pertenecerle.
-            // Evita cobros cruzados aunque se invoque el servicio sin pasar
-            // por las validaciones del controlador.
-            if (comensalId.HasValue &&
-                sesion.Comensales
+                var detallesDelComensal = sesion.Comensales
                     .Where(comensal => comensal.Id == comensalId.Value)
                     .SelectMany(comensal => comensal.Pedidos)
                     .SelectMany(pedido => pedido.Detalles)
                     .Select(detalle => detalle.Id)
-                    .ToHashSet() is var detallesDelComensal &&
-                items.Any(item => !detallesDelComensal.Contains(item.DetallePedidoId)))
-            {
-                await tx.RollbackAsync();
-                return Error("El pago incluye consumos de otro comensal.");
+                    .ToHashSet();
+
+                if (items.Any(item => !detallesDelComensal.Contains(item.DetallePedidoId)))
+                {
+                    await tx.RollbackAsync();
+                    return Error("El pago incluye consumos de otro comensal.");
+                }
             }
 
             var detalleIds = items.Select(a => a.DetallePedidoId).ToList();
