@@ -5,6 +5,7 @@ public class Cadena
     public int Id { get; set; }
 
     public string Nombre { get; set; } = null!;
+    public bool Activo { get; set; } = true;
     public string? LogoUrl { get; set; }
 
     public ICollection<Restaurante> Restaurantes { get; set; }
