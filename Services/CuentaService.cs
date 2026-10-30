@@ -200,6 +200,23 @@ public class CuentaService
                 return Error("El pago contiene consumos que no pertenecen a esta cuenta.");
             }
 
+            // Cuando el cobro se atribuye a un comensal concreto (modo
+            // PorConsumo), todos los detalles deben pertenecerle.
+            // Evita cobros cruzados aunque se invoque el servicio sin pasar
+            // por las validaciones del controlador.
+            if (comensalId.HasValue &&
+                sesion.Comensales
+                    .Where(comensal => comensal.Id == comensalId.Value)
+                    .SelectMany(comensal => comensal.Pedidos)
+                    .SelectMany(pedido => pedido.Detalles)
+                    .Select(detalle => detalle.Id)
+                    .ToHashSet() is var detallesDelComensal &&
+                items.Any(item => !detallesDelComensal.Contains(item.DetallePedidoId)))
+            {
+                await tx.RollbackAsync();
+                return Error("El pago incluye consumos de otro comensal.");
+            }
+
             var detalleIds = items.Select(a => a.DetallePedidoId).ToList();
             var yaAsignado = await _context.PagoDetalles
                 .Where(pd =>
