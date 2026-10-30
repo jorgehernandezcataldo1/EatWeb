@@ -49,7 +49,8 @@ public class ComiditaHub : Hub
                     c.Token == token &&
                     c.MesaSesion!.FechaCierre == null &&
                     c.MesaSesion.Mesa!.Activa &&
-                    c.MesaSesion.Mesa.Restaurante!.Activo)
+                    c.MesaSesion.Mesa.Restaurante!.Activo &&
+                    (c.MesaSesion.Mesa.Restaurante.CadenaId == null || c.MesaSesion.Mesa.Restaurante.Cadena!.Activo))
                 .Select(c => (int?)c.MesaSesionId)
                 .FirstOrDefaultAsync();
 
@@ -82,7 +83,8 @@ public class ComiditaHub : Hub
                     .Where(rm =>
                         rm.UsuarioId == usuarioId &&
                         rm.Activo &&
-                        rm.Restaurante.Activo)
+                        rm.Restaurante.Activo &&
+                        (rm.Restaurante.CadenaId == null || rm.Restaurante.Cadena!.Activo))
                     .Select(rm => new
                     {
                         rm.RestauranteId,
@@ -120,7 +122,7 @@ public class ComiditaHub : Hub
                     var restaurantesCadena = await _context.Restaurantes
                         .AsNoTracking()
                         .Where(r =>
-                            r.Activo &&
+                            r.Activo && r.Cadena!.Activo &&
                             r.CadenaId != null &&
                             _context.CadenasMiembros.Any(cm =>
                                 cm.UsuarioId == usuarioId &&
