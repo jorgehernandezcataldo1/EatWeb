@@ -2,6 +2,7 @@ using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
 using EatWeb.Services;
+using EatWeb.Realtime;
 using EatWeb.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -18,13 +19,16 @@ public sealed class SuperAdminController : Controller
     private readonly ApplicationDbContext _db;
     private readonly UserManager<ApplicationUser> _users;
     private readonly RestauranteDefaultsService _defaults;
+    private readonly RealtimeAccessRevoker _revoker;
 
     public SuperAdminController(ApplicationDbContext db,
-        UserManager<ApplicationUser> users, RestauranteDefaultsService defaults)
+        UserManager<ApplicationUser> users, RestauranteDefaultsService defaults,
+        RealtimeAccessRevoker revoker)
     {
         _db = db;
         _users = users;
         _defaults = defaults;
+        _revoker = revoker;
     }
 
     [HttpGet("")]
@@ -79,6 +83,21 @@ public sealed class SuperAdminController : Controller
             _db.Cadenas.Add(cadena);
         }
         await _db.SaveChangesAsync();
+        if (!activo)
+        {
+            var restaurants = await _db.Restaurantes.AsNoTracking()
+                .Where(r => r.CadenaId == cadena.Id)
+                .Select(r => new
+                {
+                    r.Id,
+                    Miembros = r.Miembros.Select(m => m.UsuarioId).ToList(),
+                    AdminsCadena = r.Cadena!.Miembros.Select(m => m.UsuarioId).ToList()
+                })
+                .ToListAsync();
+            foreach (var restaurante in restaurants)
+                foreach (var usuarioId in restaurante.Miembros.Concat(restaurante.AdminsCadena).Distinct())
+                    await _revoker.RevokeRestaurantAsync(usuarioId, restaurante.Id);
+        }
         TempData["Ok"] = "Cadena guardada correctamente.";
         return RedirectToAction(nameof(Index));
     }
@@ -109,6 +128,17 @@ public sealed class SuperAdminController : Controller
             restaurante.Activo = activo;
         }
         await _db.SaveChangesAsync();
+        if (!restaurante.Activo)
+        {
+            var miembros = await _db.RestaurantesMiembros.Where(m => m.RestauranteId == restaurante.Id)
+                .Select(m => m.UsuarioId).ToListAsync();
+            var admins = restaurante.CadenaId.HasValue
+                ? await _db.CadenasMiembros.Where(m => m.CadenaId == restaurante.CadenaId.Value)
+                    .Select(m => m.UsuarioId).ToListAsync()
+                : new List<string>();
+            foreach (var usuarioId in miembros.Concat(admins).Distinct())
+                await _revoker.RevokeRestaurantAsync(usuarioId, restaurante.Id);
+        }
         if (nuevo)
             await _defaults.AsegurarEstacionesAsync(restaurante.Id);
         TempData["Ok"] = "Restaurante guardado correctamente.";
@@ -144,12 +174,15 @@ public sealed class SuperAdminController : Controller
             _db.RestaurantesMiembros.Add(membre);
         }
         var antesActivo = membre.Activo;
+        var rolAnterior = membre.Rol;
         membre.Rol = rol;
         membre.Activo = activo;
         var roleResult = await _users.AddToRoleAsync(usuario, rolGlobal);
         if (!roleResult.Succeeded && !await _users.IsInRoleAsync(usuario, rolGlobal))
             return BadRequest("No se pudo habilitar el rol global.");
         await _db.SaveChangesAsync();
+        if (!activo || (antesActivo && rolAnterior != rol))
+            await _revoker.RevokeRestaurantAsync(usuario.Id, restauranteId);
         TempData["Ok"] = "Membresía de restaurante guardada.";
         return RedirectToAction(nameof(Index));
     }
@@ -191,6 +224,9 @@ public sealed class SuperAdminController : Controller
         if (miembro == null) return NotFound();
         _db.CadenasMiembros.Remove(miembro);
         await _db.SaveChangesAsync();
+        foreach (var restauranteId in await _db.Restaurantes.AsNoTracking()
+            .Where(r => r.CadenaId == cadenaId).Select(r => r.Id).ToListAsync())
+            await _revoker.RevokeRestaurantAsync(usuarioId, restauranteId);
         TempData["Ok"] = "Membresía de cadena revocada.";
         return RedirectToAction(nameof(Index));
     }
