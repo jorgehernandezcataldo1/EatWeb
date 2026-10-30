@@ -47,13 +47,12 @@ public sealed class FuncionalidadesComercialesService
             {
                 s.PlanComercialId,
                 s.Activa,
-                s.VenceUtc,
-                PlanActivo = s.PlanComercial.Activo
+                s.VenceUtc
             }).FirstOrDefaultAsync();
 
         if (suscripcionLocal != null)
         {
-            if (!suscripcionLocal.Activa || !suscripcionLocal.PlanActivo ||
+            if (!suscripcionLocal.Activa ||
                 (suscripcionLocal.VenceUtc.HasValue && suscripcionLocal.VenceUtc <= fecha))
                 return false;
 
@@ -66,7 +65,7 @@ public sealed class FuncionalidadesComercialesService
 
         var planCadena = await _db.SuscripcionesComerciales.AsNoTracking()
             .Where(s => s.CadenaId == local.CadenaId && s.Activa &&
-                s.PlanComercial.Activo && (s.VenceUtc == null || s.VenceUtc > fecha))
+                (s.VenceUtc == null || s.VenceUtc > fecha))
             .Select(s => (int?)s.PlanComercialId).FirstOrDefaultAsync();
 
         return planCadena.HasValue && await _db.PlanesFuncionalidades.AsNoTracking()
