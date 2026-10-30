@@ -32,6 +32,7 @@ public class DbSeeder
     {
         await _context.Database.MigrateAsync();
         await AsegurarRolesAsync();
+        await AsegurarSuperAdminConfiguradoAsync();
         await SembrarBootstrapAsync();
 
         if (!_configuration.GetValue<bool>("SeedDemo:Enabled"))
@@ -56,6 +57,32 @@ public class DbSeeder
         {
             if (!await _roleManager.RoleExistsAsync(role))
                 await _roleManager.CreateAsync(new IdentityRole(role));
+        }
+    }
+
+    /// <summary>
+    /// Solo habilita una cuenta EXISTENTE mediante configuración explícita.
+    /// Nunca crea credenciales predeterminadas ni otorga acceso por email público.
+    /// Después del primer otorgamiento, deshabilitar SeedSuperAdmin:Enabled.
+    /// </summary>
+    private async Task AsegurarSuperAdminConfiguradoAsync()
+    {
+        if (!_configuration.GetValue<bool>("SeedSuperAdmin:Enabled"))
+            return;
+
+        var email = _configuration["SeedSuperAdmin:Email"]?.Trim();
+        if (string.IsNullOrWhiteSpace(email))
+            throw new InvalidOperationException("SeedSuperAdmin:Email es obligatorio cuando Enabled=true.");
+
+        var usuario = await _userManager.FindByEmailAsync(email);
+        if (usuario == null || !usuario.Activo)
+            throw new InvalidOperationException("SeedSuperAdmin exige una cuenta existente y activa.");
+
+        if (!await _userManager.IsInRoleAsync(usuario, Roles.SuperAdmin))
+        {
+            var resultado = await _userManager.AddToRoleAsync(usuario, Roles.SuperAdmin);
+            if (!resultado.Succeeded)
+                throw new InvalidOperationException("No se pudo otorgar el rol SuperAdmin.");
         }
     }
 
