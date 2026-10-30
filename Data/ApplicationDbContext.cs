@@ -47,6 +47,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IDataPro
             .HasMaxLength(100)
             .IsRequired();
 
+        modelBuilder.Entity<Cadena>()
+            .Property(c => c.Activo)
+            .HasDefaultValue(true);
+
         //Cadena Miembro
 
         modelBuilder.Entity<CadenaMiembro>()
