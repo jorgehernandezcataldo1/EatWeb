@@ -97,6 +97,10 @@ namespace EatWeb.Migrations
 
             modelBuilder.Entity("EatWeb.Models.Cadena", b =>
                 {
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer");
