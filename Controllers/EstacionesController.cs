@@ -1,5 +1,6 @@
 using EatWeb.Data;
 using EatWeb.Models;
+using EatWeb.Services;
 using EatWeb.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace EatWeb.Controllers;
 
 [Authorize(Roles = Roles.Admin)]
+[RequiereFuncionalidad("estaciones.gestion")]
 public class EstacionesController : RestauranteControllerBase
 {
     private readonly ApplicationDbContext _context;
