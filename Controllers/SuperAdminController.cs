@@ -35,33 +35,26 @@ public sealed class SuperAdminController : Controller
     [HttpGet("Index")]
     public async Task<IActionResult> Index()
     {
-        var usuarios = await _db.Users.AsNoTracking().OrderBy(u => u.Email)
-            .Select(u => new UsuarioSuperAdminItem(u.Id, u.Email ?? "", u.NombreCompleto, u.Activo))
-            .ToListAsync();
         var cadenas = await _db.Cadenas.AsNoTracking()
             .OrderBy(c => c.Nombre)
             .Select(c => new CadenaSuperAdminItem(c.Id, c.Nombre, c.Restaurantes.Count(), c.Activo))
             .ToListAsync();
-        var restaurantes = await _db.Restaurantes.AsNoTracking()
-            .OrderBy(r => r.Nombre)
-            .Select(r => new RestauranteSuperAdminItem(r.Id, r.Nombre, r.CadenaId, r.Cadena != null ? r.Cadena.Nombre : "Independiente", r.Activo))
+        var restaurantes = await _db.Restaurantes.AsNoTracking().OrderBy(r => r.Nombre)
+            .Select(r => new RestauranteSuperAdminItem(r.Id, r.Nombre, r.CadenaId,
+                r.Cadena != null ? r.Cadena.Nombre : "Independiente", r.Activo))
             .ToListAsync();
-        var miembrosCadena = await _db.CadenasMiembros.AsNoTracking()
-            .OrderBy(m => m.CadenaId)
-            .Select(m => new MiembroCadenaSuperAdminItem(m.CadenaId, m.UsuarioId, m.Usuario.Email ?? "", m.Rol))
-            .ToListAsync();
-        var miembrosRestaurante = await _db.RestaurantesMiembros.AsNoTracking()
-            .OrderBy(m => m.RestauranteId)
-            .Select(m => new MiembroRestauranteSuperAdminItem(m.RestauranteId, m.UsuarioId, m.Usuario.Email ?? "", m.Rol, m.Activo))
-            .ToListAsync();
-
+        ViewBag.Planes = await _db.PlanesComerciales.AsNoTracking().OrderBy(p => p.Nombre).ToListAsync();
+        ViewBag.Funcionalidades = await _db.Funcionalidades.AsNoTracking().OrderBy(f => f.Clave).ToListAsync();
+        ViewBag.Suscripciones = await _db.SuscripcionesComerciales.AsNoTracking().ToListAsync();
+        ViewBag.UsuariosPorRestaurante = await _db.RestaurantesMiembros.AsNoTracking()
+            .Where(m => m.Activo && m.Usuario.Activo)
+            .GroupBy(m => m.RestauranteId)
+            .Select(g => new { Id = g.Key, Total = g.Count() })
+            .ToDictionaryAsync(x => x.Id, x => x.Total);
         return View(new SuperAdminIndexViewModel
         {
-            Usuarios = usuarios,
             Cadenas = cadenas,
-            Restaurantes = restaurantes,
-            MiembrosCadena = miembrosCadena,
-            MiembrosRestaurante = miembrosRestaurante
+            Restaurantes = restaurantes
         });
     }
 
