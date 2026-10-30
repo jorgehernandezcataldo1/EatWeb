@@ -35,6 +35,9 @@ public sealed class SuperAdminController : Controller
     [HttpGet("Index")]
     public async Task<IActionResult> Index()
     {
+        var usuarios = await _db.Users.AsNoTracking().OrderBy(u => u.Email)
+            .Select(u => new UsuarioSuperAdminItem(u.Id, u.Email ?? "", u.NombreCompleto, u.Activo))
+            .ToListAsync();
         var cadenas = await _db.Cadenas.AsNoTracking()
             .OrderBy(c => c.Nombre)
             .Select(c => new CadenaSuperAdminItem(c.Id, c.Nombre, c.Restaurantes.Count(), c.Activo))
@@ -54,11 +57,75 @@ public sealed class SuperAdminController : Controller
 
         return View(new SuperAdminIndexViewModel
         {
+            Usuarios = usuarios,
             Cadenas = cadenas,
             Restaurantes = restaurantes,
             MiembrosCadena = miembrosCadena,
             MiembrosRestaurante = miembrosRestaurante
         });
+    }
+
+
+    [HttpPost("Usuario")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CrearUsuario(string email, string nombre, string password)
+    {
+        email = (email ?? "").Trim();
+        nombre = (nombre ?? "").Trim();
+        if (email.Length is < 5 or > 254 || nombre.Length is < 2 or > 100 ||
+            !new System.Net.Mail.MailAddress(email).Address.Equals(email, StringComparison.OrdinalIgnoreCase))
+            return BadRequest("Correo o nombre inválido.");
+        if (await _users.FindByEmailAsync(email) != null)
+            return BadRequest("El correo ya está registrado.");
+
+        var usuario = new ApplicationUser
+        {
+            UserName = email,
+            Email = email,
+            NombreCompleto = nombre,
+            Activo = true
+        };
+        var result = await _users.CreateAsync(usuario, password ?? "");
+        if (!result.Succeeded)
+            return BadRequest(string.Join(" ", result.Errors.Select(e => e.Description)));
+        TempData["Ok"] = "Usuario creado. Asigna su membresía desde el panel.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost("EstadoUsuario")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EstadoUsuario(string usuarioId, bool activo)
+    {
+        var miId = _users.GetUserId(User);
+        if (usuarioId == miId && !activo)
+            return BadRequest("No puedes desactivar tu propia cuenta SuperAdmin.");
+
+        var usuario = await _users.FindByIdAsync(usuarioId);
+        if (usuario == null) return NotFound();
+        usuario.Activo = activo;
+        var actualizado = await _users.UpdateAsync(usuario);
+        if (!actualizado.Succeeded) return BadRequest("No se pudo modificar el usuario.");
+
+        var stamp = await _users.UpdateSecurityStampAsync(usuario);
+        if (!stamp.Succeeded) return BadRequest("No se pudo invalidar la sesión.");
+
+        if (!activo)
+        {
+            var locales = await _db.RestaurantesMiembros.AsNoTracking()
+                .Where(m => m.UsuarioId == usuarioId)
+                .Select(m => m.RestauranteId).ToListAsync();
+            var cadenas = await _db.CadenasMiembros.AsNoTracking()
+                .Where(m => m.UsuarioId == usuarioId)
+                .Select(m => m.CadenaId).ToListAsync();
+            var localesCadena = await _db.Restaurantes.AsNoTracking()
+                .Where(r => r.CadenaId != null && cadenas.Contains(r.CadenaId.Value))
+                .Select(r => r.Id).ToListAsync();
+            foreach (var restauranteId in locales.Concat(localesCadena).Distinct())
+                await _revoker.RevokeRestaurantAsync(usuarioId, restauranteId);
+        }
+
+        TempData["Ok"] = activo ? "Usuario activado." : "Usuario desactivado y sesiones invalidadas.";
+        return RedirectToAction(nameof(Index));
     }
 
     [HttpPost("Cadena")]
