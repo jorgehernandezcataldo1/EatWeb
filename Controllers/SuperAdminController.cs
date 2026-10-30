@@ -73,7 +73,8 @@ public sealed class SuperAdminController : Controller
         email = (email ?? "").Trim();
         nombre = (nombre ?? "").Trim();
         if (email.Length is < 5 or > 254 || nombre.Length is < 2 or > 100 ||
-            !new System.Net.Mail.MailAddress(email).Address.Equals(email, StringComparison.OrdinalIgnoreCase))
+            !System.Net.Mail.MailAddress.TryCreate(email, out var direccion) ||
+            !string.Equals(direccion.Address, email, StringComparison.OrdinalIgnoreCase))
             return BadRequest("Correo o nombre inválido.");
         if (await _users.FindByEmailAsync(email) != null)
             return BadRequest("El correo ya está registrado.");
