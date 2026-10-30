@@ -68,7 +68,7 @@ public class AccesoRestauranteService
         return await _context.Restaurantes
             .AsNoTracking()
             .Where(r =>
-                r.Activo &&
+                r.Activo && (r.CadenaId == null || r.Cadena!.Activo) &&
                 ((esAdminCadena &&
                  r.CadenaId != null &&
                  _context.CadenasMiembros.Any(cm =>
@@ -117,7 +117,7 @@ public class AccesoRestauranteService
         return await _context.Restaurantes
             .AsNoTracking()
             .Where(r =>
-                r.Activo &&
+                r.Activo && (r.CadenaId == null || r.Cadena!.Activo) &&
                 ((esAdminCadena &&
                  r.CadenaId != null &&
                  _context.CadenasMiembros.Any(cm =>
@@ -167,7 +167,7 @@ public class AccesoRestauranteService
 
         var restauranteActivo = await _context.Restaurantes
             .AsNoTracking()
-            .AnyAsync(r => r.Id == restauranteId && r.Activo);
+            .AnyAsync(r => r.Id == restauranteId && r.Activo && (r.CadenaId == null || r.Cadena!.Activo));
 
         if (!restauranteActivo)
             return false;
