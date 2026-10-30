@@ -14,6 +14,35 @@
         </form>
     </div>
     @if (TempData["Ok"] != null) { <div class="alert alert-success">@TempData["Ok"]</div> }
+    <section class="card shadow-sm mb-4">
+        <div class="card-header"><h2 class="h5 mb-0">Usuarios globales (@Model.Usuarios.Count)</h2></div>
+        <div class="card-body">
+            <form asp-action="CrearUsuario" method="post" class="row g-2 mb-3">
+                <div class="col-12 col-lg-3"><input name="nombre" class="form-control" required maxlength="100" placeholder="Nombre completo" /></div>
+                <div class="col-12 col-lg-4"><input name="email" type="email" class="form-control" required maxlength="254" placeholder="Correo de la cuenta" /></div>
+                <div class="col-12 col-lg-3"><input name="password" type="password" autocomplete="new-password" class="form-control" required placeholder="Contraseña temporal segura" /></div>
+                <div class="col-12 col-lg-2"><button class="btn btn-primary w-100">Crear usuario</button></div>
+            </form>
+            <div class="table-responsive"><table class="table table-sm align-middle">
+                <thead><tr><th>Usuario</th><th>Correo</th><th>Estado</th><th>Cambiar estado</th></tr></thead>
+                <tbody>
+                @foreach (var u in Model.Usuarios) {
+                    <tr>
+                        <td>@u.Nombre</td><td>@u.Email</td><td>@(u.Activo ? "Activo" : "Inactivo")</td>
+                        <td><form asp-action="EstadoUsuario" method="post" class="d-flex gap-2">
+                            <input type="hidden" name="usuarioId" value="@u.Id" />
+                            <select name="activo" class="form-select form-select-sm" aria-label="Estado usuario">
+                                @if (u.Activo) { <option value="true" selected>Activo</option><option value="false">Inactivo</option> }
+                                else { <option value="true">Activo</option><option value="false" selected>Inactivo</option> }
+                            </select>
+                            <button class="btn btn-sm btn-outline-primary">Aplicar</button>
+                        </form></td>
+                    </tr>
+                }
+                </tbody>
+            </table></div>
+        </div>
+    </section>
     <div class="row g-4">
         <div class="col-12 col-xl-6">
             <section class="card shadow-sm h-100">
