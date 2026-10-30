@@ -59,7 +59,7 @@ public sealed class SuperAdminController : Controller
 
     [HttpPost("Cadena")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> GuardarCadena(int? id, string nombre)
+    public async Task<IActionResult> GuardarCadena(int? id, string nombre, bool activo = true)
     {
         nombre = (nombre ?? "").Trim();
         if (nombre.Length is < 2 or > 120)
@@ -71,10 +71,11 @@ public sealed class SuperAdminController : Controller
             cadena = await _db.Cadenas.FindAsync(id.Value);
             if (cadena == null) return NotFound();
             cadena.Nombre = nombre;
+            cadena.Activo = activo;
         }
         else
         {
-            cadena = new Cadena { Nombre = nombre };
+            cadena = new Cadena { Nombre = nombre, Activo = activo };
             _db.Cadenas.Add(cadena);
         }
         await _db.SaveChangesAsync();
