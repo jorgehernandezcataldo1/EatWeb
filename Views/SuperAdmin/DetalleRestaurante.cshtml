@@ -26,6 +26,13 @@
         </select>
         <button class="btn btn-primary">Asignar plan propio al restaurante</button>
     </form>
+    @if (propio.HasValue)
+    {
+        <form asp-action="EliminarSuscripcion" method="post" class="mt-2">
+            <input type="hidden" name="restauranteId" value="@local.RestauranteId"/>
+            <button class="btn btn-outline-secondary">Quitar plan propio y volver a heredar</button>
+        </form>
+    }
 </div></section></div>
 <div class="col-lg-6"><section class="card h-100"><div class="card-header">Configuración del local</div><div class="card-body">
     <form asp-action="GuardarRestaurante" method="post" class="d-grid gap-2">
