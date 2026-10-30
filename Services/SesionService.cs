@@ -155,6 +155,7 @@ public class SesionService
             .Include(c => c.MesaSesion)
             .ThenInclude(s => s!.Mesa)
             .ThenInclude(m => m!.Restaurante)
+            .ThenInclude(r => r!.Cadena)
             .FirstOrDefaultAsync(c => c.Token == token);
 
         if (comensal == null)
