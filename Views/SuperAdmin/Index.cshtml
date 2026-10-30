@@ -100,6 +100,37 @@
                     <div class="col-lg-2"><button class="btn btn-primary w-100">Asignar</button></div>
                     <div class="col-12"><small class="text-muted">Selecciona exactamente una cadena o un restaurante. Si un local tiene plan propio, prevalece sobre el de su cadena.</small></div>
                 </form>
+                <hr/>
+                <h3 class="h6">Suscripciones configuradas</h3>
+                <div class="table-responsive"><table class="table table-sm align-middle">
+                    <thead><tr><th>Cliente</th><th>Plan</th><th>Estado</th><th>Acción</th></tr></thead>
+                    <tbody>
+                    @foreach(var s in suscripciones) {
+                        <tr><td>@(s.CadenaId.HasValue
+                            ? "Cadena: " + Model.Cadenas.FirstOrDefault(c=>c.Id==s.CadenaId)?.Nombre
+                            : "Local: " + Model.Restaurantes.FirstOrDefault(l=>l.Id==s.RestauranteId)?.Nombre)</td>
+                            <td>@planes.FirstOrDefault(p=>p.Id==s.PlanComercialId)?.Nombre</td>
+                            <td>@(s.Activa ? "Activa" : "Suspendida")</td>
+                            <td>
+                                <form asp-action="GuardarSuscripcion" method="post" class="d-inline-flex gap-1">
+                                    @if(s.CadenaId.HasValue){ <input type="hidden" name="cadenaId" value="@s.CadenaId"/> }
+                                    else { <input type="hidden" name="restauranteId" value="@s.RestauranteId"/> }
+                                    <input type="hidden" name="planId" value="@s.PlanComercialId"/>
+                                    <select name="activa" class="form-select form-select-sm">
+                                        <option value="true" selected="@s.Activa">Activa</option>
+                                        <option value="false" selected="@(!s.Activa)">Suspendida</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-outline-primary">Guardar</button>
+                                </form>
+                                <form asp-action="EliminarSuscripcion" method="post" class="d-inline">
+                                    @if(s.CadenaId.HasValue){ <input type="hidden" name="cadenaId" value="@s.CadenaId"/> }
+                                    else { <input type="hidden" name="restauranteId" value="@s.RestauranteId"/> }
+                                    <button class="btn btn-sm btn-outline-secondary">Quitar</button>
+                                </form>
+                            </td></tr>
+                    }
+                    </tbody>
+                </table></div>
             </div>
         </section></div>
         <div class="col-12"><section class="card">
