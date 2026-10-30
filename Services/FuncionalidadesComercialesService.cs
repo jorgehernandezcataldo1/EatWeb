@@ -30,18 +30,38 @@ public sealed class FuncionalidadesComercialesService
             .Select(o => (bool?)o.Habilitada).FirstOrDefaultAsync();
         if (localOverride.HasValue) return localOverride.Value;
 
-        var suscripcion = await _db.SuscripcionesComerciales.AsNoTracking()
-            .Where(s => s.RestauranteId == restauranteId && s.Activa &&
+        // El plan propio tiene precedencia INCLUSO si está suspendido o vencido.
+        // Un plan local inactivo no debe reaparecer como acceso por herencia.
+        var suscripcionLocal = await _db.SuscripcionesComerciales.AsNoTracking()
+            .Where(s => s.RestauranteId == restauranteId)
+            .Select(s => new
+            {
+                s.PlanComercialId,
+                s.Activa,
+                s.VenceUtc,
+                PlanActivo = s.PlanComercial.Activo
+            }).FirstOrDefaultAsync();
+
+        if (suscripcionLocal != null)
+        {
+            if (!suscripcionLocal.Activa || !suscripcionLocal.PlanActivo ||
+                (suscripcionLocal.VenceUtc.HasValue && suscripcionLocal.VenceUtc <= fecha))
+                return false;
+
+            return await _db.PlanesFuncionalidades.AsNoTracking()
+                .AnyAsync(p => p.PlanComercialId == suscripcionLocal.PlanComercialId &&
+                    p.FuncionalidadId == feature.Value);
+        }
+
+        if (!local.CadenaId.HasValue) return false;
+
+        var planCadena = await _db.SuscripcionesComerciales.AsNoTracking()
+            .Where(s => s.CadenaId == local.CadenaId && s.Activa &&
                 s.PlanComercial.Activo && (s.VenceUtc == null || s.VenceUtc > fecha))
             .Select(s => (int?)s.PlanComercialId).FirstOrDefaultAsync();
 
-        if (!suscripcion.HasValue && local.CadenaId.HasValue)
-            suscripcion = await _db.SuscripcionesComerciales.AsNoTracking()
-                .Where(s => s.CadenaId == local.CadenaId && s.Activa &&
-                    s.PlanComercial.Activo && (s.VenceUtc == null || s.VenceUtc > fecha))
-                .Select(s => (int?)s.PlanComercialId).FirstOrDefaultAsync();
-
-        return suscripcion.HasValue && await _db.PlanesFuncionalidades.AsNoTracking()
-            .AnyAsync(p => p.PlanComercialId == suscripcion.Value && p.FuncionalidadId == feature.Value);
+        return planCadena.HasValue && await _db.PlanesFuncionalidades.AsNoTracking()
+            .AnyAsync(p => p.PlanComercialId == planCadena.Value &&
+                p.FuncionalidadId == feature.Value);
     }
 }
