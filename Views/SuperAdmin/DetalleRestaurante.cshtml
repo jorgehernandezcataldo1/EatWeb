@@ -1,0 +1,66 @@
+@using EatWeb.Models
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Detalle restaurante";
+    dynamic local = ViewBag.Restaurante;
+    var miembros = (List<MiembroRestauranteSuperAdminItem>)ViewBag.Miembros;
+    var funciones = (List<Funcionalidad>)ViewBag.Funcionalidades;
+    var overrides = (Dictionary<int,bool>)ViewBag.Overrides;
+    var planes = (List<PlanComercial>)ViewBag.Planes;
+    var propio = (SuscripcionComercial?)ViewBag.SuscripcionLocal;
+    var cadena = (SuscripcionComercial?)ViewBag.SuscripcionCadena;
+}
+<div class="container py-4">
+<a asp-action="Index" class="d-inline-block mb-3">← Volver a clientes</a>
+<h1 class="h3">@local.Nombre</h1>
+<p class="text-muted">Restaurante #@local.Id · @(local.Activo ? "Activo" : "Inactivo") · @miembros.Count usuarios registrados</p>
+<div class="row g-3">
+<div class="col-lg-6"><section class="card h-100"><div class="card-header">Plan del restaurante</div><div class="card-body">
+    <p>Plan propio: <strong>@(planes.FirstOrDefault(p=>p.Id==propio?.PlanComercialId)?.Nombre ?? "Sin plan propio")</strong></p>
+    <p>Plan heredado de cadena: <strong>@(planes.FirstOrDefault(p=>p.Id==cadena?.PlanComercialId)?.Nombre ?? "Sin plan de cadena")</strong></p>
+    <form asp-action="GuardarSuscripcion" method="post" class="d-grid gap-2">
+        <input type="hidden" name="restauranteId" value="@local.Id"/>
+        <select name="planId" class="form-select" required>
+            @foreach(var p in planes.Where(x=>x.Activo)) { <option value="@p.Id">@p.Nombre</option> }
+        </select>
+        <button class="btn btn-primary">Asignar plan propio al restaurante</button>
+    </form>
+</div></section></div>
+<div class="col-lg-6"><section class="card h-100"><div class="card-header">Configuración del local</div><div class="card-body">
+    <form asp-action="GuardarRestaurante" method="post" class="d-grid gap-2">
+        <input type="hidden" name="id" value="@local.Id"/>
+        <input name="nombre" class="form-control" value="@local.Nombre" maxlength="120" required/>
+        <input name="cadenaId" type="hidden" value="@local.CadenaId"/>
+        <select name="activo" class="form-select">
+            @if(local.Activo) {<option selected value="true">Activo</option><option value="false">Inactivo</option>}
+            else {<option value="true">Activo</option><option selected value="false">Inactivo</option>}
+        </select>
+        <button class="btn btn-outline-primary">Guardar</button>
+    </form>
+</div></section></div>
+<div class="col-lg-6"><section class="card h-100"><div class="card-header">Excepciones de funcionalidades</div><div class="card-body">
+    <p class="small text-muted">Heredar conserva la regla del plan. Permitir o bloquear prevalece sobre el plan propio o de cadena.</p>
+    @foreach(var f in funciones) {
+        <form asp-action="GuardarExcepcionRestaurante" method="post" class="row align-items-center g-2 mb-2">
+            <input type="hidden" name="restauranteId" value="@local.Id" />
+            <input type="hidden" name="funcionalidadId" value="@f.Id" />
+            <div class="col-5"><span class="small">@f.Nombre</span></div>
+            <div class="col-4">
+                <select name="modo" class="form-select form-select-sm">
+                    <option value="heredar" selected="@(!overrides.ContainsKey(f.Id))">Heredar plan</option>
+                    <option value="permitir" selected="@(overrides.TryGetValue(f.Id,out var valor) && valor)">Permitir</option>
+                    <option value="bloquear" selected="@(overrides.TryGetValue(f.Id,out var valor2) && !valor2)">Bloquear</option>
+                </select>
+            </div>
+            <div class="col-3"><button class="btn btn-sm btn-outline-primary">Aplicar</button></div>
+        </form>
+    }
+</div></section></div>
+<div class="col-lg-6"><section class="card h-100"><div class="card-header">Usuarios del restaurante (@miembros.Count)</div><div class="card-body">
+    <p class="small text-muted">El restaurante administra sus usuarios. Aquí solo puedes consultar y actuar excepcionalmente.</p>
+    <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Correo</th><th>Rol</th><th>Estado</th></tr></thead><tbody>
+        @foreach(var m in miembros) { <tr><td>@m.Email</td><td>@m.Rol</td><td>@(m.Activo ? "Activo" : "Inactivo")</td></tr> }
+    </tbody></table></div>
+</div></section></div>
+</div>
+</div>
