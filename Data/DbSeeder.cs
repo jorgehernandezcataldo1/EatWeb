@@ -44,6 +44,7 @@ public class DbSeeder
     {
         var roles = new[]
         {
+            Roles.SuperAdmin,
             Roles.AdminCadena,
             Roles.AdminRestaurante,
             Roles.Garzon,
