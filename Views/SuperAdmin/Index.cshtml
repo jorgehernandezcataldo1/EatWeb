@@ -161,7 +161,7 @@
                         </select></div>
                         <div class="col-12 col-md-4"><input name="email" type="email" required class="form-control" placeholder="Usuario existente" /></div>
                         <div class="col-6 col-md-2"><select name="rol" class="form-select">
-                            <option value="0">Administrador</option><option value="1">Encargado</option><option value="2">Garzón</option>
+                            <option value="0">Administrador</option><option value="1">Encargado</option><option value="2">Garzón</option><option value="3">Cocina/Bar</option>
                         </select></div>
                         <div class="col-3 col-md-1"><input type="hidden" name="activo" value="false" /><input class="form-check-input mt-2" type="checkbox" name="activo" value="true" checked title="Membresía activa" /></div>
                         <div class="col-3 col-md-1"><button class="btn btn-primary w-100">+</button></div>
@@ -176,7 +176,12 @@
                                     <form asp-action="GuardarMiembroRestaurante" method="post" class="d-flex gap-1 align-items-center">
                                         <input type="hidden" name="restauranteId" value="@m.RestauranteId" />
                                         <input type="hidden" name="email" value="@m.Email" />
-                                        <input type="hidden" name="rol" value="@((int)m.Rol)" />
+                                        <select name="rol" class="form-select form-select-sm" aria-label="Rol de membresía">
+                                            @foreach (var rol in new[] { RolRestaurante.Administrador, RolRestaurante.Encargado, RolRestaurante.Garzon, RolRestaurante.Cocina }) {
+                                                if (rol == m.Rol) { <option value="@((int)rol)" selected>@rol</option> }
+                                                else { <option value="@((int)rol)">@rol</option> }
+                                            }
+                                        </select>
                                         <select name="activo" class="form-select form-select-sm">
                                             @if (m.Activo) { <option value="true" selected>Activo</option><option value="false">Inactivo</option> }
                                             else { <option value="true">Activo</option><option value="false" selected>Inactivo</option> }
