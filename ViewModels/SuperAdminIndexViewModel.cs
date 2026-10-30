@@ -16,3 +16,17 @@ public sealed record MiembroCadenaSuperAdminItem(int CadenaId, string UsuarioId,
 public sealed record MiembroRestauranteSuperAdminItem(int RestauranteId, string UsuarioId, string Email, RolRestaurante Rol, bool Activo);
 
 public sealed record UsuarioSuperAdminItem(string Id, string Email, string Nombre, bool Activo);
+
+public sealed class SuperAdminRestauranteDetalleViewModel
+{
+    public int RestauranteId { get; set; }
+    public string Nombre { get; set; } = "";
+    public int? CadenaId { get; set; }
+    public bool Activo { get; set; }
+    public List<MiembroRestauranteSuperAdminItem> Miembros { get; set; } = new();
+    public List<EatWeb.Models.Funcionalidad> Funcionalidades { get; set; } = new();
+    public Dictionary<int, bool> Excepciones { get; set; } = new();
+    public List<EatWeb.Models.PlanComercial> Planes { get; set; } = new();
+    public int? PlanPropioId { get; set; }
+    public int? PlanCadenaId { get; set; }
+}
