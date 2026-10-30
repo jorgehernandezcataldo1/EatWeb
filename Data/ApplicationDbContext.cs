@@ -14,6 +14,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IDataPro
     }
 
     public DbSet<Cadena> Cadenas { get; set; } = null!;
+    public DbSet<Funcionalidad> Funcionalidades { get; set; } = null!;
+    public DbSet<PlanComercial> PlanesComerciales { get; set; } = null!;
+    public DbSet<PlanFuncionalidad> PlanesFuncionalidades { get; set; } = null!;
+    public DbSet<SuscripcionComercial> SuscripcionesComerciales { get; set; } = null!;
+    public DbSet<RestauranteFuncionalidadOverride> RestaurantesFuncionalidadesOverride { get; set; } = null!;
     public DbSet<Restaurante> Restaurantes { get; set; } = null!;
     public DbSet<CadenaMiembro> CadenasMiembros { get; set; } = null!;
     public DbSet<RestauranteMiembro> RestaurantesMiembros { get; set; } = null!;
@@ -40,6 +45,46 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IDataPro
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<Funcionalidad>(e =>
+        {
+            e.Property(x => x.Clave).HasMaxLength(80).IsRequired();
+            e.Property(x => x.Nombre).HasMaxLength(120).IsRequired();
+            e.HasIndex(x => x.Clave).IsUnique();
+        });
+        modelBuilder.Entity<PlanComercial>(e =>
+        {
+            e.Property(x => x.Nombre).HasMaxLength(120).IsRequired();
+        });
+        modelBuilder.Entity<PlanFuncionalidad>(e =>
+        {
+            e.HasKey(x => new { x.PlanComercialId, x.FuncionalidadId });
+            e.HasOne(x => x.PlanComercial).WithMany(p => p.Funcionalidades)
+                .HasForeignKey(x => x.PlanComercialId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Funcionalidad).WithMany()
+                .HasForeignKey(x => x.FuncionalidadId).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<SuscripcionComercial>(e =>
+        {
+            e.HasOne(x => x.PlanComercial).WithMany().HasForeignKey(x => x.PlanComercialId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Cadena).WithMany().HasForeignKey(x => x.CadenaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Restaurante).WithMany().HasForeignKey(x => x.RestauranteId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.CadenaId).IsUnique().HasFilter("\"CadenaId\" IS NOT NULL");
+            e.HasIndex(x => x.RestauranteId).IsUnique().HasFilter("\"RestauranteId\" IS NOT NULL");
+            e.ToTable(t => t.HasCheckConstraint("CK_Suscripcion_Comercial_Scope",
+                "(\"CadenaId\" IS NOT NULL AND \"RestauranteId\" IS NULL) OR (\"CadenaId\" IS NULL AND \"RestauranteId\" IS NOT NULL)"));
+        });
+        modelBuilder.Entity<RestauranteFuncionalidadOverride>(e =>
+        {
+            e.HasKey(x => new { x.RestauranteId, x.FuncionalidadId });
+            e.HasOne(x => x.Restaurante).WithMany().HasForeignKey(x => x.RestauranteId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Funcionalidad).WithMany().HasForeignKey(x => x.FuncionalidadId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
 
         // ApplicationUser - agregar propiedades requeridas
         modelBuilder.Entity<ApplicationUser>()
