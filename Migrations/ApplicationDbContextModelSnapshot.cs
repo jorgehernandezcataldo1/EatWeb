@@ -1607,6 +1607,80 @@ namespace EatWeb.Migrations
 
                     b.Navigation("Sectores");
                 });
+            modelBuilder.Entity<EatWeb.Models.Funcionalidad>(b =>
+                {
+                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("integer");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<string>("Clave").IsRequired().HasMaxLength(80).HasColumnType("character varying(80)");
+                    b.Property<string>("Nombre").IsRequired().HasMaxLength(120).HasColumnType("character varying(120)");
+                    b.Property<bool>("Activa").HasColumnType("boolean");
+                    b.HasKey("Id");
+                    b.HasIndex("Clave").IsUnique();
+                    b.ToTable("Funcionalidades");
+                });
+
+            modelBuilder.Entity<EatWeb.Models.PlanComercial>(b =>
+                {
+                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("integer");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<string>("Nombre").IsRequired().HasMaxLength(120).HasColumnType("character varying(120)");
+                    b.Property<bool>("Activo").HasColumnType("boolean");
+                    b.Property<int?>("MaxRestaurantes").HasColumnType("integer");
+                    b.HasKey("Id");
+                    b.ToTable("PlanesComerciales");
+                });
+
+            modelBuilder.Entity<EatWeb.Models.PlanFuncionalidad>(b =>
+                {
+                    b.Property<int>("PlanComercialId").HasColumnType("integer");
+                    b.Property<int>("FuncionalidadId").HasColumnType("integer");
+                    b.HasKey("PlanComercialId", "FuncionalidadId");
+                    b.HasIndex("FuncionalidadId");
+                    b.ToTable("PlanesFuncionalidades");
+                    b.HasOne("EatWeb.Models.PlanComercial", "PlanComercial")
+                        .WithMany("Funcionalidades").HasForeignKey("PlanComercialId").OnDelete(DeleteBehavior.Cascade).IsRequired();
+                    b.HasOne("EatWeb.Models.Funcionalidad", "Funcionalidad")
+                        .WithMany().HasForeignKey("FuncionalidadId").OnDelete(DeleteBehavior.Restrict).IsRequired();
+                });
+
+            modelBuilder.Entity<EatWeb.Models.SuscripcionComercial>(b =>
+                {
+                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("integer");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<int>("PlanComercialId").HasColumnType("integer");
+                    b.Property<int?>("CadenaId").HasColumnType("integer");
+                    b.Property<int?>("RestauranteId").HasColumnType("integer");
+                    b.Property<bool>("Activa").HasColumnType("boolean");
+                    b.Property<DateTime?>("VenceUtc").HasColumnType("timestamp with time zone");
+                    b.HasKey("Id");
+                    b.HasIndex("PlanComercialId");
+                    b.HasIndex("CadenaId").IsUnique().HasFilter("\"CadenaId\" IS NOT NULL");
+                    b.HasIndex("RestauranteId").IsUnique().HasFilter("\"RestauranteId\" IS NOT NULL");
+                    b.ToTable("SuscripcionesComerciales", t =>
+                        t.HasCheckConstraint("CK_Suscripcion_Comercial_Scope",
+                        "(\"CadenaId\" IS NOT NULL AND \"RestauranteId\" IS NULL) OR (\"CadenaId\" IS NULL AND \"RestauranteId\" IS NOT NULL)"));
+                    b.HasOne("EatWeb.Models.PlanComercial", "PlanComercial").WithMany()
+                        .HasForeignKey("PlanComercialId").OnDelete(DeleteBehavior.Restrict).IsRequired();
+                    b.HasOne("EatWeb.Models.Cadena", "Cadena").WithMany()
+                        .HasForeignKey("CadenaId").OnDelete(DeleteBehavior.Restrict);
+                    b.HasOne("EatWeb.Models.Restaurante", "Restaurante").WithMany()
+                        .HasForeignKey("RestauranteId").OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity<EatWeb.Models.RestauranteFuncionalidadOverride>(b =>
+                {
+                    b.Property<int>("RestauranteId").HasColumnType("integer");
+                    b.Property<int>("FuncionalidadId").HasColumnType("integer");
+                    b.Property<bool>("Habilitada").HasColumnType("boolean");
+                    b.HasKey("RestauranteId", "FuncionalidadId");
+                    b.HasIndex("FuncionalidadId");
+                    b.ToTable("RestaurantesFuncionalidadesOverride");
+                    b.HasOne("EatWeb.Models.Restaurante", "Restaurante").WithMany()
+                        .HasForeignKey("RestauranteId").OnDelete(DeleteBehavior.Cascade).IsRequired();
+                    b.HasOne("EatWeb.Models.Funcionalidad", "Funcionalidad").WithMany()
+                        .HasForeignKey("FuncionalidadId").OnDelete(DeleteBehavior.Restrict).IsRequired();
+                });
+
 #pragma warning restore 612, 618
         }
     }
