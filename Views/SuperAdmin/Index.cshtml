@@ -7,6 +7,7 @@
     var funciones = (List<Funcionalidad>)ViewBag.Funcionalidades;
     var suscripciones = (List<SuscripcionComercial>)ViewBag.Suscripciones;
     var usuarios = (Dictionary<int,int>)ViewBag.UsuariosPorRestaurante;
+    var planFunciones = (HashSet<string>)ViewBag.PlanFuncionalidades;
 }
 <div class="container py-4">
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
@@ -116,7 +117,10 @@
                             <tr><td>@f.Nombre <code>@f.Clave</code></td><td>@p.Nombre</td><td>
                                 <form asp-action="DefinirPlanFuncionalidad" method="post" class="d-flex gap-2">
                                     <input type="hidden" name="planId" value="@p.Id"/><input type="hidden" name="funcionalidadId" value="@f.Id"/>
-                                    <select name="habilitada" class="form-select form-select-sm"><option value="true">Habilitar</option><option value="false">Deshabilitar</option></select>
+                                    <select name="habilitada" class="form-select form-select-sm">
+                                        <option value="true" selected="@planFunciones.Contains($"{p.Id}:{f.Id}")">Habilitada</option>
+                                        <option value="false" selected="@(!planFunciones.Contains($"{p.Id}:{f.Id}"))">Deshabilitada</option>
+                                    </select>
                                     <button class="btn btn-sm btn-outline-primary">Aplicar</button>
                                 </form>
                             </td></tr>
