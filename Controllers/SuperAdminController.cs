@@ -216,7 +216,7 @@ public sealed class SuperAdminController : Controller
     [HttpPost("MiembroRestaurante")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> GuardarMiembroRestaurante(
-        int restauranteId, string email, RolRestaurante rol, bool activo)
+        int restauranteId, string email, RolRestaurante rol, bool activo, string? estacion = null)
     {
         if (!Enum.IsDefined(rol) || !await _db.Restaurantes.AnyAsync(r => r.Id == restauranteId))
             return BadRequest();
@@ -228,8 +228,14 @@ public sealed class SuperAdminController : Controller
         {
             RolRestaurante.Administrador or RolRestaurante.Encargado => Roles.AdminRestaurante,
             RolRestaurante.Garzon => Roles.Garzon,
-            RolRestaurante.Cocina => await _users.IsInRoleAsync(usuario, Roles.Bar)
-                ? Roles.Bar : Roles.Cocina,
+            RolRestaurante.Cocina => estacion switch
+            {
+                Roles.Bar => Roles.Bar,
+                Roles.Cocina => Roles.Cocina,
+                null or "" => await _users.IsInRoleAsync(usuario, Roles.Bar)
+                    ? Roles.Bar : Roles.Cocina,
+                _ => null
+            },
             _ => null
         };
         if (rolGlobal == null)
