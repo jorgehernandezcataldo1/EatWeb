@@ -1607,7 +1607,7 @@ namespace EatWeb.Migrations
 
                     b.Navigation("Sectores");
                 });
-            modelBuilder.Entity<EatWeb.Models.Funcionalidad>(b =>
+            modelBuilder.Entity("EatWeb.Models.Funcionalidad", b =>
                 {
                     b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("integer");
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
@@ -1619,7 +1619,7 @@ namespace EatWeb.Migrations
                     b.ToTable("Funcionalidades");
                 });
 
-            modelBuilder.Entity<EatWeb.Models.PlanComercial>(b =>
+            modelBuilder.Entity("EatWeb.Models.PlanComercial", b =>
                 {
                     b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("integer");
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
@@ -1630,7 +1630,7 @@ namespace EatWeb.Migrations
                     b.ToTable("PlanesComerciales");
                 });
 
-            modelBuilder.Entity<EatWeb.Models.PlanFuncionalidad>(b =>
+            modelBuilder.Entity("EatWeb.Models.PlanFuncionalidad", b =>
                 {
                     b.Property<int>("PlanComercialId").HasColumnType("integer");
                     b.Property<int>("FuncionalidadId").HasColumnType("integer");
@@ -1643,7 +1643,7 @@ namespace EatWeb.Migrations
                         .WithMany().HasForeignKey("FuncionalidadId").OnDelete(DeleteBehavior.Restrict).IsRequired();
                 });
 
-            modelBuilder.Entity<EatWeb.Models.SuscripcionComercial>(b =>
+            modelBuilder.Entity("EatWeb.Models.SuscripcionComercial", b =>
                 {
                     b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("integer");
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
@@ -1667,7 +1667,7 @@ namespace EatWeb.Migrations
                         .HasForeignKey("RestauranteId").OnDelete(DeleteBehavior.Restrict);
                 });
 
-            modelBuilder.Entity<EatWeb.Models.RestauranteFuncionalidadOverride>(b =>
+            modelBuilder.Entity("EatWeb.Models.RestauranteFuncionalidadOverride", b =>
                 {
                     b.Property<int>("RestauranteId").HasColumnType("integer");
                     b.Property<int>("FuncionalidadId").HasColumnType("integer");
