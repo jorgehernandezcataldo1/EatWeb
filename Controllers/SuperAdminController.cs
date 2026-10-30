@@ -228,11 +228,12 @@ public sealed class SuperAdminController : Controller
         {
             RolRestaurante.Administrador or RolRestaurante.Encargado => Roles.AdminRestaurante,
             RolRestaurante.Garzon => Roles.Garzon,
-            RolRestaurante.Cocina => null, // Cocina/Bar requiere elección expresa de estación.
+            RolRestaurante.Cocina => await _users.IsInRoleAsync(usuario, Roles.Bar)
+                ? Roles.Bar : Roles.Cocina,
             _ => null
         };
         if (rolGlobal == null)
-            return BadRequest("Seleccione un rol operativo compatible (administrador o garzón). Los operadores de estación se administran en el restaurante.");
+            return BadRequest("Rol de membresía no habilitado para operaciones.");
 
         var membre = await _db.RestaurantesMiembros
             .FirstOrDefaultAsync(m => m.RestauranteId == restauranteId && m.UsuarioId == usuario.Id);
@@ -245,9 +246,12 @@ public sealed class SuperAdminController : Controller
         var rolAnterior = membre.Rol;
         membre.Rol = rol;
         membre.Activo = activo;
-        var roleResult = await _users.AddToRoleAsync(usuario, rolGlobal);
-        if (!roleResult.Succeeded && !await _users.IsInRoleAsync(usuario, rolGlobal))
-            return BadRequest("No se pudo habilitar el rol global.");
+        if (!await _users.IsInRoleAsync(usuario, rolGlobal))
+        {
+            var roleResult = await _users.AddToRoleAsync(usuario, rolGlobal);
+            if (!roleResult.Succeeded)
+                return BadRequest("No se pudo habilitar el rol global.");
+        }
         await _db.SaveChangesAsync();
         if (!activo || (antesActivo && rolAnterior != rol))
             await _revoker.RevokeRestaurantAsync(usuario.Id, restauranteId);
