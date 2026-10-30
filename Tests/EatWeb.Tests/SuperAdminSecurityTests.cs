@@ -20,6 +20,12 @@ public class SuperAdminSecurityTests
     }
 
     [Theory]
+    [InlineData("GuardarPlan")]
+    [InlineData("CrearFuncionalidad")]
+    [InlineData("DefinirPlanFuncionalidad")]
+    [InlineData("GuardarSuscripcion")]
+    [InlineData("EliminarSuscripcion")]
+    [InlineData("GuardarExcepcionRestaurante")]
     [InlineData("GuardarCadena")]
     [InlineData("GuardarRestaurante")]
     [InlineData("GuardarMiembroRestaurante")]
