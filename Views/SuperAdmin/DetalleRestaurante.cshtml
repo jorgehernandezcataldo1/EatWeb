@@ -1,25 +1,26 @@
+@model SuperAdminRestauranteDetalleViewModel
 @using EatWeb.Models
 @{
     Layout = "_Layout";
     ViewData["Title"] = "Detalle restaurante";
-    dynamic local = ViewBag.Restaurante;
-    var miembros = (List<MiembroRestauranteSuperAdminItem>)ViewBag.Miembros;
-    var funciones = (List<Funcionalidad>)ViewBag.Funcionalidades;
-    var overrides = (Dictionary<int,bool>)ViewBag.Overrides;
-    var planes = (List<PlanComercial>)ViewBag.Planes;
-    var propio = (SuscripcionComercial?)ViewBag.SuscripcionLocal;
-    var cadena = (SuscripcionComercial?)ViewBag.SuscripcionCadena;
+    var local = Model;
+    var miembros = Model.Miembros;
+    var funciones = Model.Funcionalidades;
+    var overrides = Model.Excepciones;
+    var planes = Model.Planes;
+    var propio = Model.PlanPropioId;
+    var cadena = Model.PlanCadenaId;
 }
 <div class="container py-4">
 <a asp-action="Index" class="d-inline-block mb-3">← Volver a clientes</a>
 <h1 class="h3">@local.Nombre</h1>
-<p class="text-muted">Restaurante #@local.Id · @(local.Activo ? "Activo" : "Inactivo") · @miembros.Count usuarios registrados</p>
+<p class="text-muted">Restaurante #@local.RestauranteId · @(local.Activo ? "Activo" : "Inactivo") · @miembros.Count usuarios registrados</p>
 <div class="row g-3">
 <div class="col-lg-6"><section class="card h-100"><div class="card-header">Plan del restaurante</div><div class="card-body">
-    <p>Plan propio: <strong>@(planes.FirstOrDefault(p=>p.Id==propio?.PlanComercialId)?.Nombre ?? "Sin plan propio")</strong></p>
-    <p>Plan heredado de cadena: <strong>@(planes.FirstOrDefault(p=>p.Id==cadena?.PlanComercialId)?.Nombre ?? "Sin plan de cadena")</strong></p>
+    <p>Plan propio: <strong>@(planes.FirstOrDefault(p=>p.Id==propio)?.Nombre ?? "Sin plan propio")</strong></p>
+    <p>Plan heredado de cadena: <strong>@(planes.FirstOrDefault(p=>p.Id==cadena)?.Nombre ?? "Sin plan de cadena")</strong></p>
     <form asp-action="GuardarSuscripcion" method="post" class="d-grid gap-2">
-        <input type="hidden" name="restauranteId" value="@local.Id"/>
+        <input type="hidden" name="restauranteId" value="@local.RestauranteId"/>
         <select name="planId" class="form-select" required>
             @foreach(var p in planes.Where(x=>x.Activo)) { <option value="@p.Id">@p.Nombre</option> }
         </select>
@@ -28,7 +29,7 @@
 </div></section></div>
 <div class="col-lg-6"><section class="card h-100"><div class="card-header">Configuración del local</div><div class="card-body">
     <form asp-action="GuardarRestaurante" method="post" class="d-grid gap-2">
-        <input type="hidden" name="id" value="@local.Id"/>
+        <input type="hidden" name="id" value="@local.RestauranteId"/>
         <input name="nombre" class="form-control" value="@local.Nombre" maxlength="120" required/>
         <input name="cadenaId" type="hidden" value="@local.CadenaId"/>
         <select name="activo" class="form-select">
@@ -42,7 +43,7 @@
     <p class="small text-muted">Heredar conserva la regla del plan. Permitir o bloquear prevalece sobre el plan propio o de cadena.</p>
     @foreach(var f in funciones) {
         <form asp-action="GuardarExcepcionRestaurante" method="post" class="row align-items-center g-2 mb-2">
-            <input type="hidden" name="restauranteId" value="@local.Id" />
+            <input type="hidden" name="restauranteId" value="@local.RestauranteId" />
             <input type="hidden" name="funcionalidadId" value="@f.Id" />
             <div class="col-5"><span class="small">@f.Nombre</span></div>
             <div class="col-4">
