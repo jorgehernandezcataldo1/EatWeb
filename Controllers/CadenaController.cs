@@ -34,6 +34,7 @@ public class CadenasController : Controller
     private IQueryable<CadenaMiembro> MembresiasAdministrables =>
         _context.CadenasMiembros.Where(cm =>
             cm.UsuarioId == UsuarioId &&
+            cm.Cadena.Activo &&
             (cm.Rol == RolCadena.Administrador || cm.Rol == RolCadena.Gerente));
 
     [HttpGet]
