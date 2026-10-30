@@ -8,6 +8,15 @@ public sealed class FuncionalidadesComercialesService
     private readonly ApplicationDbContext _db;
     public FuncionalidadesComercialesService(ApplicationDbContext db) => _db = db;
 
+    public async Task<bool> PuedeUsarModuloAsync(int restauranteId, string clave)
+    {
+        // Las funciones todavía no registradas mantienen la operación del MVP.
+        // Una vez creado el código en SuperAdmin, se aplican los planes/overrides.
+        var configurada = await _db.Funcionalidades.AsNoTracking()
+            .AnyAsync(f => f.Clave == clave);
+        return !configurada || await HabilitadaAsync(restauranteId, clave);
+    }
+
     // La ausencia de suscripción no concede capacidades. Sin embargo, durante
     // el piloto se debe habilitar el enforcement módulo por módulo.
     public async Task<bool> HabilitadaAsync(int restauranteId, string clave, DateTime? fechaUtc = null)
