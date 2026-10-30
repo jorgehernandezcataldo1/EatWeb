@@ -68,24 +68,34 @@ public sealed class SuperAdminController : Controller
             .FirstOrDefaultAsync();
         if (restaurante == null) return NotFound();
 
-        ViewBag.Restaurante = restaurante;
-        ViewBag.Miembros = await _db.RestaurantesMiembros.AsNoTracking()
+        var miembros = await _db.RestaurantesMiembros.AsNoTracking()
             .Where(m => m.RestauranteId == id)
             .OrderBy(m => m.Usuario.NombreCompleto)
             .Select(m => new MiembroRestauranteSuperAdminItem(
                 m.RestauranteId, m.UsuarioId, m.Usuario.Email ?? "", m.Rol, m.Activo))
             .ToListAsync();
-        ViewBag.Funcionalidades = await _db.Funcionalidades.AsNoTracking().OrderBy(f => f.Clave).ToListAsync();
-        ViewBag.Overrides = await _db.RestaurantesFuncionalidadesOverride.AsNoTracking()
-            .Where(o => o.RestauranteId == id)
-            .ToDictionaryAsync(o => o.FuncionalidadId, o => o.Habilitada);
-        ViewBag.SuscripcionLocal = await _db.SuscripcionesComerciales.AsNoTracking()
-            .FirstOrDefaultAsync(s => s.RestauranteId == id);
-        ViewBag.SuscripcionCadena = restaurante.CadenaId == null ? null :
+        var propio = await _db.SuscripcionesComerciales.AsNoTracking()
+            .Where(s => s.RestauranteId == id).Select(s => (int?)s.PlanComercialId)
+            .FirstOrDefaultAsync();
+        var heredado = restaurante.CadenaId == null ? null :
             await _db.SuscripcionesComerciales.AsNoTracking()
-                .FirstOrDefaultAsync(s => s.CadenaId == restaurante.CadenaId);
-        ViewBag.Planes = await _db.PlanesComerciales.AsNoTracking().ToListAsync();
-        return View();
+                .Where(s => s.CadenaId == restaurante.CadenaId)
+                .Select(s => (int?)s.PlanComercialId).FirstOrDefaultAsync();
+        return View(new SuperAdminRestauranteDetalleViewModel
+        {
+            RestauranteId = restaurante.Id,
+            Nombre = restaurante.Nombre,
+            CadenaId = restaurante.CadenaId,
+            Activo = restaurante.Activo,
+            Miembros = miembros,
+            Funcionalidades = await _db.Funcionalidades.AsNoTracking().OrderBy(f => f.Clave).ToListAsync(),
+            Excepciones = await _db.RestaurantesFuncionalidadesOverride.AsNoTracking()
+                .Where(o => o.RestauranteId == id)
+                .ToDictionaryAsync(o => o.FuncionalidadId, o => o.Habilitada),
+            Planes = await _db.PlanesComerciales.AsNoTracking().ToListAsync(),
+            PlanPropioId = propio,
+            PlanCadenaId = heredado
+        });
     }
 
     [HttpPost("Plan")]
