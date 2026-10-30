@@ -1,0 +1,162 @@
+@model SuperAdminIndexViewModel
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "SuperAdmin";
+}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">Administración global</h1>
+            <p class="text-muted mb-0">Cadenas, restaurantes y membresías de Comidita</p>
+        </div>
+        <form asp-controller="Account" asp-action="Logout" method="post">
+            <button type="submit" class="btn btn-outline-secondary">Cerrar sesión</button>
+        </form>
+    </div>
+    @if (TempData["Ok"] != null) { <div class="alert alert-success">@TempData["Ok"]</div> }
+    <div class="row g-4">
+        <div class="col-12 col-xl-6">
+            <section class="card shadow-sm h-100">
+                <div class="card-header"><h2 class="h5 mb-0">Cadenas (@Model.Cadenas.Count)</h2></div>
+                <div class="card-body">
+                    <form asp-action="GuardarCadena" method="post" class="row g-2 mb-3">
+                        <div class="col"><input name="nombre" class="form-control" maxlength="120" required placeholder="Nombre de cadena nueva" /></div>
+                        <div class="col-auto"><button class="btn btn-primary">Crear</button></div>
+                    </form>
+                    <div class="table-responsive"><table class="table table-sm align-middle">
+                        <thead><tr><th>Cadena</th><th>Locales</th><th>Editar nombre</th></tr></thead>
+                        <tbody>
+                        @foreach (var c in Model.Cadenas) {
+                            <tr><td>@c.Nombre</td><td>@c.Restaurantes</td><td>
+                                <form asp-action="GuardarCadena" method="post" class="d-flex gap-2">
+                                    <input type="hidden" name="id" value="@c.Id" />
+                                    <input name="nombre" value="@c.Nombre" maxlength="120" class="form-control form-control-sm" required aria-label="Nombre de cadena" />
+                                    <button class="btn btn-sm btn-outline-primary">Guardar</button>
+                                </form>
+                            </td></tr>
+                        }
+                        </tbody>
+                    </table></div>
+                </div>
+            </section>
+        </div>
+        <div class="col-12 col-xl-6">
+            <section class="card shadow-sm h-100">
+                <div class="card-header"><h2 class="h5 mb-0">Restaurantes (@Model.Restaurantes.Count)</h2></div>
+                <div class="card-body">
+                    <form asp-action="GuardarRestaurante" method="post" class="row g-2 mb-3">
+                        <div class="col-12 col-md"><input name="nombre" required maxlength="120" class="form-control" placeholder="Nuevo restaurante" /></div>
+                        <div class="col-12 col-md">
+                            <select name="cadenaId" class="form-select" aria-label="Cadena"><option value="">Independiente</option>
+                                @foreach (var c in Model.Cadenas) { <option value="@c.Id">@c.Nombre</option> }
+                            </select>
+                        </div>
+                        <div class="col-auto"><button class="btn btn-primary">Crear</button></div>
+                    </form>
+                    <div class="table-responsive"><table class="table table-sm align-middle">
+                        <thead><tr><th>Restaurante</th><th>Cadena</th><th>Estado</th><th>Guardar</th></tr></thead>
+                        <tbody>
+                        @foreach (var local in Model.Restaurantes) {
+                            <tr>
+                                <td colspan="4">
+                                    <form asp-action="GuardarRestaurante" method="post" class="row g-2 align-items-center">
+                                        <input type="hidden" name="id" value="@local.Id" />
+                                        <div class="col-12 col-md-4"><input class="form-control form-control-sm" name="nombre" value="@local.Nombre" maxlength="120" required /></div>
+                                        <div class="col-12 col-md-3">
+                                            <select name="cadenaId" class="form-select form-select-sm">
+                                                <option value="">Independiente</option>
+                                                @foreach (var c in Model.Cadenas) {
+                                                    if (local.CadenaId == c.Id) { <option value="@c.Id" selected>@c.Nombre</option> }
+                                                    else { <option value="@c.Id">@c.Nombre</option> }
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="col-6 col-md-3">
+                                            <select name="activo" class="form-select form-select-sm">
+                                                @if (local.Activo) { <option value="true" selected>Activo</option><option value="false">Inactivo</option> }
+                                                else { <option value="true">Activo</option><option value="false" selected>Inactivo</option> }
+                                            </select>
+                                        </div>
+                                        <div class="col-6 col-md-2"><button class="btn btn-sm btn-outline-primary w-100">Guardar</button></div>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table></div>
+                </div>
+            </section>
+        </div>
+        <div class="col-12 col-xl-6">
+            <section class="card shadow-sm h-100">
+                <div class="card-header"><h2 class="h5 mb-0">Membresías de cadenas</h2></div>
+                <div class="card-body">
+                    <form asp-action="GuardarMiembroCadena" method="post" class="row g-2 mb-3">
+                        <div class="col-12 col-md-4"><select name="cadenaId" class="form-select" required>
+                            @foreach (var c in Model.Cadenas) { <option value="@c.Id">@c.Nombre</option> }
+                        </select></div>
+                        <div class="col-12 col-md-4"><input name="email" type="email" class="form-control" required placeholder="Usuario existente" /></div>
+                        <div class="col-8 col-md-2"><select name="rol" class="form-select"><option value="0">Administrador</option><option value="1">Gerente</option></select></div>
+                        <div class="col-4 col-md-2"><button class="btn btn-primary w-100">Asignar</button></div>
+                    </form>
+                    <div class="table-responsive"><table class="table table-sm align-middle">
+                        <thead><tr><th>Cadena</th><th>Usuario</th><th>Rol</th><th>Acción</th></tr></thead>
+                        <tbody>
+                        @foreach (var m in Model.MiembrosCadena) {
+                            <tr>
+                                <td>@Model.Cadenas.FirstOrDefault(c => c.Id == m.CadenaId)?.Nombre</td>
+                                <td>@m.Email</td><td>@m.Rol</td>
+                                <td><form asp-action="EliminarMiembroCadena" method="post">
+                                    <input type="hidden" name="cadenaId" value="@m.CadenaId" />
+                                    <input type="hidden" name="usuarioId" value="@m.UsuarioId" />
+                                    <button class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Revocar esta membresía?')">Revocar</button>
+                                </form></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table></div>
+                </div>
+            </section>
+        </div>
+        <div class="col-12 col-xl-6">
+            <section class="card shadow-sm h-100">
+                <div class="card-header"><h2 class="h5 mb-0">Membresías de restaurantes</h2></div>
+                <div class="card-body">
+                    <form asp-action="GuardarMiembroRestaurante" method="post" class="row g-2 mb-3">
+                        <div class="col-12 col-md-4"><select name="restauranteId" class="form-select">
+                            @foreach (var local in Model.Restaurantes) { <option value="@local.Id">@local.Nombre</option> }
+                        </select></div>
+                        <div class="col-12 col-md-4"><input name="email" type="email" required class="form-control" placeholder="Usuario existente" /></div>
+                        <div class="col-6 col-md-2"><select name="rol" class="form-select">
+                            <option value="0">Administrador</option><option value="1">Encargado</option><option value="2">Garzón</option>
+                        </select></div>
+                        <div class="col-3 col-md-1"><input type="hidden" name="activo" value="false" /><input class="form-check-input mt-2" type="checkbox" name="activo" value="true" checked title="Membresía activa" /></div>
+                        <div class="col-3 col-md-1"><button class="btn btn-primary w-100">+</button></div>
+                    </form>
+                    <div class="table-responsive"><table class="table table-sm align-middle">
+                        <thead><tr><th>Restaurante</th><th>Usuario</th><th>Rol</th><th>Estado</th></tr></thead>
+                        <tbody>
+                        @foreach (var m in Model.MiembrosRestaurante) {
+                            <tr><td>@Model.Restaurantes.FirstOrDefault(c => c.Id == m.RestauranteId)?.Nombre</td>
+                                <td>@m.Email</td><td>@m.Rol</td>
+                                <td>
+                                    <form asp-action="GuardarMiembroRestaurante" method="post" class="d-flex gap-1 align-items-center">
+                                        <input type="hidden" name="restauranteId" value="@m.RestauranteId" />
+                                        <input type="hidden" name="email" value="@m.Email" />
+                                        <input type="hidden" name="rol" value="@((int)m.Rol)" />
+                                        <select name="activo" class="form-select form-select-sm">
+                                            @if (m.Activo) { <option value="true" selected>Activo</option><option value="false">Inactivo</option> }
+                                            else { <option value="true">Activo</option><option value="false" selected>Inactivo</option> }
+                                        </select>
+                                        <button class="btn btn-sm btn-outline-primary">Aplicar</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table></div>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
