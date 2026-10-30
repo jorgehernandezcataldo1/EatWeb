@@ -45,9 +45,11 @@ public sealed class SuperAdminController : Controller
             .ToListAsync();
         ViewBag.Planes = await _db.PlanesComerciales.AsNoTracking().OrderBy(p => p.Nombre).ToListAsync();
         ViewBag.Funcionalidades = await _db.Funcionalidades.AsNoTracking().OrderBy(f => f.Clave).ToListAsync();
-        ViewBag.PlanFuncionalidades = await _db.PlanesFuncionalidades.AsNoTracking()
+        var asociaciones = await _db.PlanesFuncionalidades.AsNoTracking()
             .Select(x => new { x.PlanComercialId, x.FuncionalidadId })
             .ToListAsync();
+        ViewBag.PlanFuncionalidades = asociaciones
+            .Select(x => $"{x.PlanComercialId}:{x.FuncionalidadId}").ToHashSet();
         ViewBag.Suscripciones = await _db.SuscripcionesComerciales.AsNoTracking().ToListAsync();
         ViewBag.UsuariosPorRestaurante = await _db.RestaurantesMiembros.AsNoTracking()
             .Where(m => m.Activo && m.Usuario.Activo)
