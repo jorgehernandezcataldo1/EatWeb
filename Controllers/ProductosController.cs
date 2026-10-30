@@ -1,5 +1,6 @@
 using EatWeb.Data;
 using EatWeb.Models;
+using EatWeb.Services;
 using EatWeb.Models.Enums;
 using EatWeb.Services.Storage;
 using EatWeb.ViewModels;
@@ -11,6 +12,7 @@ using Microsoft.Extensions.Options;
 namespace EatWeb.Controllers;
 
 [Authorize(Roles = Roles.Admin)]
+[RequiereFuncionalidad("catalogo.gestion")]
 public class ProductosController : RestauranteControllerBase
 {
     private readonly ApplicationDbContext _context;
