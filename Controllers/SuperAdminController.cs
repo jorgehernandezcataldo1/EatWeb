@@ -2,6 +2,7 @@ using EatWeb.Data;
 using EatWeb.Models;
 using EatWeb.Models.Enums;
 using EatWeb.Services;
+using EatWeb.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -32,26 +33,28 @@ public sealed class SuperAdminController : Controller
     {
         var cadenas = await _db.Cadenas.AsNoTracking()
             .OrderBy(c => c.Nombre)
-            .Select(c => new { c.Id, c.Nombre, Restaurantes = c.Restaurantes.Count() })
+            .Select(c => new CadenaSuperAdminItem(c.Id, c.Nombre, c.Restaurantes.Count()))
             .ToListAsync();
         var restaurantes = await _db.Restaurantes.AsNoTracking()
             .OrderBy(r => r.Nombre)
-            .Select(r => new { r.Id, r.Nombre, r.CadenaId, Cadena = r.Cadena != null ? r.Cadena.Nombre : "Independiente", r.Activo })
+            .Select(r => new RestauranteSuperAdminItem(r.Id, r.Nombre, r.CadenaId, r.Cadena != null ? r.Cadena.Nombre : "Independiente", r.Activo))
             .ToListAsync();
         var miembrosCadena = await _db.CadenasMiembros.AsNoTracking()
             .OrderBy(m => m.CadenaId)
-            .Select(m => new { m.CadenaId, m.UsuarioId, Email = m.Usuario.Email, m.Rol })
+            .Select(m => new MiembroCadenaSuperAdminItem(m.CadenaId, m.UsuarioId, m.Usuario.Email ?? "", m.Rol))
             .ToListAsync();
         var miembrosRestaurante = await _db.RestaurantesMiembros.AsNoTracking()
             .OrderBy(m => m.RestauranteId)
-            .Select(m => new { m.RestauranteId, m.UsuarioId, Email = m.Usuario.Email, m.Rol, m.Activo })
+            .Select(m => new MiembroRestauranteSuperAdminItem(m.RestauranteId, m.UsuarioId, m.Usuario.Email ?? "", m.Rol, m.Activo))
             .ToListAsync();
 
-        ViewBag.Cadenas = cadenas;
-        ViewBag.Restaurantes = restaurantes;
-        ViewBag.MiembrosCadena = miembrosCadena;
-        ViewBag.MiembrosRestaurante = miembrosRestaurante;
-        return View();
+        return View(new SuperAdminIndexViewModel
+        {
+            Cadenas = cadenas,
+            Restaurantes = restaurantes,
+            MiembrosCadena = miembrosCadena,
+            MiembrosRestaurante = miembrosRestaurante
+        });
     }
 
     [HttpPost("Cadena")]
