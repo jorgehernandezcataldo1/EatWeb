@@ -209,6 +209,7 @@ builder.Services.AddScoped<SesionService>();
 builder.Services.AddScoped<CarritoService>();
 builder.Services.AddScoped<PedidoService>();
 builder.Services.AddScoped<CuentaService>();
+builder.Services.AddScoped<FuncionalidadesComercialesService>();
 builder.Services.AddScoped<SolicitudMesaService>();
 builder.Services.AddScoped<RestauranteDefaultsService>();
 builder.Services.AddScoped<DbSeeder>();
