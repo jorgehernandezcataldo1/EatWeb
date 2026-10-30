@@ -1,202 +1,130 @@
 @model SuperAdminIndexViewModel
+@using EatWeb.Models
 @{
     Layout = "_Layout";
-    ViewData["Title"] = "SuperAdmin";
+    ViewData["Title"] = "Clientes y planes · EatWeb";
+    var planes = (List<PlanComercial>)ViewBag.Planes;
+    var funciones = (List<Funcionalidad>)ViewBag.Funcionalidades;
+    var suscripciones = (List<SuscripcionComercial>)ViewBag.Suscripciones;
+    var usuarios = (Dictionary<int,int>)ViewBag.UsuariosPorRestaurante;
 }
 <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3 mb-1">Administración global</h1>
-            <p class="text-muted mb-0">Cadenas, restaurantes y membresías de Comidita</p>
-        </div>
-        <form asp-controller="Account" asp-action="Logout" method="post">
-            <button type="submit" class="btn btn-outline-secondary">Cerrar sesión</button>
-        </form>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <div><h1 class="h3 mb-1">Clientes comerciales</h1><p class="text-muted mb-0">Panel exclusivo del propietario · Cadenas y restaurantes</p></div>
+        <form asp-controller="Account" asp-action="Logout" method="post"><button class="btn btn-outline-secondary">Salir</button></form>
     </div>
     @if (TempData["Ok"] != null) { <div class="alert alert-success">@TempData["Ok"]</div> }
-    <section class="card shadow-sm mb-4">
-        <div class="card-header"><h2 class="h5 mb-0">Usuarios globales (@Model.Usuarios.Count)</h2></div>
-        <div class="card-body">
-            <form asp-action="CrearUsuario" method="post" class="row g-2 mb-3">
-                <div class="col-12 col-lg-3"><input name="nombre" class="form-control" required maxlength="100" placeholder="Nombre completo" /></div>
-                <div class="col-12 col-lg-4"><input name="email" type="email" class="form-control" required maxlength="254" placeholder="Correo de la cuenta" /></div>
-                <div class="col-12 col-lg-3"><input name="password" type="password" autocomplete="new-password" class="form-control" required placeholder="Contraseña temporal segura" /></div>
-                <div class="col-12 col-lg-2"><button class="btn btn-primary w-100">Crear usuario</button></div>
-            </form>
-            <div class="table-responsive"><table class="table table-sm align-middle">
-                <thead><tr><th>Usuario</th><th>Correo</th><th>Estado</th><th>Cambiar estado</th></tr></thead>
-                <tbody>
-                @foreach (var u in Model.Usuarios) {
-                    <tr>
-                        <td>@u.Nombre</td><td>@u.Email</td><td>@(u.Activo ? "Activo" : "Inactivo")</td>
-                        <td><form asp-action="EstadoUsuario" method="post" class="d-flex gap-2">
-                            <input type="hidden" name="usuarioId" value="@u.Id" />
-                            <select name="activo" class="form-select form-select-sm" aria-label="Estado usuario">
-                                @if (u.Activo) { <option value="true" selected>Activo</option><option value="false">Inactivo</option> }
-                                else { <option value="true">Activo</option><option value="false" selected>Inactivo</option> }
-                            </select>
-                            <button class="btn btn-sm btn-outline-primary">Aplicar</button>
-                        </form></td>
-                    </tr>
-                }
-                </tbody>
-            </table></div>
-        </div>
-    </section>
     <div class="row g-4">
-        <div class="col-12 col-xl-6">
-            <section class="card shadow-sm h-100">
-                <div class="card-header"><h2 class="h5 mb-0">Cadenas (@Model.Cadenas.Count)</h2></div>
-                <div class="card-body">
-                    <form asp-action="GuardarCadena" method="post" class="row g-2 mb-3">
-                        <div class="col"><input name="nombre" class="form-control" maxlength="120" required placeholder="Nombre de cadena nueva" /></div>
-                        <div class="col-auto"><button class="btn btn-primary">Crear</button></div>
+        <div class="col-12 col-lg-6"><section class="card h-100">
+            <div class="card-header"><h2 class="h5 mb-0">Cadenas (@Model.Cadenas.Count)</h2></div>
+            <div class="card-body">
+                <form asp-action="GuardarCadena" method="post" class="d-flex gap-2 mb-3">
+                    <input name="nombre" class="form-control" maxlength="120" required placeholder="Nombre de cadena" />
+                    <button class="btn btn-primary">Crear</button>
+                </form>
+                @foreach(var c in Model.Cadenas) {
+                    <div class="border rounded p-2 mb-2">
+                        <form asp-action="GuardarCadena" method="post" class="row g-2 align-items-center">
+                            <input type="hidden" name="id" value="@c.Id" />
+                            <div class="col-5"><input name="nombre" class="form-control form-control-sm" value="@c.Nombre" required maxlength="120" /></div>
+                            <div class="col-3"><span class="small">@c.Restaurantes locales</span></div>
+                            <div class="col-2"><select name="activo" class="form-select form-select-sm">
+                                <option value="true" selected="@c.Activo">Activa</option><option value="false" selected="@(!c.Activo)">Inactiva</option>
+                            </select></div>
+                            <div class="col-2"><button class="btn btn-sm btn-outline-primary">Guardar</button></div>
+                        </form>
+                        <div class="small mt-1">@(suscripciones.FirstOrDefault(s=>s.CadenaId==c.Id) is { } sub ? planes.FirstOrDefault(p=>p.Id==sub.PlanComercialId)?.Nombre ?? "Plan eliminado" : "Sin plan")</div>
+                    </div>
+                }
+            </div>
+        </section></div>
+        <div class="col-12 col-lg-6"><section class="card h-100">
+            <div class="card-header"><h2 class="h5 mb-0">Restaurantes (@Model.Restaurantes.Count)</h2></div>
+            <div class="card-body">
+                <form asp-action="GuardarRestaurante" method="post" class="row g-2 mb-3">
+                    <div class="col-5"><input class="form-control" name="nombre" maxlength="120" required placeholder="Nuevo restaurante" /></div>
+                    <div class="col-5"><select name="cadenaId" class="form-select"><option value="">Independiente</option>
+                        @foreach(var c in Model.Cadenas) { <option value="@c.Id">@c.Nombre</option> }
+                    </select></div>
+                    <div class="col-2"><button class="btn btn-primary">Crear</button></div>
+                </form>
+                <div class="table-responsive"><table class="table table-sm">
+                    <thead><tr><th>Local</th><th>Cadena</th><th>Usuarios</th><th>Plan</th></tr></thead>
+                    <tbody>
+                    @foreach(var local in Model.Restaurantes) {
+                        var propio = suscripciones.FirstOrDefault(s => s.RestauranteId == local.Id);
+                        var heredado = suscripciones.FirstOrDefault(s => s.CadenaId == local.CadenaId && local.CadenaId.HasValue);
+                        <tr>
+                            <td><a asp-action="DetalleRestaurante" asp-route-id="@local.Id">@local.Nombre</a> @if(!local.Activo){<span class="badge text-bg-secondary">Inactivo</span>}</td>
+                            <td>@local.Cadena</td>
+                            <td>@usuarios.GetValueOrDefault(local.Id)</td>
+                            <td>@(planes.FirstOrDefault(p=>p.Id==(propio??heredado)?.PlanComercialId)?.Nombre ?? "Sin plan")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table></div>
+            </div>
+        </section></div>
+        <div class="col-12"><section class="card">
+            <div class="card-header"><h2 class="h5 mb-0">Planes y suscripciones</h2></div>
+            <div class="card-body">
+                <form asp-action="GuardarPlan" method="post" class="row g-2 mb-3">
+                    <div class="col-md-5"><input name="nombre" class="form-control" required maxlength="120" placeholder="Nuevo plan (Plus, Cadena Pro...)" /></div>
+                    <div class="col-md-4"><input name="maxRestaurantes" type="number" min="1" class="form-control" placeholder="Máximo locales (vacío = sin límite)" /></div>
+                    <div class="col-md-3"><button class="btn btn-primary">Crear plan</button></div>
+                </form>
+                @foreach(var plan in planes) {
+                    <form asp-action="GuardarPlan" method="post" class="row g-2 mb-2">
+                        <input type="hidden" name="id" value="@plan.Id" />
+                        <div class="col-4"><input name="nombre" value="@plan.Nombre" class="form-control form-control-sm" maxlength="120" required /></div>
+                        <div class="col-3"><input name="maxRestaurantes" type="number" min="1" value="@plan.MaxRestaurantes" class="form-control form-control-sm" placeholder="Locales" /></div>
+                        <div class="col-3"><select name="activo" class="form-select form-select-sm">
+                            <option value="true" selected="@plan.Activo">Disponible</option><option value="false" selected="@(!plan.Activo)">Desactivado</option>
+                        </select></div>
+                        <div class="col-2"><button class="btn btn-sm btn-outline-primary">Guardar</button></div>
                     </form>
-                    <div class="table-responsive"><table class="table table-sm align-middle">
-                        <thead><tr><th>Cadena</th><th>Locales</th><th>Editar nombre</th></tr></thead>
-                        <tbody>
-                        @foreach (var c in Model.Cadenas) {
-                            <tr><td>@c.Nombre</td><td>@c.Restaurantes</td><td>
-                                <form asp-action="GuardarCadena" method="post" class="d-flex gap-2">
-                                    <input type="hidden" name="id" value="@c.Id" />
-                                    <input name="nombre" value="@c.Nombre" maxlength="120" class="form-control form-control-sm" required aria-label="Nombre de cadena" />
-                                    <select name="activo" class="form-select form-select-sm" aria-label="Estado cadena">
-                                        @if (c.Activo) { <option value="true" selected>Activa</option><option value="false">Suspendida</option> }
-                                        else { <option value="true">Activa</option><option value="false" selected>Suspendida</option> }
-                                    </select>
-                                    <button class="btn btn-sm btn-outline-primary">Guardar</button>
+                }
+                <hr/>
+                <h3 class="h6">Asignar plan a cadena o restaurante</h3>
+                <form asp-action="GuardarSuscripcion" method="post" class="row g-2">
+                    <div class="col-lg-4"><select name="cadenaId" class="form-select"><option value="">Sin cadena (asignación a local)</option>
+                        @foreach(var c in Model.Cadenas) { <option value="@c.Id">@c.Nombre</option> }
+                    </select></div>
+                    <div class="col-lg-3"><select name="restauranteId" class="form-select"><option value="">Sin restaurante (asignación a cadena)</option>
+                        @foreach(var l in Model.Restaurantes) { <option value="@l.Id">@l.Nombre</option> }
+                    </select></div>
+                    <div class="col-lg-3"><select name="planId" class="form-select" required>
+                        @foreach(var p in planes.Where(p=>p.Activo)) { <option value="@p.Id">@p.Nombre</option> }
+                    </select></div>
+                    <div class="col-lg-2"><button class="btn btn-primary w-100">Asignar</button></div>
+                    <div class="col-12"><small class="text-muted">Selecciona exactamente una cadena o un restaurante. Si un local tiene plan propio, prevalece sobre el de su cadena.</small></div>
+                </form>
+            </div>
+        </section></div>
+        <div class="col-12"><section class="card">
+            <div class="card-header"><h2 class="h5 mb-0">Catálogo de funcionalidades</h2></div>
+            <div class="card-body">
+                <form asp-action="CrearFuncionalidad" method="post" class="row g-2 mb-3">
+                    <div class="col-md-4"><input name="clave" class="form-control" required placeholder="reportes.avanzados" maxlength="80" /></div>
+                    <div class="col-md-5"><input name="nombre" class="form-control" required maxlength="120" placeholder="Nombre visible" /></div>
+                    <div class="col-md-3"><button class="btn btn-primary">Crear capacidad</button></div>
+                </form>
+                <div class="table-responsive"><table class="table table-sm">
+                    <thead><tr><th>Funcionalidad</th><th>Plan</th><th>Operación</th></tr></thead><tbody>
+                    @foreach(var f in funciones) {
+                        @foreach(var p in planes) {
+                            <tr><td>@f.Nombre <code>@f.Clave</code></td><td>@p.Nombre</td><td>
+                                <form asp-action="DefinirPlanFuncionalidad" method="post" class="d-flex gap-2">
+                                    <input type="hidden" name="planId" value="@p.Id"/><input type="hidden" name="funcionalidadId" value="@f.Id"/>
+                                    <select name="habilitada" class="form-select form-select-sm"><option value="true">Habilitar</option><option value="false">Deshabilitar</option></select>
+                                    <button class="btn btn-sm btn-outline-primary">Aplicar</button>
                                 </form>
                             </td></tr>
                         }
-                        </tbody>
-                    </table></div>
-                </div>
-            </section>
-        </div>
-        <div class="col-12 col-xl-6">
-            <section class="card shadow-sm h-100">
-                <div class="card-header"><h2 class="h5 mb-0">Restaurantes (@Model.Restaurantes.Count)</h2></div>
-                <div class="card-body">
-                    <form asp-action="GuardarRestaurante" method="post" class="row g-2 mb-3">
-                        <div class="col-12 col-md"><input name="nombre" required maxlength="120" class="form-control" placeholder="Nuevo restaurante" /></div>
-                        <div class="col-12 col-md">
-                            <select name="cadenaId" class="form-select" aria-label="Cadena"><option value="">Independiente</option>
-                                @foreach (var c in Model.Cadenas) { <option value="@c.Id">@c.Nombre</option> }
-                            </select>
-                        </div>
-                        <div class="col-auto"><button class="btn btn-primary">Crear</button></div>
-                    </form>
-                    <div class="table-responsive"><table class="table table-sm align-middle">
-                        <thead><tr><th>Restaurante</th><th>Cadena</th><th>Estado</th><th>Guardar</th></tr></thead>
-                        <tbody>
-                        @foreach (var local in Model.Restaurantes) {
-                            <tr>
-                                <td colspan="4">
-                                    <form asp-action="GuardarRestaurante" method="post" class="row g-2 align-items-center">
-                                        <input type="hidden" name="id" value="@local.Id" />
-                                        <div class="col-12 col-md-4"><input class="form-control form-control-sm" name="nombre" value="@local.Nombre" maxlength="120" required /></div>
-                                        <div class="col-12 col-md-3">
-                                            <select name="cadenaId" class="form-select form-select-sm">
-                                                <option value="">Independiente</option>
-                                                @foreach (var c in Model.Cadenas) {
-                                                    if (local.CadenaId == c.Id) { <option value="@c.Id" selected>@c.Nombre</option> }
-                                                    else { <option value="@c.Id">@c.Nombre</option> }
-                                                }
-                                            </select>
-                                        </div>
-                                        <div class="col-6 col-md-3">
-                                            <select name="activo" class="form-select form-select-sm">
-                                                @if (local.Activo) { <option value="true" selected>Activo</option><option value="false">Inactivo</option> }
-                                                else { <option value="true">Activo</option><option value="false" selected>Inactivo</option> }
-                                            </select>
-                                        </div>
-                                        <div class="col-6 col-md-2"><button class="btn btn-sm btn-outline-primary w-100">Guardar</button></div>
-                                    </form>
-                                </td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table></div>
-                </div>
-            </section>
-        </div>
-        <div class="col-12 col-xl-6">
-            <section class="card shadow-sm h-100">
-                <div class="card-header"><h2 class="h5 mb-0">Membresías de cadenas</h2></div>
-                <div class="card-body">
-                    <form asp-action="GuardarMiembroCadena" method="post" class="row g-2 mb-3">
-                        <div class="col-12 col-md-4"><select name="cadenaId" class="form-select" required>
-                            @foreach (var c in Model.Cadenas) { <option value="@c.Id">@c.Nombre</option> }
-                        </select></div>
-                        <div class="col-12 col-md-4"><input name="email" type="email" class="form-control" required placeholder="Usuario existente" /></div>
-                        <div class="col-8 col-md-2"><select name="rol" class="form-select"><option value="0">Administrador</option><option value="1">Gerente</option></select></div>
-                        <div class="col-4 col-md-2"><button class="btn btn-primary w-100">Asignar</button></div>
-                    </form>
-                    <div class="table-responsive"><table class="table table-sm align-middle">
-                        <thead><tr><th>Cadena</th><th>Usuario</th><th>Rol</th><th>Acción</th></tr></thead>
-                        <tbody>
-                        @foreach (var m in Model.MiembrosCadena) {
-                            <tr>
-                                <td>@Model.Cadenas.FirstOrDefault(c => c.Id == m.CadenaId)?.Nombre</td>
-                                <td>@m.Email</td><td>@m.Rol</td>
-                                <td><form asp-action="EliminarMiembroCadena" method="post">
-                                    <input type="hidden" name="cadenaId" value="@m.CadenaId" />
-                                    <input type="hidden" name="usuarioId" value="@m.UsuarioId" />
-                                    <button class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Revocar esta membresía?')">Revocar</button>
-                                </form></td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table></div>
-                </div>
-            </section>
-        </div>
-        <div class="col-12 col-xl-6">
-            <section class="card shadow-sm h-100">
-                <div class="card-header"><h2 class="h5 mb-0">Membresías de restaurantes</h2></div>
-                <div class="card-body">
-                    <form asp-action="GuardarMiembroRestaurante" method="post" class="row g-2 mb-3">
-                        <div class="col-12 col-md-4"><select name="restauranteId" class="form-select">
-                            @foreach (var local in Model.Restaurantes) { <option value="@local.Id">@local.Nombre</option> }
-                        </select></div>
-                        <div class="col-12 col-md-4"><input name="email" type="email" required class="form-control" placeholder="Usuario existente" /></div>
-                        <div class="col-6 col-md-2"><select name="rol" class="form-select">
-                            <option value="0">Administrador</option><option value="1">Encargado</option><option value="2">Garzón</option><option value="3">Cocina/Bar</option>
-                        </select></div>
-                        <div class="col-6 col-md-2"><select name="estacion" class="form-select" aria-label="Estación al asignar Cocina/Bar"><option value="">Auto</option><option value="Cocina">Cocina</option><option value="Bar">Bar</option></select></div>
-                        <div class="col-3 col-md-1"><input type="hidden" name="activo" value="false" /><input class="form-check-input mt-2" type="checkbox" name="activo" value="true" checked title="Membresía activa" /></div>
-                        <div class="col-3 col-md-1"><button class="btn btn-primary w-100">+</button></div>
-                    </form>
-                    <div class="table-responsive"><table class="table table-sm align-middle">
-                        <thead><tr><th>Restaurante</th><th>Usuario</th><th>Rol</th><th>Estado</th></tr></thead>
-                        <tbody>
-                        @foreach (var m in Model.MiembrosRestaurante) {
-                            <tr><td>@Model.Restaurantes.FirstOrDefault(c => c.Id == m.RestauranteId)?.Nombre</td>
-                                <td>@m.Email</td><td>@m.Rol</td>
-                                <td>
-                                    <form asp-action="GuardarMiembroRestaurante" method="post" class="d-flex gap-1 align-items-center">
-                                        <input type="hidden" name="restauranteId" value="@m.RestauranteId" />
-                                        <input type="hidden" name="email" value="@m.Email" />
-                                        <select name="rol" class="form-select form-select-sm" aria-label="Rol de membresía">
-                                            @foreach (var rol in new[] { RolRestaurante.Administrador, RolRestaurante.Encargado, RolRestaurante.Garzon, RolRestaurante.Cocina }) {
-                                                if (rol == m.Rol) { <option value="@((int)rol)" selected>@rol</option> }
-                                                else { <option value="@((int)rol)">@rol</option> }
-                                            }
-                                        </select>
-                                        <select name="estacion" class="form-select form-select-sm" aria-label="Estación (opcional)"><option value="">Conservar estación</option><option value="Cocina">Cocina</option><option value="Bar">Bar</option></select>
-                                        <select name="activo" class="form-select form-select-sm">
-                                            @if (m.Activo) { <option value="true" selected>Activo</option><option value="false">Inactivo</option> }
-                                            else { <option value="true">Activo</option><option value="false" selected>Inactivo</option> }
-                                        </select>
-                                        <button class="btn btn-sm btn-outline-primary">Aplicar</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table></div>
-                </div>
-            </section>
-        </div>
+                    }
+                    </tbody>
+                </table></div>
+            </div>
+        </section></div>
     </div>
 </div>
