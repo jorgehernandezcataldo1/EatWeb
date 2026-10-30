@@ -254,6 +254,23 @@ app.Use(async (context, next) =>
 app.UseRouting();
 app.UseSession();
 app.UseAuthentication();
+
+// El panel del propietario no se anuncia ni permite inspección mediante
+// cuentas de restaurantes/cadenas. La autorización del controlador sigue
+// siendo la barrera principal; este filtro solo devuelve un 404 discreto.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/SuperAdmin",
+            StringComparison.OrdinalIgnoreCase) &&
+        !context.User.IsInRole(Roles.SuperAdmin))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    await next();
+});
+
 app.UseRateLimiter();
 app.UseAuthorization();
 
