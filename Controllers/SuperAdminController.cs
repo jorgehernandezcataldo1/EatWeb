@@ -33,7 +33,7 @@ public sealed class SuperAdminController : Controller
     {
         var cadenas = await _db.Cadenas.AsNoTracking()
             .OrderBy(c => c.Nombre)
-            .Select(c => new CadenaSuperAdminItem(c.Id, c.Nombre, c.Restaurantes.Count()))
+            .Select(c => new CadenaSuperAdminItem(c.Id, c.Nombre, c.Restaurantes.Count(), c.Activo))
             .ToListAsync();
         var restaurantes = await _db.Restaurantes.AsNoTracking()
             .OrderBy(r => r.Nombre)
