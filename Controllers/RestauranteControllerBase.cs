@@ -45,6 +45,24 @@ public abstract class RestauranteControllerBase : Controller
             return;
         }
 
+        var funcionalidades = context.HttpContext.RequestServices
+            .GetRequiredService<FuncionalidadesComercialesService>();
+        if (context.ActionDescriptor is ControllerActionDescriptor action)
+        {
+            var requisitos = action.ControllerTypeInfo
+                .GetCustomAttributes<RequiereFuncionalidadAttribute>(inherit: true)
+                .Concat(action.MethodInfo.GetCustomAttributes<RequiereFuncionalidadAttribute>(inherit: true));
+            foreach (var requisito in requisitos)
+            {
+                if (!await funcionalidades.PuedeUsarModuloAsync(restaurante.Id, requisito.Clave))
+                {
+                    context.Result = StatusCode(403,
+                        "Tu plan no tiene habilitada esta funcionalidad.");
+                    return;
+                }
+            }
+        }
+
         RestauranteId = restaurante.Id;
         ViewData["RestauranteNombre"] = restaurante.Nombre;
 
