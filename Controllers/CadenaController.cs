@@ -87,6 +87,20 @@ public class CadenasController : Controller
         if (cadenaId == null)
             return Forbid();
 
+        // El administrador de la cadena tampoco puede superar el cupo de
+        // sucursales otorgado comercialmente desde SuperAdmin.
+        var limite = await _context.SuscripcionesComerciales.AsNoTracking()
+            .Where(s => s.CadenaId == cadenaId.Value)
+            .Select(s => s.PlanComercial.MaxRestaurantes)
+            .FirstOrDefaultAsync();
+        if (limite.HasValue &&
+            await _context.Restaurantes.CountAsync(r => r.CadenaId == cadenaId.Value) >= limite.Value)
+        {
+            ModelState.AddModelError(string.Empty,
+                "La cadena alcanzó el máximo de restaurantes de su plan.");
+            return View(modelo);
+        }
+
         var adminExistente = await _userManager.FindByEmailAsync(modelo.AdminEmail);
         if (adminExistente != null)
         {
