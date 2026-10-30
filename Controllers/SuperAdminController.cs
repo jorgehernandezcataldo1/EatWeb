@@ -198,6 +198,24 @@ public sealed class SuperAdminController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpPost("EliminarSuscripcion")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EliminarSuscripcion(int? cadenaId, int? restauranteId)
+    {
+        if (cadenaId.HasValue == restauranteId.HasValue)
+            return BadRequest("Indica una cadena o un restaurante.");
+        var suscripcion = await _db.SuscripcionesComerciales
+            .FirstOrDefaultAsync(s => cadenaId.HasValue
+                ? s.CadenaId == cadenaId.Value
+                : s.RestauranteId == restauranteId!.Value);
+        if (suscripcion == null) return NotFound();
+        _db.SuscripcionesComerciales.Remove(suscripcion);
+        await _db.SaveChangesAsync();
+        return restauranteId.HasValue
+            ? RedirectToAction(nameof(DetalleRestaurante), new { id = restauranteId.Value })
+            : RedirectToAction(nameof(Index));
+    }
+
     [HttpPost("ExcepcionRestaurante")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> GuardarExcepcionRestaurante(
@@ -344,6 +362,28 @@ public sealed class SuperAdminController : Controller
             return BadRequest("El nombre debe tener entre 2 y 120 caracteres.");
         if (cadenaId.HasValue && !await _db.Cadenas.AnyAsync(c => c.Id == cadenaId.Value))
             return BadRequest("La cadena no existe.");
+
+        // Un plan de cadena puede limitar el número de sucursales.
+        // Al crear o trasladar un local, respetar el límite contratado.
+        var restauranteAnterior = id.HasValue
+            ? await _db.Restaurantes.AsNoTracking()
+                .Where(r => r.Id == id.Value)
+                .Select(r => new { r.CadenaId })
+                .FirstOrDefaultAsync()
+            : null;
+        if (id.HasValue && restauranteAnterior == null)
+            return NotFound();
+
+        if (cadenaId.HasValue && (!id.HasValue || restauranteAnterior!.CadenaId != cadenaId))
+        {
+            var max = await _db.SuscripcionesComerciales.AsNoTracking()
+                .Where(s => s.CadenaId == cadenaId)
+                .Select(s => s.PlanComercial.MaxRestaurantes)
+                .FirstOrDefaultAsync();
+            if (max.HasValue &&
+                await _db.Restaurantes.CountAsync(r => r.CadenaId == cadenaId) >= max.Value)
+                return BadRequest("La cadena alcanzó el máximo de restaurantes de su plan.");
+        }
 
         Restaurante restaurante;
         var nuevo = !id.HasValue;
