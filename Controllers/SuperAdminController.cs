@@ -59,6 +59,168 @@ public sealed class SuperAdminController : Controller
     }
 
 
+    [HttpGet("Restaurante/{id:int}")]
+    public async Task<IActionResult> DetalleRestaurante(int id)
+    {
+        var restaurante = await _db.Restaurantes.AsNoTracking()
+            .Where(r => r.Id == id)
+            .Select(r => new { r.Id, r.Nombre, r.CadenaId, r.Activo })
+            .FirstOrDefaultAsync();
+        if (restaurante == null) return NotFound();
+
+        ViewBag.Restaurante = restaurante;
+        ViewBag.Miembros = await _db.RestaurantesMiembros.AsNoTracking()
+            .Where(m => m.RestauranteId == id)
+            .OrderBy(m => m.Usuario.NombreCompleto)
+            .Select(m => new MiembroRestauranteSuperAdminItem(
+                m.RestauranteId, m.UsuarioId, m.Usuario.Email ?? "", m.Rol, m.Activo))
+            .ToListAsync();
+        ViewBag.Funcionalidades = await _db.Funcionalidades.AsNoTracking().OrderBy(f => f.Clave).ToListAsync();
+        ViewBag.Overrides = await _db.RestaurantesFuncionalidadesOverride.AsNoTracking()
+            .Where(o => o.RestauranteId == id)
+            .ToDictionaryAsync(o => o.FuncionalidadId, o => o.Habilitada);
+        ViewBag.SuscripcionLocal = await _db.SuscripcionesComerciales.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.RestauranteId == id);
+        ViewBag.SuscripcionCadena = restaurante.CadenaId == null ? null :
+            await _db.SuscripcionesComerciales.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.CadenaId == restaurante.CadenaId);
+        ViewBag.Planes = await _db.PlanesComerciales.AsNoTracking().ToListAsync();
+        return View();
+    }
+
+    [HttpPost("Plan")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> GuardarPlan(int? id, string nombre, int? maxRestaurantes, bool activo = true)
+    {
+        nombre = (nombre ?? "").Trim();
+        if (nombre.Length is < 2 or > 120 || maxRestaurantes is <= 0)
+            return BadRequest("Nombre o límite inválido.");
+        var plan = id.HasValue
+            ? await _db.PlanesComerciales.FindAsync(id.Value)
+            : new PlanComercial();
+        if (plan == null) return NotFound();
+        plan.Nombre = nombre;
+        plan.MaxRestaurantes = maxRestaurantes;
+        plan.Activo = activo;
+        if (!id.HasValue) _db.PlanesComerciales.Add(plan);
+        await _db.SaveChangesAsync();
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost("Funcionalidad")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CrearFuncionalidad(string clave, string nombre)
+    {
+        clave = (clave ?? "").Trim().ToLowerInvariant();
+        nombre = (nombre ?? "").Trim();
+        if (clave.Length is < 3 or > 80 || nombre.Length is < 2 or > 120 ||
+            clave.Any(c => !char.IsAsciiLetterLower(c) && !char.IsDigit(c) && c != '.' && c != '_'))
+            return BadRequest("Clave o nombre inválido.");
+        if (await _db.Funcionalidades.AnyAsync(f => f.Clave == clave))
+            return BadRequest("La funcionalidad ya existe.");
+        _db.Funcionalidades.Add(new Funcionalidad { Clave = clave, Nombre = nombre });
+        await _db.SaveChangesAsync();
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost("PlanFuncionalidad")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DefinirPlanFuncionalidad(int planId, int funcionalidadId, bool habilitada)
+    {
+        if (!await _db.PlanesComerciales.AnyAsync(p => p.Id == planId) ||
+            !await _db.Funcionalidades.AnyAsync(f => f.Id == funcionalidadId))
+            return NotFound();
+        var relacion = await _db.PlanesFuncionalidades.FindAsync(planId, funcionalidadId);
+        if (habilitada && relacion == null)
+            _db.PlanesFuncionalidades.Add(new PlanFuncionalidad
+            {
+                PlanComercialId = planId,
+                FuncionalidadId = funcionalidadId
+            });
+        if (!habilitada && relacion != null)
+            _db.PlanesFuncionalidades.Remove(relacion);
+        await _db.SaveChangesAsync();
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost("Suscripcion")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> GuardarSuscripcion(
+        int? cadenaId, int? restauranteId, int planId, bool activa = true,
+        DateTime? venceUtc = null)
+    {
+        if (cadenaId.HasValue == restauranteId.HasValue)
+            return BadRequest("Selecciona una cadena o un restaurante, no ambos.");
+        var plan = await _db.PlanesComerciales.FindAsync(planId);
+        if (plan == null || !plan.Activo) return BadRequest("El plan no está disponible.");
+        if (venceUtc.HasValue && venceUtc.Value.Kind != DateTimeKind.Utc)
+            venceUtc = DateTime.SpecifyKind(venceUtc.Value, DateTimeKind.Utc);
+        if (cadenaId.HasValue &&
+            !await _db.Cadenas.AnyAsync(c => c.Id == cadenaId.Value))
+            return NotFound();
+        if (restauranteId.HasValue &&
+            !await _db.Restaurantes.AnyAsync(r => r.Id == restauranteId.Value))
+            return NotFound();
+
+        if (cadenaId.HasValue && plan.MaxRestaurantes.HasValue)
+        {
+            var total = await _db.Restaurantes.CountAsync(r => r.CadenaId == cadenaId.Value);
+            if (total > plan.MaxRestaurantes.Value)
+                return BadRequest("La cadena supera el máximo de restaurantes del plan.");
+        }
+        var suscripcion = await _db.SuscripcionesComerciales
+            .FirstOrDefaultAsync(s => cadenaId.HasValue
+                ? s.CadenaId == cadenaId.Value
+                : s.RestauranteId == restauranteId!.Value);
+        if (suscripcion == null)
+        {
+            suscripcion = new SuscripcionComercial
+            {
+                CadenaId = cadenaId,
+                RestauranteId = restauranteId
+            };
+            _db.SuscripcionesComerciales.Add(suscripcion);
+        }
+        suscripcion.PlanComercialId = planId;
+        suscripcion.Activa = activa;
+        suscripcion.VenceUtc = venceUtc;
+        await _db.SaveChangesAsync();
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost("ExcepcionRestaurante")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> GuardarExcepcionRestaurante(
+        int restauranteId, int funcionalidadId, string modo)
+    {
+        if (!await _db.Restaurantes.AnyAsync(r => r.Id == restauranteId) ||
+            !await _db.Funcionalidades.AnyAsync(f => f.Id == funcionalidadId))
+            return NotFound();
+        if (modo is not ("heredar" or "permitir" or "bloquear"))
+            return BadRequest("Modo inválido.");
+        var existente = await _db.RestaurantesFuncionalidadesOverride
+            .FindAsync(restauranteId, funcionalidadId);
+        if (modo == "heredar")
+        {
+            if (existente != null) _db.RestaurantesFuncionalidadesOverride.Remove(existente);
+        }
+        else
+        {
+            if (existente == null)
+            {
+                existente = new RestauranteFuncionalidadOverride
+                {
+                    RestauranteId = restauranteId,
+                    FuncionalidadId = funcionalidadId
+                };
+                _db.RestaurantesFuncionalidadesOverride.Add(existente);
+            }
+            existente.Habilitada = modo == "permitir";
+        }
+        await _db.SaveChangesAsync();
+        return RedirectToAction(nameof(DetalleRestaurante), new { id = restauranteId });
+    }
+
     [HttpPost("Usuario")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CrearUsuario(string email, string nombre, string password)
