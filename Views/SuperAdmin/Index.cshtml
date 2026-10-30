@@ -163,6 +163,7 @@
                         <div class="col-6 col-md-2"><select name="rol" class="form-select">
                             <option value="0">Administrador</option><option value="1">Encargado</option><option value="2">Garzón</option><option value="3">Cocina/Bar</option>
                         </select></div>
+                        <div class="col-6 col-md-2"><select name="estacion" class="form-select" aria-label="Estación al asignar Cocina/Bar"><option value="">Auto</option><option value="Cocina">Cocina</option><option value="Bar">Bar</option></select></div>
                         <div class="col-3 col-md-1"><input type="hidden" name="activo" value="false" /><input class="form-check-input mt-2" type="checkbox" name="activo" value="true" checked title="Membresía activa" /></div>
                         <div class="col-3 col-md-1"><button class="btn btn-primary w-100">+</button></div>
                     </form>
@@ -182,6 +183,7 @@
                                                 else { <option value="@((int)rol)">@rol</option> }
                                             }
                                         </select>
+                                        <select name="estacion" class="form-select form-select-sm" aria-label="Estación (opcional)"><option value="">Conservar estación</option><option value="Cocina">Cocina</option><option value="Bar">Bar</option></select>
                                         <select name="activo" class="form-select form-select-sm">
                                             @if (m.Activo) { <option value="true" selected>Activo</option><option value="false">Inactivo</option> }
                                             else { <option value="true">Activo</option><option value="false" selected>Inactivo</option> }
